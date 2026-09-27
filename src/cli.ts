@@ -1,3 +1,4 @@
+import { bisectCommand } from './commands/bisect.ts';
 import { captureCommand } from './commands/capture.ts';
 import type { Command, CommandContext } from './commands/context.ts';
 import { gcCommand } from './commands/gc.ts';
@@ -9,6 +10,7 @@ export const COMMANDS: readonly Command[] = [
   captureCommand,
   inspectCommand,
   replayCommand,
+  bisectCommand,
   gcCommand,
 ];
 
