@@ -7,7 +7,7 @@ import type { Backend, CreateMachineOptions, Machine, RunOutcome, RunSpec } from
 export type SandboxApi = Pick<SandboxClient, 'create' | 'listAll' | 'kill'>;
 export type SandboxHandle = Pick<
   Sandbox,
-  'id' | 'connect' | 'commands' | 'files' | 'snapshot' | 'kill'
+  'id' | 'connect' | 'reconnect' | 'commands' | 'files' | 'snapshot' | 'revert' | 'kill'
 >;
 
 const TEMPLATE = 'base';
@@ -78,6 +78,15 @@ export class SolariMachine implements Machine {
 
   snapshot(name: string): Promise<string> {
     return this.#sandbox.snapshot(name);
+  }
+
+  /**
+   * The guest is restored in place, so the control channel from before the revert is stale;
+   * reopen it before the next command.
+   */
+  async revert(snapshotId: string): Promise<void> {
+    await this.#sandbox.revert(snapshotId);
+    await this.#sandbox.reconnect();
   }
 
   kill(): Promise<void> {

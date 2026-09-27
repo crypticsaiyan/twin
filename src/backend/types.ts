@@ -27,6 +27,8 @@ export interface Machine {
   writeFile(path: string, content: string): Promise<void>;
   /** Checkpoints the running machine; it keeps running. Returns the snapshot id. */
   snapshot(name: string): Promise<string>;
+  /** Restores this machine in place (disk and memory) to a snapshot taken from it. */
+  revert(snapshotId: string): Promise<void>;
   /** Releases the machine. Idempotent. */
   kill(): Promise<void>;
 }

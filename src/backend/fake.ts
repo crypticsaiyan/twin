@@ -16,6 +16,7 @@ export class FakeMachine implements Machine {
   readonly runs: RunSpec[] = [];
   readonly files = new Map<string, string>();
   readonly snapshots: string[] = [];
+  readonly reverts: string[] = [];
   killed = false;
   readonly #respond: FakeResponder;
 
@@ -47,6 +48,10 @@ export class FakeMachine implements Machine {
     const id = `snap_${this.id}_${this.snapshots.length}`;
     this.snapshots.push(`${id}:${name}`);
     return id;
+  }
+
+  async revert(snapshotId: string): Promise<void> {
+    this.reverts.push(snapshotId);
   }
 
   async kill(): Promise<void> {

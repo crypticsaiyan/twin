@@ -34,7 +34,8 @@ function docker(
 }
 
 class DockerMachine implements Machine {
-  readonly id: string;
+  // Docker cannot restore a container in place, so revert swaps in a new container.
+  id: string;
 
   constructor(id: string) {
     this.id = id;
@@ -71,6 +72,14 @@ class DockerMachine implements Machine {
   async snapshot(name: string): Promise<string> {
     const { out } = await docker(['commit', this.id, `twin-e2e:${name}`]);
     return out.trim();
+  }
+
+  async revert(snapshotId: string): Promise<void> {
+    const run = ['run', '-d', '--network', 'host', snapshotId, 'sleep', 'infinity'];
+    const { code, out, stdout } = await docker(run);
+    if (code !== 0) throw new Error(`docker revert failed: ${out}`);
+    await docker(['rm', '-f', this.id]);
+    this.id = stdout.trim();
   }
 
   async kill(): Promise<void> {

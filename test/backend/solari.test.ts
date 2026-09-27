@@ -46,6 +46,12 @@ function fakeSandbox(
       }),
     },
     snapshot: vi.fn(async (name?: string) => `snap_${name}`),
+    revert: vi.fn(async (id: string) => {
+      calls.push(`revert ${id}`);
+    }),
+    reconnect: vi.fn(async () => {
+      calls.push('reconnect');
+    }),
     kill: vi.fn(async () => {
       calls.push('kill');
     }),
@@ -95,8 +101,9 @@ describe('SolariMachine', () => {
     expect(machine.id).toBe('sbx_1');
     await machine.writeFile('/tmp/x', 'data');
     expect(await machine.snapshot('fail')).toBe('snap_fail');
+    await machine.revert('snap_fail');
     await machine.kill();
-    expect(calls).toEqual(['write /tmp/x', 'kill']);
+    expect(calls).toEqual(['write /tmp/x', 'revert snap_fail', 'reconnect', 'kill']);
   });
 
   it('rejects an empty argv', async () => {
