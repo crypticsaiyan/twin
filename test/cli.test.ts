@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { main } from '../src/cli.ts';
 import type { Command, CommandContext } from '../src/commands/context.ts';
 import { TwinError } from '../src/errors.ts';
-import { fakeHost, fakeIo } from './helpers/fakes.ts';
+import { fakeHost, fakeIo, noBackend } from './helpers/fakes.ts';
 
 function context(io: ReturnType<typeof fakeIo>['io']): CommandContext {
-  return { io, host: fakeHost(), cwd: '/tmp', version: '1.2.3' };
+  return { io, host: fakeHost(), cwd: '/tmp', version: '1.2.3', getBackend: noBackend };
 }
 
 describe('main', () => {

@@ -1,9 +1,16 @@
 import { captureCommand } from './commands/capture.ts';
 import type { Command, CommandContext } from './commands/context.ts';
+import { gcCommand } from './commands/gc.ts';
 import { inspectCommand } from './commands/inspect.ts';
+import { replayCommand } from './commands/replay.ts';
 import { TwinError } from './errors.ts';
 
-export const COMMANDS: readonly Command[] = [captureCommand, inspectCommand];
+export const COMMANDS: readonly Command[] = [
+  captureCommand,
+  inspectCommand,
+  replayCommand,
+  gcCommand,
+];
 
 function usage(commands: readonly Command[]): string {
   const width = Math.max(...commands.map((command) => command.name.length));

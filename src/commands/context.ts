@@ -1,3 +1,4 @@
+import type { Backend } from '../backend/types.ts';
 import type { Host } from '../host.ts';
 import type { Io } from '../io.ts';
 import { createStyle, type Style, shouldColor } from '../report/style.ts';
@@ -7,6 +8,8 @@ export interface CommandContext {
   host: Host;
   cwd: string;
   version: string;
+  /** Resolved lazily so offline commands never need a key or load the SDK. */
+  getBackend: () => Promise<Backend>;
 }
 
 export interface Command {

@@ -8,7 +8,7 @@ import { main } from '../../src/cli.ts';
 import type { CommandContext } from '../../src/commands/context.ts';
 import { realHost } from '../../src/host.ts';
 import { makeCapsule } from '../helpers/capsule.ts';
-import { fakeIo, useTempDirs, writeTree } from '../helpers/fakes.ts';
+import { fakeIo, noBackend, useTempDirs, writeTree } from '../helpers/fakes.ts';
 
 const FAILING = [
   process.execPath,
@@ -51,6 +51,7 @@ describe('twin capture (end to end on the real host)', () => {
       host: { ...realHost(), env: { ...process.env, NO_COLOR: '1' } },
       cwd,
       version: '0.0.0-test',
+      getBackend: noBackend,
     };
   }
 
@@ -140,6 +141,7 @@ describe('twin inspect', () => {
     host: { ...realHost(), env: {} },
     cwd,
     version: '0.0.0-test',
+    getBackend: noBackend,
   });
 
   it('summarizes one capsule', async () => {
