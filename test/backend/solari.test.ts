@@ -103,7 +103,42 @@ describe('SolariMachine', () => {
     expect(await machine.snapshot('fail')).toBe('snap_fail');
     await machine.revert('snap_fail');
     await machine.kill();
-    expect(calls).toEqual(['write /tmp/x', 'revert snap_fail', 'reconnect', 'kill']);
+    expect(calls).toEqual(['write /tmp/x', 'revert snap_fail', 'start true {"args":[]}', 'kill']);
+  });
+
+  it('reconnects and retries when the channel dropped before the command started', async () => {
+    const { sandbox, calls } = fakeSandbox({ exitCode: 0 });
+    const dropped = Object.assign(new Error('Not connected'), { name: 'ConnectionError' });
+    const start = sandbox.commands.start as unknown as ReturnType<typeof vi.fn>;
+    const real = start.getMockImplementation();
+    start.mockImplementationOnce(async () => {
+      calls.push('start dropped');
+      throw dropped;
+    });
+    if (real) start.mockImplementation(real);
+    const outcome = await new SolariMachine(sandbox, Date.now, 0).run({
+      argv: ['true'],
+      timeoutMs: 1000,
+    });
+    expect(outcome.exitCode).toBe(0);
+    expect(calls).toEqual(['start dropped', 'reconnect', 'start true {"args":[]}']);
+  });
+
+  it('gives up after repeated connection errors and never retries other errors', async () => {
+    const { sandbox } = fakeSandbox();
+    const start = sandbox.commands.start as unknown as ReturnType<typeof vi.fn>;
+    start.mockRejectedValue(Object.assign(new Error('Not connected'), { name: 'ConnectionError' }));
+    await expect(
+      new SolariMachine(sandbox, Date.now, 0).run({ argv: ['x'], timeoutMs: 1 }),
+    ).rejects.toThrow('Not connected');
+    expect(start).toHaveBeenCalledTimes(4);
+
+    start.mockReset();
+    start.mockRejectedValue(new Error('ENOENT'));
+    await expect(
+      new SolariMachine(sandbox, Date.now, 0).run({ argv: ['x'], timeoutMs: 1 }),
+    ).rejects.toThrow('ENOENT');
+    expect(start).toHaveBeenCalledTimes(1);
   });
 
   it('rejects an empty argv', async () => {

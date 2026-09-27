@@ -13,14 +13,43 @@ export type SandboxHandle = Pick<
 const TEMPLATE = 'base';
 const OUTPUT_TAIL_CHARS = 64_000;
 const SIGKILL = 9;
+const START_ATTEMPTS = 4;
+const RETRY_BASE_MS = 500;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Matched by name so this module does not have to load the SDK eagerly. */
+function isConnectionError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'ConnectionError';
+}
 
 export class SolariMachine implements Machine {
   readonly #sandbox: SandboxHandle;
   readonly #now: () => number;
 
-  constructor(sandbox: SandboxHandle, now: () => number = Date.now) {
+  readonly #retryBaseMs: number;
+
+  constructor(sandbox: SandboxHandle, now: () => number = Date.now, retryBaseMs = RETRY_BASE_MS) {
     this.#sandbox = sandbox;
     this.#now = now;
+    this.#retryBaseMs = retryBaseMs;
+  }
+
+  /**
+   * Starting a command fails with ConnectionError when the control channel dropped (it does after
+   * a revert, once the gateway notices the restored guest). The command never reached the guest in
+   * that case, so reconnecting and starting again cannot run it twice.
+   */
+  async #start(cmd: string, options: Parameters<SandboxHandle['commands']['start']>[1]) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.#sandbox.commands.start(cmd, options);
+      } catch (error) {
+        if (!isConnectionError(error) || attempt >= START_ATTEMPTS) throw error;
+        await sleep(this.#retryBaseMs * attempt);
+        await this.#sandbox.reconnect().catch(() => {});
+      }
+    }
   }
 
   get id(): string {
@@ -36,7 +65,7 @@ export class SolariMachine implements Machine {
     if (cmd === undefined) throw new Error('SolariMachine.run: empty argv');
     const started = this.#now();
     const tail = new TailBuffer(OUTPUT_TAIL_CHARS);
-    const handle = await this.#sandbox.commands.start(cmd, {
+    const handle = await this.#start(cmd, {
       args,
       ...(spec.cwd === undefined ? {} : { cwd: spec.cwd }),
       ...(spec.env === undefined ? {} : { env: spec.env }),
@@ -81,12 +110,13 @@ export class SolariMachine implements Machine {
   }
 
   /**
-   * The guest is restored in place, so the control channel from before the revert is stale;
-   * reopen it before the next command.
+   * The guest is restored in place and the control channel from before the revert goes stale a
+   * moment later. A no-op command (which retries through reconnects) proves the channel works
+   * before the caller relies on it.
    */
   async revert(snapshotId: string): Promise<void> {
     await this.#sandbox.revert(snapshotId);
-    await this.#sandbox.reconnect();
+    await this.run({ argv: ['true'], timeoutMs: 60_000 });
   }
 
   kill(): Promise<void> {
