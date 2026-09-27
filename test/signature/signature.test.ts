@@ -11,6 +11,7 @@ describe('normalizeLine', () => {
     ['id 123e4567-e89b-12d3-a456-426614174000', 'id <uuid>'],
     ['segfault at 0x7ffd1234', 'segfault at <hex>'],
     ['object 3f2a9c8d1e4b5a6f', 'object <hash>'],
+    ['Expected: 528526800000', 'Expected: 528526800000'],
     ['at /home/alice/proj/src/a.test.ts:12:5', 'at <path>/a.test.ts:12:5'],
     ['at ~/proj/src/a.test.ts:12:5', 'at <path>/a.test.ts:12:5'],
     ['at C:\\Users\\bob\\proj\\a.js:1', 'at <path>/a.js:1'],

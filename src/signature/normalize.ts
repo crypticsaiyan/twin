@@ -14,7 +14,8 @@ const REPLACEMENTS: readonly [RegExp, Replacement][] = [
   [/\b\d{1,2}:\d{2}:\d{2}(?:\.\d+)?\b/g, '<time>'],
   [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<uuid>'],
   [/\b0x[0-9a-f]+\b/gi, '<hex>'],
-  [/\b[0-9a-f]{12,}\b/gi, '<hash>'],
+  // Hashes contain a letter; all-digit runs are numbers (e.g. timestamps in an assertion) and stay.
+  [/\b(?=[0-9]*[a-f])[0-9a-f]{12,}\b/gi, '<hash>'],
   // Absolute paths keep only their last segment: the checkout location differs per machine.
   // Relative paths (src/a.ts) are already machine-independent and are left alone.
   [
