@@ -24,7 +24,8 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "e2e:docker": "node test/e2e/replay-docker.ts"
+    "e2e:docker": "node test/e2e/replay-docker.ts",
+    "e2e:docker:bisect": "node test/e2e/bisect-docker.ts"
   },
   "packageManager": "pnpm@10.20.0",
   "devDependencies": {
