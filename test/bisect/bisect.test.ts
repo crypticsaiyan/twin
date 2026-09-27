@@ -133,6 +133,8 @@ describe('bisect', () => {
     const report = await bisect(good, bad, backend);
     expect(report.minimal).toEqual(['working tree diff']);
     expect(backend.machines[0]?.reverts.length).toBeGreaterThan(0);
+    expect(report.timings.revertsMs).toHaveLength(backend.machines[0]?.reverts.length ?? -1);
+    expect(report.timings.snapshotMs).toBeGreaterThanOrEqual(0);
     expect(backend.machines[0]?.files.get('/tmp/twin/failing.diff')).toBe('+changed\n');
   });
 

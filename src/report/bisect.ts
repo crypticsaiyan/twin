@@ -36,9 +36,14 @@ export function renderBisect(report: BisectReport, style: Style): string {
       lines.push(style.dim(failedStep.outputTail.replace(/^/gm, '      ')));
   } else if (report.steps.length > 0) {
     const setupMs = report.steps.reduce((total, step) => total + step.durationMs, 0);
+    const { snapshotMs, revertsMs } = report.timings;
+    const snapshot = snapshotMs === null ? '' : `, snapshot ${seconds(snapshotMs)}`;
+    const reverts = revertsMs.length
+      ? `, ${revertsMs.length} reverts (${revertsMs.map(seconds).join(', ')})`
+      : '';
     lines.push(
       style.dim(
-        `  good environment built in ${seconds(setupMs)} (${report.steps.length} steps), snapshotted`,
+        `  good environment built in ${seconds(setupMs)} (${report.steps.length} steps)${snapshot}${reverts}`,
       ),
     );
   }

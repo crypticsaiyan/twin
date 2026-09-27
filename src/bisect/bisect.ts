@@ -41,6 +41,8 @@ export interface BisectReport {
   steps: StepResult[];
   trials: TrialRecord[];
   expectedSignature: string | null;
+  /** Provider operation timings, reported as measured. */
+  timings: { snapshotMs: number | null; revertsMs: number[] };
   notes: string[];
 }
 
@@ -110,6 +112,7 @@ export async function bisect(
     steps: [],
     trials: [],
     expectedSignature: expected,
+    timings: { snapshotMs: null, revertsMs: [] },
     notes,
   };
   if (atoms.length === 0) return report;
@@ -146,7 +149,9 @@ export async function bisect(
         return report;
       }
     }
+    const snapshotStarted = Date.now();
     const snapshot = await machine.snapshot(`twin-${report.runId}-base`);
+    report.timings.snapshotMs = Date.now() - snapshotStarted;
     let dirty = false;
 
     const trial = async (subset: readonly Atom[]): Promise<TrialResult> => {
@@ -155,7 +160,9 @@ export async function bisect(
       emit({ type: 'trial-start', index, atoms: labels });
       const started = Date.now();
       if (dirty) {
+        const revertStarted = Date.now();
         await machine.revert(snapshot);
+        report.timings.revertsMs.push(Date.now() - revertStarted);
         dirty = false;
       }
       const planned = planTrial(subset, base);
