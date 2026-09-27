@@ -23,7 +23,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "check": "pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "e2e:docker": "node test/e2e/replay-docker.ts"
   },
   "packageManager": "pnpm@10.20.0",
   "devDependencies": {
