@@ -1,0 +1,256 @@
+# twin: design
+
+> Working name. Final name TBD; everything here is renamed in one pass before launch.
+
+## 1. Problem
+
+A user reports "`npm test` fails on my machine". The maintainer runs it and it passes. The issue sits at "cannot reproduce" until someone gives up. The difference is almost never the code (same commit). It is the environment: a runtime version, a transitive dependency the lockfile resolved differently, an env var, the timezone, a stale cache, the OS.
+
+Today the maintainer gets, at best, a pasted `envinfo` text block. Nobody can run that.
+
+**twin** turns the reporter's environment into something runnable:
+
+1. The reporter runs one command. It records the environment facts that matter, with secrets stripped, into a small file (a *capsule*).
+2. The maintainer replays the capsule on a Solari sandbox and gets a machine where the failure actually happens, plus a live terminal on it.
+3. twin then searches the differences between the failing capsule and a known-good environment and reports the smallest set that flips pass to fail: "fails only with Node 22.3 and TZ=Asia/Kolkata".
+
+The reporter needs no Solari account. Only the maintainer (or a CI bot) does.
+
+## 2. Why Solari, specifically
+
+The core requirement is that two different people share one exact machine. That cannot be done on either person's laptop.
+
+| Need | Solari primitive |
+|---|---|
+| A clean Linux machine per trial, in about a second | `sandboxes.create` (microVM from snapshot) |
+| Replay the expensive setup once, branch many trials off it | `snapshot()` + `create({ fromSnapshot })` |
+| Get the reporter's exact commit and diff | `sandbox.git.clone` + `files.write` |
+| Hand the maintainer a live shell at the failure point | `pty.create` (CLI attach) and `previewUrl` (web terminal link) |
+| Keep downloaded runtimes and package caches between runs | volumes (not for `node_modules`: s3fs breaks hardlinks, cookbook issue #62) |
+| Never leak billing VMs after a crash | run-scoped `metadata` + `listAll` reaper, `kill()` in `finally` |
+| Web-app bugs (later) | `previewUrl` + recorded Solari browser session |
+| GUI/Electron bugs (later) | Solari desktop |
+
+## 3. Users and flows
+
+### 3.1 Reporter: capture
+
+```
+npx twin capture -- npm test
+```
+
+- Runs the command locally, records exit code and a trimmed output tail.
+- Collects the environment facts (section 4), applies redaction (section 5).
+- Shows exactly what will be written and asks for confirmation.
+- Writes `twin-capsule.json`. The reporter attaches it to the issue (or `--gist` posts it as a secret gist).
+
+No network calls, no Solari key.
+
+### 3.2 Maintainer: replay
+
+```
+npx twin replay ./twin-capsule.json      # or an issue/gist URL
+```
+
+- Builds a sandbox matching the capsule (section 6), runs the command.
+- Verdict: `REPRODUCED` (same failure identity), `DIFFERENT_FAILURE`, `PASSED` (does not reproduce on Linux with these versions, see 3.6), or `INCONCLUSIVE` (setup failed, timeout, flaky across repeats).
+- On `REPRODUCED` it snapshots the machine at the failure and prints:
+  - `twin shell <id>`: attach a local terminal (PTY over the control channel)
+  - a web terminal link (served from the guest through `previewUrl`) the maintainer can share with the reporter for a joint session.
+
+### 3.3 Maintainer: bisect
+
+```
+npx twin bisect ./twin-capsule.json --good local        # maintainer's own env as baseline
+npx twin bisect ./twin-capsule.json --good ./good.json  # or another capsule, e.g. from CI
+```
+
+Finds the smallest set of environment differences that turns the good world into the failing one (section 7).
+
+### 3.4 CI mode: "passes locally, fails in CI" (and the reverse)
+
+```
+npx twin ci https://github.com/o/r/actions/runs/123/job/456
+```
+
+The CI side needs no capture: GitHub Actions logs state the runner image and version, and `setup-node` / `setup-python` log the exact runtime installed. twin builds a capsule from the job log, replays it, and bisects against the developer's local capsule.
+
+### 3.5 Verify a fix, then guard it
+
+```
+npx twin verify ./twin-capsule.json --ref pr/123
+```
+
+Replays the capsule against a PR branch. Posts "verified fixed in the reporter's environment" (or not). A small GitHub Action reruns stored capsules nightly as regression guards.
+
+### 3.6 Linux-only, stated plainly
+
+Solari sandboxes are Linux microVMs. A macOS or Windows capsule is replayed with the same runtime and dependency versions on Linux. If it passes there, that is reported as a finding, not a failure: "same versions pass on Linux, the difference is likely OS-specific". That alone rules out half the search space for the maintainer.
+
+## 4. Capsule format (v1)
+
+JSON, versioned, small (target under 200 KB). Everything is a fact that can be *applied* on replay or *compared* in bisect.
+
+The source of truth is `src/capsule/schema.ts` (TypeScript types plus the runtime decoder that validates every capsule read from disk).
+
+```jsonc
+{
+  "twin": 1,
+  "createdAt": "2026-09-28T10:00:00Z",
+  "generator": "twin 0.1.0",
+  "command": { "argv": ["npm", "test"], "cwd": "packages/api", "exitCode": 1, "signal": null,
+               "durationMs": 4210, "outcome": "fail",
+               "failure": { "signature": "exit1:9f2c…", "keyLines": ["…normalized error lines…"],
+                            "outputTail": "…scrubbed, last 200 lines…" } },
+  "os": { "platform": "darwin", "arch": "arm64", "release": "24.1.0",
+          "distro": "macos", "distroVersion": "15.1", "libc": null, "libcVersion": null },
+  "runtimes": { "node": "22.3.0", "python": "3.12.4" },          // only what is installed
+  "tools": { "npm": "10.8.1", "pnpm": "9.12.0", "git": "2.46.0" },
+  "packageManagers": [ { "name": "pnpm", "ecosystem": "node", "version": "9.12.0", "declared": "9.12.0",
+                         "lockfile": "pnpm-lock.yaml", "lockfileSha256": "…" } ],
+  "resolved": { "node": { "left-pad": ["1.3.0"] },               // installed, from node_modules
+                "python": { "requests": "2.32.3" } },            // installed, from pip list
+  "repo": { "remote": "https://github.com/o/r", "commit": "abc123", "branch": "main", "dirty": true,
+            "diff": "…git diff HEAD, scrubbed…", "diffTruncated": false, "diffRedacted": false,
+            "untracked": ["names only"] },
+  "env": { "NODE_ENV": { "state": "set", "value": "test" },     // allowlisted value
+           "CI":       { "state": "absent" },
+           "API_TOKEN":{ "state": "set" },                       // name only
+           "DB_URL":   { "state": "set", "hash": "…" } },        // only with --salt
+  "locale": { "timeZone": "Asia/Kolkata", "locale": "en-IN" },
+  "redaction": { "rulesVersion": 1, "valuesIncluded": ["NODE_ENV"], "hashedValues": false,
+                 "scrubbed": { "github-token": 1, "home-path": 3 } }
+}
+```
+
+Failure identity (`signature`): exit code plus a normalized fingerprint of the output tail (strip timestamps, durations, absolute paths, hex addresses, ANSI). Replay compares signatures so a *different* failure is not reported as a reproduction.
+
+## 5. Redaction and trust
+
+Getting this wrong once (a token in a public issue) kills the project, so the defaults are strict:
+
+- **Env values are never captured by default.** Only name and state (`set` / `empty` / `absent`).
+- A small built-in allowlist of known-safe variables keeps values (`NODE_ENV`, `TZ`, `LANG`, `LC_*`, `CI`, `FORCE_COLOR`, `NODE_OPTIONS` after scrubbing). `--include-env NAME` opts more in.
+- **Output tail and diff are scrubbed** with secret patterns (AWS keys, GitHub tokens, JWTs, private key blocks, generic `key=`/`token=`/`password=` assignments, high-entropy strings) and home-directory paths are rewritten to `~`.
+- **Untracked files: names only**, never contents.
+- **Preview before write.** The reporter sees the full capsule and confirms. `--yes` skips it for scripted use.
+- **Value comparison without disclosure (optional).** For "same variable, different value" bugs, both sides can hash values with an issue-specific salt the maintainer provides (`--salt`). Plain unsalted hashes of low-entropy values are guessable, so twin never emits them.
+
+On the replay side: env vars that were captured as name-only are set to a placeholder, or taken from the maintainer's shell with `--env-from-shell NAME`. The capsule never makes a secret appear inside the sandbox.
+
+## 6. Replay pipeline
+
+```
+capsule
+  │
+  ▼
+create sandbox (template "base", metadata {app:"twin", run:<id>}, idleTimeoutMs)
+  │  install runtimes: node from official tarball, python via uv (both fast, no compiling)
+  │  git.clone repo → checkout commit → apply diff
+  │  install package manager at captured version → install deps (frozen lockfile)
+  │  pin resolved versions that differ from the lockfile resolution (if any)
+  │  set env (placeholders / allowlisted values), TZ, LANG
+  ▼
+snapshot "base-world"          ← everything expensive is done once
+  │
+  ▼
+run command (repeat N=3 for stability) → classify → verdict
+  │
+  └─ REPRODUCED → snapshot "failure" → offer shell / web terminal
+```
+
+Notes:
+- Commands are not shell-interpreted by the sandbox. twin passes argv explicitly and uses `sh -c` only where it builds a pipeline itself.
+- Runtime and package-manager downloads go to a persistent volume cache when available, keyed by version.
+- Everything runs inside `try/finally` with `kill()`. Every VM carries `metadata.run`; `twin gc` and startup both reap leftovers with `listAll({ metadata })`.
+- `idleTimeoutMs` is a rolling idle window, not a deadline (cookbook gotcha); long installs keep it alive.
+
+## 7. Bisect
+
+**Worlds.** GOOD = a capsule that passes (maintainer's local, CI, or any other). BAD = the reporter's capsule. Both must be the same commit (or the diff is itself one candidate).
+
+**Candidates.** Each differing fact is one atom:
+- a runtime version (`node 20.17.0 → 22.3.0`)
+- package manager version
+- each resolved dependency version that differs
+- each env var whose state or (salted) value differs
+- TZ, LANG / LC_*
+- the working-tree diff (one atom, or per-file atoms)
+- OS (only as a note: cannot be varied on Linux)
+
+**Search.** Classic ddmin over the atom set: start from GOOD, apply subsets of BAD's atoms, run the predicate, keep shrinking until removing any single remaining atom makes it pass. This is established delta debugging (prior art: Zeller's ddmin, [worldbisect](https://github.com/iwadjp/worldbisect), [crux](https://github.com/meagoodboy/solari-cookbook/tree/main/applications/crux)); twin's contribution is running it across machines and runtimes on disposable VMs.
+
+**Each trial** forks from the snapshot of GOOD's base world, applies the subset, runs the command N times. PASS, FAIL (same signature as BAD), or INCONCLUSIVE (anything else, including flakiness across repeats). Inconclusive trials are treated conservatively and reported.
+
+**Cost.** Runtime atoms are the expensive ones (install), so they are pre-staged in the base snapshot (both versions downloaded, a symlink switches). Trials are sequential on Free (1 sandbox at a time) and fan out on higher plans.
+
+**Output.** "Observed minimal set: `node 22.3.0`, `TZ=Asia/Kolkata`. Removing either makes it pass. 14 trials, 0 inconclusive." Plus the version-range sweep when a runtime or dependency is in the set: "fails on node ≥ 22.3.0, passes on 22.2.x and 20.x".
+
+**Not a claim of root cause.** Scoped to the captured differences and this predicate, stated in the report.
+
+## 8. Commands (v1)
+
+| Command | Needs Solari key | What it does |
+|---|---|---|
+| `twin capture -- <cmd>` | no | record capsule |
+| `twin inspect <capsule>` | no | pretty-print, diff two capsules |
+| `twin replay <capsule>` | yes | reproduce on a sandbox |
+| `twin shell <id>` | yes | attach terminal to a kept sandbox |
+| `twin bisect <bad> --good <good\|local>` | yes | minimal difference |
+| `twin ci <job-url>` | yes | capsule from a GitHub Actions job, then replay/bisect |
+| `twin verify <capsule> --ref <ref>` | yes | replay against a branch or PR |
+| `twin gc` | yes | kill leftover twin VMs |
+| `twin demo` | no | offline walkthrough with a bundled capsule and a fake backend |
+
+## 9. Implementation
+
+- TypeScript, Node ≥ 22, ESM. Published to npm; runnable via `npx`.
+- One runtime dependency: `@solarisdk/sdk` (added with replay). Argument parsing with `node:util` `parseArgs`. No framework. Dev: TypeScript, Vitest, Biome.
+- A `Backend` interface (`create`, `run`, `snapshot`, `fork`, `kill`, …) with two implementations: `SolariBackend` and `FakeBackend`. The fake powers `twin demo` and the unit tests, so the whole pipeline is testable with no key and no network.
+
+```
+src/
+  bin.ts            entry (process glue only)
+  cli.ts            dispatch, exit codes
+  host.ts  io.ts    injected machine and terminal access
+  commands/         capture, inspect (later replay, bisect, ...)
+  capsule/          schema + decoder, file io, diff
+  capture/          orchestrator, run-command, tail buffer
+    facts/          os, probes, package managers, node/python deps, repo, env, project root
+  redact/           secret rules, entropy heuristic, Redactor
+  signature/        output normalization, failure identity
+  report/           terminal rendering
+  util/             exec, fs, hash
+test/               mirrors src/, fakes in test/helpers
+```
+
+Every collector takes its dependencies (an `Exec`, a `Host`, a `Redactor`) as arguments, so unit tests use fakes and a few integration tests use real git and real processes in temp dirs.
+
+## 10. Cookbook submission shape
+
+- Lives in `applications/twin/` of the fork with one row in `applications/README.md`. Nothing else in the fork changes.
+- Synced from this standalone repo by `scripts/sync-fork.sh` (rsync with an exclude list: `.github/`, videos, `node_modules/`, build output, `.env`).
+- Quickstart uses `export SOLARI_API_KEY=...`, not a `.env` the code does not read.
+- `.env.example` lists exactly the variables the code reads.
+- Small extracted examples as separate PRs: `sandbox-snapshot-bisect-ts` (fork one snapshot into trials), `sandbox-runtime-matrix-ts` (same command across runtime versions).
+
+## 11. Open questions for the first live check
+
+1. What does the `base` template ship (Node version, python3, git, curl, tar, build-essential, apt)? Issue #34 says Node 18.
+2. Outbound network on `dedicated` for nodejs.org / PyPI / npm registry downloads: speed?
+3. `snapshot()` and `create({ fromSnapshot })` timings for a sandbox with `node_modules` (docs say about 1 s; desktop measurements in forks were 20 s+).
+4. Are unpromoted snapshots durable enough for a bisect session (fork reports say they can vanish on gateway restart)?
+5. Does `pty.create` stream well enough for an interactive shell? Is `previewUrl` plus a guest web terminal (ttyd or a small xterm.js server) viable, and how is the preview token shared safely?
+6. Free-plan limits on concurrency, session lifetime, disk size.
+
+Each answer that contradicts the docs becomes a precise issue on the cookbook repo.
+
+## 12. Milestones
+
+1. **Capture + inspect** (offline): facts, redaction, signature, preview, capsule diff. Unit tests.
+2. **Replay** on Solari for Node and Python projects. Verdicts, failure snapshot, `shell`.
+3. **Bisect**: atoms, ddmin, sweep, reports. FakeBackend tests plus live runs.
+4. **Proof**: dogfood on Solari's own cookbook issues; then 5 to 10 "cannot reproduce" issues from popular repos.
+5. **CI mode, verify, nightly guard Action.**
+6. **Web terminal share, web-app bugs via browser, desktop for GUI.**
+7. Packaging, README, demo, fork sync, PRs, launch.
