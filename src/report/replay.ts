@@ -53,7 +53,7 @@ export function renderReplay(
   options: { verify?: boolean } = {},
 ): string {
   const lines = [
-    style.bold(`Replay on ${report.backend}`) +
+    style.bold(`${options.verify ? 'Verify' : 'Replay'} on ${report.backend}`) +
       style.dim(` (machine ${shortId(report.machineId)}, run ${report.runId})`),
   ];
 

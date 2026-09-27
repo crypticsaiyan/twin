@@ -76,6 +76,7 @@ describe('twin verify', () => {
       await main(['verify', 'bug.json', '--patch', 'fix.patch', '--attempts', '2'], context),
     ).toBe(0);
     expect(stdout.text).toContain("FIXED: the command passes in the reporter's environment");
+    expect(stdout.text).toMatch(/^Verify on fake/);
     expect(backend.machines[0]?.files.get(FIX_PATCH_PATH)).toBe(FIX);
   });
 
