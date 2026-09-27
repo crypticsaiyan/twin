@@ -17,11 +17,12 @@ A maintainer replays the capsule on a [Solari](https://getsolari.com) sandbox: s
 | `twin replay <capsule>` | works (verified live on Solari) |
 | `twin gc` | works |
 | `twin bisect <bad> --good <good>` | works (verified live on Solari) |
-| `twin ci`, `twin verify`, `twin shell` | planned |
+| `twin verify <capsule> --patch <file>` | works (verified live on Solari) |
+| `twin ci`, `twin shell` | planned |
 
 ## Proof on a real issue
 
-[`examples/echarts-21538`](examples/echarts-21538) captures [apache/echarts#21538](https://github.com/apache/echarts/issues/21538), a test that fails only in daylight-saving time zones. On Solari, `twin replay` reproduced it in 72 s with an identical failure signature, and `twin bisect` isolated `TZ=America/New_York` as the minimal difference in 69 s. The capsules and recorded output are in that folder.
+[`examples/echarts-21538`](examples/echarts-21538) captures [apache/echarts#21538](https://github.com/apache/echarts/issues/21538), a test that fails only in daylight-saving time zones. On Solari, `twin replay` reproduced it in 72 s with an identical failure signature, `twin bisect` isolated `TZ=America/New_York` as the minimal difference in 69 s, and `twin verify` showed a candidate fix passing in the reporter's environment in 71 s, without pushing it anywhere. The capsules and recorded output are in that folder.
 
 ## Usage
 
@@ -45,6 +46,9 @@ twin gc                                  # release anything twin left running
 twin bisect twin-capsule.json --good my-capsule.json
 #   Minimal failing difference:
 #     TZ=Asia/Calcutta
+
+# Maintainer: does my fix work in the reporter's environment? (no push needed)
+twin verify twin-capsule.json --patch fix.patch   # FIXED / STILL FAILING / DIFFERENT FAILURE
 ```
 
 Capture options:

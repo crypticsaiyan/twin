@@ -10,6 +10,8 @@ This folder is that situation captured with twin, then reproduced and explained 
 | `kolkata.json` | capsule from a maintainer in `Asia/Kolkata`: the test passes |
 | `replay.txt` | `twin replay new-york.json` on Solari, recorded 2026-09-28 |
 | `bisect.txt` | `twin bisect new-york.json --good kolkata.json` on Solari, recorded 2026-09-28 |
+| `fix.patch` | a candidate fix for the test helper |
+| `verify.txt` | `twin verify new-york.json --patch fix.patch` on Solari, recorded 2026-09-28 |
 
 Both capsules are from echarts commit `984bf46` (master on 2026-09-12), Node 22.23.3, npm 10.9.9, captured with a minimal environment (`env -i` keeping only `PATH`, `HOME`, `LANG` and `TZ`).
 
@@ -27,6 +29,8 @@ npx jest --config test/ut/jest.config.cjs --coverage=false test/ut/spec/util/tim
 
 **Bisect (69 s).** twin built the passing (Kolkata) environment once, confirmed it passes on the sandbox, applied the failing environment's differences, and reported the minimal one: `TZ=America/New_York`.
 
+**Verify (71 s).** The test builds its expected dates with a fixed UTC offset taken from January 1970, which is wrong for October in any zone with daylight saving time. `fix.patch` drops the offset: an ISO date-time string without one is parsed as local time, which is what `roundTime(..., false)` works in. It passes locally under seven zones (New York, Berlin, Sydney, Kolkata, UTC, Chatham, São Paulo). `twin verify` then rebuilt the New York reporter's environment on a fresh sandbox, applied the patch on top of the captured commit and ran the test: both attempts passed, `FIXED`. Nothing had to be pushed first.
+
 Timing detail from the runs: `npm ci` dominates setup (about 46 s); the first Jest run on a fresh machine takes 8 s and later runs about 1.7 s. That first run prints a slow-file timing that later runs do not; twin ignores such timing annotations when fingerprinting failures, which is why both attempts match.
 
 ## Run it yourself
@@ -37,6 +41,7 @@ With a Solari key:
 export SOLARI_API_KEY=...
 twin replay examples/echarts-21538/new-york.json
 twin bisect examples/echarts-21538/new-york.json --good examples/echarts-21538/kolkata.json
+twin verify examples/echarts-21538/new-york.json --patch examples/echarts-21538/fix.patch
 ```
 
 Without a key, against a local Docker container (development harness, same guest scripts):
