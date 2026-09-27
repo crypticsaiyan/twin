@@ -1,4 +1,4 @@
-import type { BisectReport, BisectVerdict } from '../bisect/bisect.ts';
+import type { BisectReport, BisectVerdict, TrialRecord } from '../bisect/bisect.ts';
 import type { TrialResult } from '../bisect/ddmin.ts';
 import { shortId } from './replay.ts';
 import type { Style } from './style.ts';
@@ -21,6 +21,26 @@ function mark(result: TrialResult, style: Style): string {
   if (result === 'fail') return style.red('FAIL');
   if (result === 'pass') return style.green('pass');
   return style.yellow('????');
+}
+
+/**
+ * Smallest trials whose every attempt failed consistently, but with a signature other than the
+ * captured one. They are not counted as the bug (bisect is conservative), yet they often point at
+ * the real cause with a cosmetic difference, so they are shown.
+ */
+export function failsDifferently(report: BisectReport, limit = 3): TrialRecord[] {
+  return report.trials
+    .filter((trial) => {
+      const signatures = new Set(trial.attempts.map((a) => a.signature));
+      return (
+        trial.result === 'unresolved' &&
+        trial.attempts.length > 0 &&
+        trial.attempts.every((a) => a.outcome === 'fail' && !a.timedOut) &&
+        signatures.size === 1
+      );
+    })
+    .sort((a, b) => a.atoms.length - b.atoms.length)
+    .slice(0, limit);
 }
 
 export function renderBisect(report: BisectReport, style: Style): string {
@@ -74,6 +94,18 @@ export function renderBisect(report: BisectReport, style: Style): string {
     );
   } else {
     lines.push(style.yellow(VERDICT_TEXT[report.verdict]));
+  }
+
+  const different = failsDifferently(report);
+  if (different.length > 0) {
+    lines.push(
+      '',
+      style.bold('Also failing, but not the captured way'),
+      style.dim(
+        '  (a different failure signature, e.g. another runtime formats the error differently)',
+      ),
+      ...different.map((trial) => `  ${trial.atoms.join(' + ')}`),
+    );
   }
 
   if (report.skipped.length > 0) {

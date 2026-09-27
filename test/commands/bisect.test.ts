@@ -161,6 +161,44 @@ describe('renderBisect', () => {
     expect(text).toContain('Minimal failing difference:\n  TZ=Asia/Kolkata\nApplying it');
   });
 
+  it('lists the smallest trials that failed differently', () => {
+    const failed = (signature: string) => ({
+      exitCode: 1,
+      timedOut: false,
+      durationMs: 1,
+      outcome: 'fail' as const,
+      signature,
+      keyLines: [],
+    });
+    const text = renderBisect(
+      report({
+        minimal: ['node 26.7.0', 'TZ=Asia/Kolkata'],
+        trials: [
+          { atoms: ['a', 'b'], result: 'unresolved', attempts: [failed('exit1:x')], durationMs: 1 },
+          {
+            atoms: ['TZ=Asia/Kolkata'],
+            result: 'unresolved',
+            attempts: [failed('exit1:y')],
+            durationMs: 1,
+          },
+          {
+            atoms: ['flaky'],
+            result: 'unresolved',
+            attempts: [failed('exit1:y'), failed('exit1:z')],
+            durationMs: 1,
+          },
+          { atoms: ['broken setup'], result: 'unresolved', attempts: [], durationMs: 1 },
+        ],
+      }),
+      plain,
+    );
+    expect(text).toContain('Also failing, but not the captured way');
+    expect(text).toMatch(/signature, e\.g\.[^\n]*\)\n {2}TZ=Asia\/Kolkata\n {2}a \+ b/);
+    const section = text.slice(text.indexOf('Also failing'));
+    expect(section).not.toContain('flaky');
+    expect(section).not.toContain('broken setup');
+  });
+
   it('explains a multi-item minimal set', () => {
     const text = renderBisect(report({ minimal: ['a', 'b'] }), plain);
     expect(text).toContain('removing any one of them makes it pass');
