@@ -229,6 +229,12 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
     env.VIRTUAL_ENV = VENV_DIR;
     env.UV_PROJECT_ENVIRONMENT = VENV_DIR;
   }
+  const overridden = Object.keys(options.env ?? {});
+  if (overridden.length > 0) {
+    notes.push(
+      `Overridden with --env, so this replay differs from the capsule in: ${overridden.join(', ')}.`,
+    );
+  }
   if (unknown.length > 0) {
     const shown = unknown.slice(0, MAX_LISTED_NAMES).join(', ');
     const more =

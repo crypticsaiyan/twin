@@ -102,8 +102,11 @@ describe('planReplay', () => {
     });
     const { env, notes } = planReplay(capsule, { env: { API_TOKEN: 'fake' } });
     expect(env.API_TOKEN).toBe('fake');
+    expect(notes).toContain(
+      'Overridden with --env, so this replay differs from the capsule in: API_TOKEN.',
+    );
     expect(env.TZ).toBe('UTC');
-    expect(notes.join('\n')).not.toContain('values unknown');
+    expect(notes.join('\n')).not.toContain('unknown values');
   });
 
   it('uploads and applies the working-tree diff, noting when it was scrubbed', () => {
