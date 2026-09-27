@@ -280,6 +280,7 @@ Platform behavior found, candidates for cookbook issues:
 3. Snapshot and revert take tens of seconds, not about one second.
 4. `revert()` consumes the snapshot: `getSnapshot` returns 404 immediately after the first revert, and a second revert fails with `Snapshot not found`. In one run even the first revert failed with `Snapshot not found` while `listSnapshots` still listed the snapshot.
 5. Each snapshot with `node_modules` is about 4 GB of storage, billed from 2026-10-01 above 10 GB, and nothing deletes it automatically.
+6. `listSnapshots` returns stale entries: snapshots consumed by a revert or already deleted keep appearing, `getSnapshot`/`deleteSnapshot` on them return 404, and the listed set differs between consecutive calls. `listAll` for sandboxes shows the same pattern for killed machines. `twin gc` treats a 404 on delete as already gone.
 
 Because of 3 to 5, bisect uses no snapshots. Env, time zone and runtime trials need no reset (both runtimes are installed up front and switched through PATH); working-tree trials are undone with an idempotent `git apply -R`; dependency trials are undone by rerunning the good world's install. `twin gc` deletes any `twin-*` snapshot (for example from `replay --keep`).
 
