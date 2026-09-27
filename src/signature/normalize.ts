@@ -25,6 +25,8 @@ const REPLACEMENTS: readonly [RegExp, Replacement][] = [
   [/\b(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):\d+/g, '$1:<port>'],
   [/\bpid[:= ]\s*\d+/gi, 'pid <n>'],
   [/\b\d+(?:\.\d+)?\s?(?:ns|µs|us|ms|s|sec|secs|seconds?|m|min|mins|minutes?|h)\b/g, '<duration>'],
+  // Test runners add "(1.2 s)" only when something was slow, so the whole group is cosmetic.
+  [/\s*\(<duration>\)/g, ''],
 ];
 
 // Runtime-internal locations and version trailers change between releases without meaning anything

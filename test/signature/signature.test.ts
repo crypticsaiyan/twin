@@ -8,6 +8,8 @@ describe('normalizeLine', () => {
     ['started 2026-09-28T10:00:00.123Z', 'started <time>'],
     ['at 12:34:56', 'at <time>'],
     ['Tests took 1.52s (setup 300ms)', 'Tests took <duration> (setup <duration>)'],
+    ['FAIL test/a.test.ts (8.1 s)', 'FAIL test/a.test.ts'],
+    ['✕ adds (3 ms)', '✕ adds'],
     ['id 123e4567-e89b-12d3-a456-426614174000', 'id <uuid>'],
     ['segfault at 0x7ffd1234', 'segfault at <hex>'],
     ['object 3f2a9c8d1e4b5a6f', 'object <hash>'],
