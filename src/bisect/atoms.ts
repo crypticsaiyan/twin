@@ -89,6 +89,12 @@ export function deriveAtoms(good: Capsule, bad: Capsule): AtomSet {
     const skip = (reason: string) => skipped.push({ category, key, reason });
     switch (category) {
       case 'env':
+        // Without an explicit TZ on the failing side, replay derives TZ from its resolved zone, so
+        // the zone (locale atom below) is the real difference, not "TZ is unset".
+        if (key === 'TZ' && bad.env.TZ?.value === undefined && bad.locale.timeZone) {
+          if (good.locale.timeZone === bad.locale.timeZone) skip('same effective time zone');
+          break;
+        }
         add(envAtom(key, good.env[key], bad.env[key]));
         break;
       case 'locale':

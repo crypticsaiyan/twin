@@ -75,6 +75,26 @@ describe('deriveAtoms', () => {
     ]);
   });
 
+  it('uses the zone, not "unset TZ", when the failing side has no explicit TZ', () => {
+    const { good, bad } = pair({
+      env: { ...makeCapsule().env, TZ: { state: 'set', value: 'UTC' } },
+      locale: { timeZone: 'UTC', locale: 'en-IN' },
+    });
+    expect(deriveAtoms(good, bad).atoms).toEqual([
+      { kind: 'env', id: 'env:TZ', label: 'TZ=Asia/Kolkata', name: 'TZ', value: 'Asia/Kolkata' },
+    ]);
+  });
+
+  it('ignores an explicit TZ that resolves to the same zone', () => {
+    const { good, bad } = pair({
+      env: { ...makeCapsule().env, TZ: { state: 'set', value: 'Asia/Kolkata' } },
+    });
+    expect(deriveAtoms(good, bad)).toMatchObject({
+      atoms: [],
+      skipped: [{ category: 'env', key: 'TZ', reason: 'same effective time zone' }],
+    });
+  });
+
   it('lets an explicit TZ env value cover the zone', () => {
     const { good, bad } = pair(
       { env: { TZ: { state: 'set', value: 'UTC' } }, locale: { timeZone: 'UTC', locale: 'en-IN' } },
