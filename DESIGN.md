@@ -245,6 +245,24 @@ Every collector takes its dependencies (an `Exec`, a `Host`, a `Redactor`) as ar
 
 Each answer that contradicts the docs becomes a precise issue on the cookbook repo.
 
+### Live check, 2026-09-28 (SDK 0.1.4, template `base`, dedicated isolation)
+
+Capsule: a time-zone-dependent assertion in `sindresorhus/is-plain-obj@666df7c`, captured on Asia/Kolkata.
+
+| Measured | Result |
+|---|---|
+| End to end `twin replay` (create, setup, 2 attempts, kill) | 43 s |
+| Node 26.7.0 tarball download + extract from nodejs.org | 2.3 to 2.5 s |
+| `git fetch --depth 1` of one commit by SHA | 0.8 s |
+| `npm install -g npm@12.0.2` | 3.5 s |
+| `npm install` (project devDependencies) | 31 to 34 s |
+| Verdict | REPRODUCED, same signature as the reporter's machine |
+| Control with `--env TZ=UTC` | NOT REPRODUCED (passes), as expected |
+
+Answers so far: `base` has `sh`, `curl`, `tar`/gzip and `git`; outbound HTTPS to nodejs.org, GitHub and the npm registry works and is fast; Node 26 official binaries run. Dependency install dominates, which confirms the bisect design (install once, snapshot, fork trials). Sandbox ids are opaque strings of about 200 characters.
+
+Still open: snapshot and `fromSnapshot` timings with `node_modules`, snapshot durability during a bisect session, PTY interactivity, guest user and architecture.
+
 ## 12. Milestones
 
 1. **Capture + inspect** (offline): facts, redaction, signature, preview, capsule diff. Unit tests.
