@@ -183,9 +183,18 @@ export class SolariBackend implements Backend {
   /** Snapshots are billed storage (about 4 GB each with node_modules), so leftovers matter. */
   async reapSnapshots(prefix: string): Promise<string[]> {
     const { snapshots } = await this.#sandboxes.listSnapshots({ limit: 200 });
-    const ids = snapshots.filter((s) => s.name?.startsWith(prefix)).map((s) => s.id);
-    for (const id of ids) await this.#sandboxes.deleteSnapshot(id);
-    return ids;
+    const deleted: string[] = [];
+    for (const { id, name } of snapshots) {
+      if (!name?.startsWith(prefix)) continue;
+      try {
+        await this.#sandboxes.deleteSnapshot(id);
+        deleted.push(id);
+      } catch (error) {
+        // Measured: listSnapshots also returns stale entries that 404 on get and delete.
+        if ((error as { status?: unknown }).status !== 404) throw error;
+      }
+    }
+    return deleted;
   }
 }
 

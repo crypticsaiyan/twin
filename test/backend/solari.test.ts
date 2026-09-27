@@ -205,6 +205,15 @@ describe('SolariBackend', () => {
     };
   }
 
+  it('skips listed snapshots that are already gone, but not other errors', async () => {
+    const { sandbox } = fakeSandbox();
+    const { sandboxes, deleteSnapshot } = api(sandbox);
+    deleteSnapshot.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
+    expect(await new SolariBackend(sandboxes).reapSnapshots('twin-')).toEqual([]);
+    deleteSnapshot.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+    await expect(new SolariBackend(sandboxes).reapSnapshots('twin-')).rejects.toThrow('boom');
+  });
+
   it('deletes only snapshots with the twin prefix', async () => {
     const { sandbox } = fakeSandbox();
     const { sandboxes, deleteSnapshot, listSnapshots } = api(sandbox);
