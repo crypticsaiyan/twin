@@ -8,6 +8,8 @@ export const REPO_DIR = `${WORK_DIR}/repo`;
 export const VENV_DIR = `${WORK_DIR}/venv`;
 /** The capsule's working-tree diff, uploaded during replay setup. */
 export const CAPSULE_DIFF_PATH = `${WORK_DIR}/capsule.diff`;
+/** A candidate fix under verification, applied on top of the capsule's tree. */
+export const FIX_PATCH_PATH = `${WORK_DIR}/fix.patch`;
 export const SYSTEM_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
 export function nodeDir(version: string): string {

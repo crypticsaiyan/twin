@@ -3,6 +3,7 @@ import type { Capsule } from '../capsule/schema.ts';
 import { TwinError } from '../errors.ts';
 import {
   CAPSULE_DIFF_PATH,
+  FIX_PATCH_PATH,
   installNodeScript,
   installPythonDepsScript,
   installPythonScript,
@@ -49,6 +50,8 @@ export interface PlanOptions {
   /** Values for variables the capsule only recorded by name. */
   env?: Record<string, string>;
   commandTimeoutMs?: number;
+  /** A unified diff (candidate fix) applied after the checkout and the capsule's own diff. */
+  patch?: string;
 }
 
 /** Variables that describe the host rather than the program; copying them would break the guest. */
@@ -172,6 +175,25 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
       notes.push('The diff was scrubbed for secrets and may not apply cleanly.');
     if (capsule.repo?.diffTruncated)
       notes.push('The diff was truncated at capture; later hunks are missing.');
+  }
+  if (options.patch !== undefined) {
+    setup.push(
+      {
+        kind: 'write',
+        id: 'patch-file',
+        title: 'upload candidate fix',
+        path: FIX_PATCH_PATH,
+        content: options.patch,
+      },
+      {
+        kind: 'run',
+        id: 'patch',
+        title: 'apply candidate fix',
+        argv: ['git', 'apply', '--whitespace=nowarn', FIX_PATCH_PATH],
+        cwd: REPO_DIR,
+        timeoutMs: MINUTE,
+      },
+    );
   }
   if (capsule.repo?.untracked.length) {
     notes.push(

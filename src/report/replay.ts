@@ -19,7 +19,21 @@ const VERDICT_TEXT: Record<Verdict, string> = {
   inconclusive: 'INCONCLUSIVE: setup failed or an attempt timed out.',
 };
 
-function verdictLine(verdict: Verdict, style: Style): string {
+/** The same outcomes read from the other side: a verify run hopes the failure is gone. */
+const VERIFY_TEXT: Record<Verdict, string> = {
+  reproduced: 'STILL FAILING: the fix does not change the captured failure.',
+  'different-failure': 'DIFFERENT FAILURE: with the fix it still fails, but differently.',
+  'not-reproduced': "FIXED: the command passes in the reporter's environment with the fix applied.",
+  flaky: 'FLAKY: attempts disagreed with each other.',
+  inconclusive: 'INCONCLUSIVE: setup failed (does the fix apply?) or an attempt timed out.',
+};
+
+function verdictLine(verdict: Verdict, style: Style, verify: boolean): string {
+  if (verify) {
+    const text = VERIFY_TEXT[verdict];
+    if (verdict === 'not-reproduced') return style.green(text);
+    return verdict === 'flaky' ? style.yellow(text) : style.red(text);
+  }
   const text = VERDICT_TEXT[verdict];
   if (verdict === 'reproduced') return style.green(text);
   if (verdict === 'not-reproduced' || verdict === 'flaky') return style.yellow(text);
@@ -33,7 +47,11 @@ function indent(text: string, prefix: string): string {
     .join('\n');
 }
 
-export function renderReplay(report: ReplayReport, style: Style): string {
+export function renderReplay(
+  report: ReplayReport,
+  style: Style,
+  options: { verify?: boolean } = {},
+): string {
   const lines = [
     style.bold(`Replay on ${report.backend}`) +
       style.dim(` (machine ${shortId(report.machineId)}, run ${report.runId})`),
@@ -82,7 +100,7 @@ export function renderReplay(report: ReplayReport, style: Style): string {
     }
   }
 
-  lines.push('', verdictLine(report.verdict, style));
+  lines.push('', verdictLine(report.verdict, style, options.verify === true));
 
   if (report.kept) {
     lines.push(

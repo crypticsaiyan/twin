@@ -2,8 +2,10 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { readCapsule } from '../capsule/file.ts';
 import { TwinError } from '../errors.ts';
-import { replay } from '../replay/replay.ts';
-import { renderReplay } from '../report/replay.ts';
+import type { Io } from '../io.ts';
+import { type ReplayEvent, replay } from '../replay/replay.ts';
+import { renderReplay, shortId } from '../report/replay.ts';
+import type { Style } from '../report/style.ts';
 import { type Command, type CommandContext, stderrStyle, stdoutStyle } from './context.ts';
 import { parseEnvAssignments, positiveInt } from './options.ts';
 
@@ -27,6 +29,21 @@ Options:
   -h, --help               show this help
 
 Exit status: 0 reproduced, 1 anything else, 2 usage error.`;
+
+/** Progress lines on stderr (and guest output when verbose), shared by replay and verify. */
+export function replayProgress(
+  io: Io,
+  style: Style,
+  verbose: boolean,
+): (event: ReplayEvent) => void {
+  const progress = (text: string) => io.stderr.write(style.dim(`twin: ${text}\n`));
+  return (event) => {
+    if (event.type === 'machine') progress(`machine ${shortId(event.id)} ready`);
+    else if (event.type === 'step-start') progress(event.step.title);
+    else if (event.type === 'attempt-start') progress(`attempt ${event.index + 1}/${event.total}`);
+    else if (event.type === 'output' && verbose) io.stderr.write(event.chunk);
+  };
+}
 
 async function run(args: string[], context: CommandContext): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -58,8 +75,6 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   const capsule = await readCapsule(resolve(context.cwd, positionals[0] as string));
   const backend = await context.getBackend();
   const style = stderrStyle(context);
-  const progress = (text: string) => io.stderr.write(style.dim(`twin: ${text}\n`));
-
   const report = await replay(capsule, backend, {
     attempts,
     keep: values.keep,
@@ -67,13 +82,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
     commandTimeoutMs: timeoutMinutes * 60_000,
     ...(values.repo === undefined ? {} : { repoUrl: values.repo }),
     ...(values.ref === undefined ? {} : { ref: values.ref }),
-    onEvent: (event) => {
-      if (event.type === 'machine') progress(`machine ${event.id} ready`);
-      else if (event.type === 'step-start') progress(event.step.title);
-      else if (event.type === 'attempt-start')
-        progress(`attempt ${event.index + 1}/${event.total}`);
-      else if (event.type === 'output' && values.verbose) io.stderr.write(event.chunk);
-    },
+    onEvent: replayProgress(io, style, values.verbose),
   });
 
   if (values.json) io.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
