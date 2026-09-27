@@ -4,6 +4,12 @@ import type { Style } from './style.ts';
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
+/** Solari sandbox ids run to ~200 characters; the header only needs to be recognizable. */
+export function shortId(id: string | null): string {
+  if (id === null) return '-';
+  return id.length > 20 ? `${id.slice(0, 16)}…` : id;
+}
+
 const VERDICT_TEXT: Record<Verdict, string> = {
   reproduced: 'REPRODUCED: every attempt failed exactly as the capsule recorded.',
   'different-failure': 'DIFFERENT FAILURE: it fails here, but not the way the capsule recorded.',
@@ -30,7 +36,7 @@ function indent(text: string, prefix: string): string {
 export function renderReplay(report: ReplayReport, style: Style): string {
   const lines = [
     style.bold(`Replay on ${report.backend}`) +
-      style.dim(` (machine ${report.machineId ?? '-'}, run ${report.runId})`),
+      style.dim(` (machine ${shortId(report.machineId)}, run ${report.runId})`),
   ];
 
   for (const step of report.steps) {

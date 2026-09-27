@@ -5,7 +5,7 @@ import { writeCapsule } from '../../src/capsule/file.ts';
 import { main } from '../../src/cli.ts';
 import { parseEnvAssignments } from '../../src/commands/replay.ts';
 import type { ReplayReport } from '../../src/replay/replay.ts';
-import { renderReplay } from '../../src/report/replay.ts';
+import { renderReplay, shortId } from '../../src/report/replay.ts';
 import { createStyle } from '../../src/report/style.ts';
 import { failureIdentity } from '../../src/signature/signature.ts';
 import { makeCapsule } from '../helpers/capsule.ts';
@@ -128,6 +128,14 @@ describe('twin gc', () => {
 describe('parseEnvAssignments', () => {
   it('splits on the first equals sign', () => {
     expect(parseEnvAssignments(['A=1', 'B=x=y', 'C='])).toEqual({ A: '1', B: 'x=y', C: '' });
+  });
+});
+
+describe('shortId', () => {
+  it('shortens long provider ids only', () => {
+    expect(shortId(null)).toBe('-');
+    expect(shortId('sbx_1')).toBe('sbx_1');
+    expect(shortId('A'.repeat(200))).toBe(`${'A'.repeat(16)}…`);
   });
 });
 
