@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FakeBackend, type FakeMachine } from '../../src/backend/fake.ts';
+import { FakeBackend } from '../../src/backend/fake.ts';
 import type { RunSpec } from '../../src/backend/types.ts';
 import { type BisectEvent, bisect } from '../../src/bisect/bisect.ts';
 import type { Capsule } from '../../src/capsule/schema.ts';
@@ -61,6 +61,7 @@ function simulatedBackend(
     else if (text.includes('git apply --whitespace=nowarn /tmp/twin/failing.diff'))
       diffApplied = true;
     if (text.includes('npm install --no-save')) dependencyInstalled = true;
+    if (text === 'npm ci') dependencyInstalled = false;
     if (!isCommand(spec)) return undefined;
     const world: World = {
       tz: spec.env?.TZ,
@@ -71,17 +72,6 @@ function simulatedBackend(
     };
     return fails(world) ? { exitCode: 1, output: FAILURE } : { exitCode: 0 };
   });
-  const create = backend.create.bind(backend);
-  backend.create = async (options) => {
-    const machine = (await create(options)) as FakeMachine;
-    const revert = machine.revert.bind(machine);
-    machine.revert = async (id) => {
-      diffApplied = false;
-      dependencyInstalled = false;
-      await revert(id);
-    };
-    return machine;
-  };
   return backend;
 }
 
@@ -106,13 +96,13 @@ describe('bisect', () => {
     expect(report.trials[1]).toMatchObject({ result: 'fail' });
     const [machine] = backend.machines;
     expect(machine?.killed).toBe(true);
-    // One base snapshot, plus a fresh one after each (snapshot-consuming) revert; all deleted.
-    expect(machine?.snapshots).toHaveLength((machine?.reverts.length ?? 0) + 1);
-    expect(backend.snapshots.size).toBe(0);
+    // Measured on Solari, snapshots are slow and revert is unreliable; bisect uses neither.
+    expect(machine?.snapshots).toEqual([]);
+    expect(machine?.reverts).toEqual([]);
     expect(events).toContain('trial-end');
   });
 
-  it('never reverts when every candidate is a process setting', async () => {
+  it('needs no undo steps when every candidate is a process setting', async () => {
     const { good, bad } = capsules();
     bad.repo = { ...(bad.repo as NonNullable<Capsule['repo']>), diff: '', dirty: false };
     bad.resolved = good.resolved;
@@ -122,7 +112,7 @@ describe('bisect', () => {
     expect(backend.machines[0]?.reverts).toEqual([]);
   });
 
-  it('pre-installs the failing node version before the snapshot', async () => {
+  it('pre-installs the failing node version during setup', async () => {
     const { good, bad } = capsules();
     const backend = simulatedBackend((w) => w.node22);
     const report = await bisect(good, bad, backend);
@@ -140,50 +130,55 @@ describe('bisect', () => {
     expect(report.minimal.sort()).toEqual(['node 22.3.0', 'unset CI']);
   });
 
-  it('undoes working tree trials with git instead of reverting', async () => {
+  it('undoes working tree trials with git', async () => {
     const { good, bad } = capsules();
     bad.resolved = good.resolved;
     const backend = simulatedBackend((w) => w.diff);
     const report = await bisect(good, bad, backend);
     expect(report.minimal).toEqual(['working tree diff']);
-    expect(backend.machines[0]?.reverts).toEqual([]);
-    expect(report.timings.revertsMs).toEqual([]);
     expect(backend.machines[0]?.files.get('/tmp/twin/failing.diff')).toBe('+changed\n');
     expect(backend.machines[0]?.runs.some((r) => r.argv.join(' ').includes('git apply -R'))).toBe(
       true,
     );
   });
 
-  it('reverts the machine after trials that change dependencies', async () => {
+  it('reinstalls the good dependencies after dependency trials', async () => {
     const { good, bad } = capsules();
     const backend = simulatedBackend((w) => w.dependency);
     const report = await bisect(good, bad, backend);
     expect(report.minimal).toEqual(['left-pad@1.4.0']);
-    expect(backend.machines[0]?.reverts.length).toBeGreaterThan(0);
-    expect(report.timings.revertsMs).toHaveLength(backend.machines[0]?.reverts.length ?? -1);
-    expect(report.timings.snapshotMs).toBeGreaterThanOrEqual(0);
+    const installs = backend.machines[0]?.runs.filter((r) => r.argv.join(' ') === 'npm ci') ?? [];
+    expect(installs.length).toBeGreaterThan(1);
   });
 
-  it('notes a snapshot it could not delete', async () => {
-    const { good, bad } = capsules();
-    const backend = simulatedBackend((w) => w.tz === 'Asia/Kolkata');
-    backend.deleteSnapshot = async () => {
-      throw new Error('503');
-    };
-    const report = await bisect(good, bad, backend);
-    expect(report.notes.at(-1)).toMatch(/Could not delete snapshot snap_.*twin gc/);
-  });
-
-  it('falls back to a revert when a git undo fails', async () => {
+  it('stops instead of trusting later trials when an undo fails', async () => {
     const { good, bad } = capsules();
     bad.resolved = good.resolved;
     const backend = simulatedBackend(
       (w) => w.tz === 'Asia/Kolkata',
-      (spec) => (spec.argv.join(' ').includes('git apply -R') ? { exitCode: 1 } : undefined),
+      (spec) => (spec.argv.join(' ').includes('--check') ? { exitCode: 1 } : undefined),
     );
     const report = await bisect(good, bad, backend);
-    expect(report.minimal).toEqual(['TZ=Asia/Kolkata']);
-    expect(backend.machines[0]?.reverts.length).toBeGreaterThan(0);
+    expect(report.verdict).toBe('reset-failed');
+    expect(report.notes.at(-1)).toMatch(/Could not undo a trial \(restore good working tree\)/);
+    expect(backend.machines[0]?.killed).toBe(true);
+  });
+
+  it('rethrows unexpected errors after releasing the machine', async () => {
+    const { good, bad } = capsules();
+    const backend = simulatedBackend(() => false);
+    const create = backend.create.bind(backend);
+    backend.create = async (options) => {
+      const machine = await create(options);
+      const run = machine.run.bind(machine);
+      machine.run = async (spec) => {
+        if (spec.argv.includes('exec "$@"')) throw new Error('channel gone');
+        return run(spec);
+      };
+      return machine;
+    };
+    await expect(bisect(good, bad, backend)).rejects.toThrow('channel gone');
+    expect(backend.machines[0]?.killed).toBe(true);
   });
 
   it('reports a good world that fails on its own', async () => {

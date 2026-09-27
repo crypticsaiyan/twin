@@ -9,11 +9,23 @@ const base: TrialBase = {
   dependencyDir: '/tmp/twin/repo',
   repoDir: '/tmp/twin/repo',
   goodDiff: false,
+  reinstall: {
+    kind: 'run',
+    id: 'dependencies',
+    title: 'install dependencies (npm ci)',
+    argv: ['npm', 'ci'],
+    cwd: '/tmp/twin/repo',
+    timeoutMs: 1,
+  },
 };
 const COMMAND = ['sh', '-c', 'exec "$@"', 'twin', 'npm', 'test'];
 const GOOD_APPLY = `git apply --whitespace=nowarn ${CAPSULE_DIFF_PATH}`;
 const BAD_APPLY = `git apply --whitespace=nowarn ${BAD_DIFF_PATH}`;
 const reversed = (command: string) => command.replace('git apply', 'git apply -R');
+const ifApplied = (command: string) =>
+  `if ${reversed(command)} --check 2>/dev/null; then ${reversed(command)}; fi`;
+const ifMissing = (command: string) =>
+  `if ! ${reversed(command)} --check 2>/dev/null; then ${command}; fi`;
 
 const env = (name: string, value: string | null): Atom => ({
   kind: 'env',
@@ -37,7 +49,7 @@ describe('planTrial', () => {
       steps: [],
       env: base.env,
       argv: COMMAND,
-      cleanup: { kind: 'none' },
+      undo: [],
     });
   });
 
@@ -45,7 +57,7 @@ describe('planTrial', () => {
     const trial = planTrial([env('TZ', 'Asia/Kolkata'), env('CI', null)], base);
     expect(trial.env).toEqual({ PATH: base.env.PATH, NODE_ENV: 'test', TZ: 'Asia/Kolkata' });
     expect(trial.argv).toEqual(['env', '-u', 'CI', ...COMMAND]);
-    expect(trial.cleanup).toEqual({ kind: 'none' });
+    expect(trial.undo).toEqual([]);
   });
 
   it('switches node by PATH to the pre-installed failing version', () => {
@@ -63,7 +75,7 @@ describe('planTrial', () => {
     );
   });
 
-  it('swaps the good diff for the failing one and undoes it with git, not a revert', () => {
+  it('swaps the good diff for the failing one and undoes it idempotently with git', () => {
     const trial = planTrial([diff('+bug\n')], { ...base, goodDiff: true });
     expect(trial.steps).toEqual([
       {
@@ -79,15 +91,12 @@ describe('planTrial', () => {
         cwd: '/tmp/twin/repo',
       }),
     ]);
-    expect(trial.cleanup).toEqual({
-      kind: 'undo',
-      steps: [
-        expect.objectContaining({
-          id: 'trial-diff-undo',
-          argv: ['sh', '-euc', `${reversed(BAD_APPLY)}\n${GOOD_APPLY}`],
-        }),
-      ],
-    });
+    expect(trial.undo).toEqual([
+      expect.objectContaining({
+        id: 'trial-diff-undo',
+        argv: ['sh', '-euc', `${ifApplied(BAD_APPLY)}\n${ifMissing(GOOD_APPLY)}`],
+      }),
+    ]);
   });
 
   it('only removes the good diff when the failing side had none', () => {
@@ -95,22 +104,16 @@ describe('planTrial', () => {
     expect(trial.steps).toEqual([
       expect.objectContaining({ argv: ['sh', '-euc', reversed(GOOD_APPLY)] }),
     ]);
-    expect(trial.cleanup).toMatchObject({
-      kind: 'undo',
-      steps: [{ argv: ['sh', '-euc', GOOD_APPLY] }],
-    });
+    expect(trial.undo).toMatchObject([{ argv: ['sh', '-euc', ifMissing(GOOD_APPLY)] }]);
   });
 
   it('only adds the failing diff when the good side had none', () => {
     const trial = planTrial([diff('+x\n')], base);
     expect(trial.steps[1]).toMatchObject({ argv: ['sh', '-euc', BAD_APPLY] });
-    expect(trial.cleanup).toMatchObject({
-      kind: 'undo',
-      steps: [{ argv: ['sh', '-euc', reversed(BAD_APPLY)] }],
-    });
+    expect(trial.undo).toMatchObject([{ argv: ['sh', '-euc', ifApplied(BAD_APPLY)] }]);
   });
 
-  it('installs varied dependencies in one npm call and requires a revert afterwards', () => {
+  it('installs varied dependencies in one npm call and reinstalls after the diff is undone', () => {
     const trial = planTrial([dep('a', '2.0.0'), dep('@s/b', '1.1.0'), diff('+x\n')], {
       ...base,
       dependencyDir: '/tmp/twin/repo/app',
@@ -123,6 +126,12 @@ describe('planTrial', () => {
         cwd: '/tmp/twin/repo/app',
       }),
     );
-    expect(trial.cleanup).toEqual({ kind: 'revert' });
+    expect(trial.undo.map((step) => step.id)).toEqual(['trial-diff-undo', 'dependencies']);
+  });
+
+  it('refuses dependency trials without a good install step to undo them', () => {
+    expect(() => planTrial([dep('a', '1.0.0')], { ...base, reinstall: null })).toThrow(
+      'install step',
+    );
   });
 });

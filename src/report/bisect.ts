@@ -9,6 +9,8 @@ const VERDICT_TEXT: Record<Exclude<BisectVerdict, 'found'>, string> = {
   'no-candidates':
     'NO CANDIDATES: none of the differences can be varied on a sandbox (see skipped).',
   'setup-failed': 'SETUP FAILED: the good environment could not be built.',
+  'reset-failed':
+    'RESET FAILED: a trial could not be undone, so the search stopped rather than trust later trials.',
   'baseline-fails':
     'BASELINE FAILS: the good environment fails here on its own, so no difference can be blamed.',
   'not-reproduced':
@@ -36,15 +38,8 @@ export function renderBisect(report: BisectReport, style: Style): string {
       lines.push(style.dim(failedStep.outputTail.replace(/^/gm, '      ')));
   } else if (report.steps.length > 0) {
     const setupMs = report.steps.reduce((total, step) => total + step.durationMs, 0);
-    const { snapshotMs, revertsMs } = report.timings;
-    const snapshot = snapshotMs === null ? '' : `, snapshot ${seconds(snapshotMs)}`;
-    const reverts = revertsMs.length
-      ? `, ${revertsMs.length} reverts (${revertsMs.map(seconds).join(', ')})`
-      : '';
     lines.push(
-      style.dim(
-        `  good environment built in ${seconds(setupMs)} (${report.steps.length} steps)${snapshot}${reverts}`,
-      ),
+      style.dim(`  good environment built in ${seconds(setupMs)} (${report.steps.length} steps)`),
     );
   }
 

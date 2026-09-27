@@ -146,7 +146,6 @@ describe('renderBisect', () => {
       { atoms: ['node 22.3.0'], result: 'unresolved', attempts: [], durationMs: 500 },
     ],
     expectedSignature: 'exit1:x',
-    timings: { snapshotMs: 1200, revertsMs: [3000, 2500] },
     notes: [],
     ...overrides,
   });
@@ -154,9 +153,7 @@ describe('renderBisect', () => {
   it('shows candidates, every trial and the minimal set', () => {
     const text = renderBisect(report({}), plain);
     expect(text).toContain('Bisect on fake (machine sbx_1, run r1)');
-    expect(text).toContain(
-      'good environment built in 2.0s (1 steps), snapshot 1.2s, 2 reverts (3.0s, 2.5s)',
-    );
+    expect(text).toContain('good environment built in 2.0s (1 steps)');
     expect(text).toContain('Candidates (2)\n  TZ=Asia/Kolkata\n  node 22.3.0');
     expect(text).toContain('   1  pass  (good environment)  0.5s');
     expect(text).toContain('   2  FAIL  TZ=Asia/Kolkata + node 22.3.0  0.5s');
@@ -196,7 +193,7 @@ describe('renderBisect', () => {
     expect(text).toContain('Notes\n  - a note');
   });
 
-  it.each(['no-candidates', 'baseline-fails', 'not-reproduced'] as const)(
+  it.each(['no-candidates', 'baseline-fails', 'reset-failed', 'not-reproduced'] as const)(
     'renders %s',
     (verdict) => {
       expect(

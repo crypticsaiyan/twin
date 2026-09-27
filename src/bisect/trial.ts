@@ -16,20 +16,22 @@ export interface TrialBase {
   repoDir: string;
   /** Whether the good world applied a working-tree diff (at CAPSULE_DIFF_PATH). */
   goodDiff: boolean;
+  /** The good world's dependency install, rerun to undo dependency trials. */
+  reinstall: Step | null;
 }
 
 /**
- * How to get back to the base world after a trial: nothing, a cheap git undo of working-tree
- * changes, or a full in-place revert (measured at 14 to 22 s on Solari) after dependency changes.
+ * Steps that return the machine to the good world after a trial. Deliberately not a snapshot
+ * revert: measured on Solari, revert takes 14 to 22 s, consumes the snapshot, and sometimes fails
+ * with "Snapshot not found" on first use. Every trial change here has an exact, cheap inverse.
  */
-export type Cleanup = { kind: 'none' } | { kind: 'undo'; steps: Step[] } | { kind: 'revert' };
-
 export interface TrialPlan {
   /** Disk changes to make before running the command. */
   steps: Step[];
   env: Record<string, string>;
   argv: string[];
-  cleanup: Cleanup;
+  /** Run after the trial, in order, to restore the good world. Empty for env-only trials. */
+  undo: Step[];
 }
 
 function swapNode(path: string, atom: Extract<Atom, { kind: 'node' }>): string {
@@ -68,12 +70,16 @@ function diffSteps(
     cwd: base.repoDir,
     timeoutMs: MINUTE,
   });
+  // Idempotent, so it also repairs a trial whose apply step failed halfway.
   const undo: Step[] = [
     {
       kind: 'run',
       id: 'trial-diff-undo',
       title: 'restore good working tree',
-      argv: script([...(hasBad ? [reverse(bad)] : []), ...(base.goodDiff ? [good] : [])]),
+      argv: script([
+        ...(hasBad ? [`if ${reverse(bad)} --check 2>/dev/null; then ${reverse(bad)}; fi`] : []),
+        ...(base.goodDiff ? [`if ! ${reverse(good)} --check 2>/dev/null; then ${good}; fi`] : []),
+      ]),
       cwd: base.repoDir,
       timeoutMs: MINUTE,
     },
@@ -90,7 +96,7 @@ export function planTrial(atoms: readonly Atom[], base: TrialBase): TrialPlan {
   const env = { ...base.env };
   const unset: string[] = [];
   const steps: Step[] = [];
-  let cleanup: Cleanup = { kind: 'none' };
+  const undo: Step[] = [];
 
   for (const atom of atoms) {
     if (atom.kind === 'env') {
@@ -107,9 +113,9 @@ export function planTrial(atoms: readonly Atom[], base: TrialBase): TrialPlan {
 
   const diff = atoms.find((atom) => atom.kind === 'diff');
   if (diff) {
-    const { apply, undo } = diffSteps(diff, base);
-    steps.push(...apply);
-    cleanup = { kind: 'undo', steps: undo };
+    const swap = diffSteps(diff, base);
+    steps.push(...swap.apply);
+    undo.push(...swap.undo);
   }
 
   const dependencies = atoms.filter((atom) => atom.kind === 'dependency');
@@ -129,8 +135,10 @@ export function planTrial(atoms: readonly Atom[], base: TrialBase): TrialPlan {
       cwd: base.dependencyDir,
       timeoutMs: 10 * MINUTE,
     });
-    // node_modules changes cannot be undone precisely; restore the snapshot instead.
-    cleanup = { kind: 'revert' };
+    // Reinstalling after the diff is undone restores node_modules from the good package.json and
+    // lockfile (npm ci wipes node_modules; npm install prunes packages installed with --no-save).
+    if (!base.reinstall) throw new Error('dependency trials need the good world install step');
+    undo.push(base.reinstall);
   }
 
   const command = execArgv(base.argv);
@@ -140,6 +148,6 @@ export function planTrial(atoms: readonly Atom[], base: TrialBase): TrialPlan {
     // Replay can only add variables to the guest's session env; `env -u` removes them per command.
     argv:
       unset.length > 0 ? ['env', ...unset.flatMap((name) => ['-u', name]), ...command] : command,
-    cleanup,
+    undo,
   };
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type Backend, type Machine, SNAPSHOT_PREFIX, TWIN_LABELS } from '../backend/types.ts';
+import { type Backend, type Machine, TWIN_LABELS } from '../backend/types.ts';
 import type { Capsule } from '../capsule/schema.ts';
 import { planReplay, type Step } from '../replay/plan.ts';
 import { type ReplayEvent, runStep, type StepResult } from '../replay/replay.ts';
@@ -8,7 +8,7 @@ import { script } from '../replay/shell.ts';
 import { type AttemptResult, describeAttempt } from '../replay/verdict.ts';
 import { type Atom, deriveAtoms, type Skipped } from './atoms.ts';
 import { ddmin, type TrialResult } from './ddmin.ts';
-import { type Cleanup, planTrial, type TrialBase } from './trial.ts';
+import { planTrial, type TrialBase } from './trial.ts';
 
 export type BisectVerdict =
   /** A minimal set of differences turns the good world into the failing one. */
@@ -19,6 +19,8 @@ export type BisectVerdict =
   | 'setup-failed'
   /** The good world fails on its own here, so differences cannot be blamed. */
   | 'baseline-fails'
+  /** Undoing a trial failed, so later trials would not start from the good world. */
+  | 'reset-failed'
   /** Applying every difference still does not fail the captured way. */
   | 'not-reproduced';
 
@@ -41,8 +43,6 @@ export interface BisectReport {
   steps: StepResult[];
   trials: TrialRecord[];
   expectedSignature: string | null;
-  /** Provider operation timings, reported as measured. */
-  timings: { snapshotMs: number | null; revertsMs: number[] };
   notes: string[];
 }
 
@@ -69,7 +69,7 @@ function trialResult(attempts: readonly AttemptResult[], expected: string | null
   return 'unresolved';
 }
 
-/** Extra setup for the base snapshot: runtimes a trial may switch to are installed up front. */
+/** Extra setup for the good world: runtimes a trial may switch to are installed up front. */
 function stagingSteps(atoms: readonly Atom[]): Step[] {
   return atoms.flatMap((atom): Step[] =>
     atom.kind === 'node'
@@ -86,11 +86,13 @@ function stagingSteps(atoms: readonly Atom[]): Step[] {
   );
 }
 
+class ResetFailed extends Error {}
+
 /**
- * Builds the good world once, snapshots it, then searches the differences with ddmin. Trials run
- * on the same machine: those that only change env, time zone or runtime need no reset, and those
- * that change files are followed by an in-place revert to the snapshot. One machine means it
- * works within a single concurrent slot.
+ * Builds the good world once, then searches the differences with ddmin on the same machine. Env,
+ * time zone and runtime trials need no reset; working-tree and dependency trials are undone with
+ * exact inverse steps (git apply -R, reinstall). One machine fits a single concurrent slot, and no
+ * snapshots are needed (see trial.ts for why revert is avoided).
  */
 export async function bisect(
   good: Capsule,
@@ -112,7 +114,6 @@ export async function bisect(
     steps: [],
     trials: [],
     expectedSignature: expected,
-    timings: { snapshotMs: null, revertsMs: [] },
     notes,
   };
   if (atoms.length === 0) return report;
@@ -132,6 +133,7 @@ export async function bisect(
     dependencyDir: dependencyStep?.cwd ?? REPO_DIR,
     repoDir: REPO_DIR,
     goodDiff: plan.setup.some((step) => step.id === 'diff-file'),
+    reinstall: dependencyStep ?? null,
   };
 
   const machine: Machine = await backend.create({
@@ -140,7 +142,6 @@ export async function bisect(
   });
   report.machineId = machine.id;
   emit({ type: 'machine', id: machine.id });
-  let snapshot: string | null = null;
 
   try {
     for (const step of [...plan.setup, ...stagingSteps(atoms)]) {
@@ -151,66 +152,39 @@ export async function bisect(
         return report;
       }
     }
-    const snapshotName = `${SNAPSHOT_PREFIX}${report.runId}-base`;
-    const snapshotStarted = Date.now();
-    snapshot = await machine.snapshot(snapshotName);
-    report.timings.snapshotMs = Date.now() - snapshotStarted;
-    let pending: Cleanup = { kind: 'none' };
-    /** Reverting consumes the snapshot, so the base world is re-snapshotted right after. */
-    const revert = async () => {
-      const started = Date.now();
-      await machine.revert(snapshot as string);
-      snapshot = null;
-      report.timings.revertsMs.push(Date.now() - started);
-      snapshot = await machine.snapshot(snapshotName);
-    };
-    /** Brings the machine back to the base world after the previous trial. */
-    const restore = async () => {
-      if (pending.kind === 'revert') {
-        await revert();
-      } else if (pending.kind === 'undo') {
-        for (const step of pending.steps) {
-          if (!(await runStep(machine, step, plan.env, emit)).ok) {
-            await revert();
-            break;
-          }
-        }
-      }
-      pending = { kind: 'none' };
-    };
 
+    let pendingUndo: Step[] = [];
     const trial = async (subset: readonly Atom[]): Promise<TrialResult> => {
+      for (const step of pendingUndo) {
+        if (!(await runStep(machine, step, plan.env, emit)).ok) throw new ResetFailed(step.title);
+      }
       const index = report.trials.length;
       const labels = subset.map((atom) => atom.label);
       emit({ type: 'trial-start', index, atoms: labels });
       const started = Date.now();
-      await restore();
       const planned = planTrial(subset, base);
-      let result: TrialResult = 'unresolved';
+      // Undo even after a failed setup: the inverse steps also restore a half-applied change.
+      pendingUndo = planned.undo;
+
       const attempts: AttemptResult[] = [];
       let setupOk = true;
       for (const step of planned.steps) {
-        const stepResult = await runStep(machine, step, planned.env, emit);
-        if (!stepResult.ok) {
+        if (!(await runStep(machine, step, planned.env, emit)).ok) {
           setupOk = false;
           break;
         }
       }
-      // A failed setup may have changed files halfway; only a revert is certain to undo that.
-      pending = setupOk ? planned.cleanup : { kind: 'revert' };
-      if (setupOk) {
-        for (let i = 0; i < Math.max(1, options.attempts ?? 1); i++) {
-          const outcome = await machine.run({
-            argv: planned.argv,
-            env: planned.env,
-            cwd: plan.command.cwd ?? REPO_DIR,
-            timeoutMs: plan.command.timeoutMs,
-            onOutput: (chunk) => emit({ type: 'output', chunk }),
-          });
-          attempts.push(describeAttempt(outcome));
-        }
-        result = trialResult(attempts, expected);
+      for (let i = 0; setupOk && i < Math.max(1, options.attempts ?? 1); i++) {
+        const outcome = await machine.run({
+          argv: planned.argv,
+          env: planned.env,
+          cwd: plan.command.cwd ?? REPO_DIR,
+          timeoutMs: plan.command.timeoutMs,
+          onOutput: (chunk) => emit({ type: 'output', chunk }),
+        });
+        attempts.push(describeAttempt(outcome));
       }
+      const result = setupOk ? trialResult(attempts, expected) : 'unresolved';
       const record: TrialRecord = {
         atoms: labels,
         result,
@@ -235,17 +209,16 @@ export async function bisect(
     report.minimal = minimal.map((atom) => atom.label);
     report.verdict = 'found';
     return report;
+  } catch (error) {
+    if (!(error instanceof ResetFailed)) throw error;
+    report.verdict = 'reset-failed';
+    report.notes.push(
+      `Could not undo a trial (${error.message}); stopped before trusting later trials.`,
+    );
+    return report;
   } finally {
     await machine.kill().catch((error: unknown) => {
       report.notes.push(`Could not release ${machine.id} (${String(error)}); run \`twin gc\`.`);
     });
-    // Snapshots are billed storage and outlive the machine.
-    if (snapshot) {
-      await backend.deleteSnapshot(snapshot).catch((error: unknown) => {
-        report.notes.push(
-          `Could not delete snapshot ${snapshot} (${String(error)}); run \`twin gc\`.`,
-        );
-      });
-    }
   }
 }
