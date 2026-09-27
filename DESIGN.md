@@ -277,9 +277,15 @@ Platform behavior found, candidates for cookbook issues:
 
 1. After `revert()` the control channel is closed, and the first command after `reconnect()` still fails (`Not connected` or `Control channel closed (1005)`) while the guest finishes restoring. twin works around it by reconnecting and running a no-op until two succeed in a row.
 2. `listAll({ metadata })` keeps returning sandboxes as live for several minutes after `kill()` succeeded, so orphan reapers report and re-kill machines that are already gone.
-3. Snapshot and revert take tens of seconds, not about one second. Bisect therefore avoids reverts: env, time zone and runtime trials need none, working-tree trials are undone with `git apply -R`, and only dependency trials revert.
+3. Snapshot and revert take tens of seconds, not about one second.
+4. `revert()` consumes the snapshot: `getSnapshot` returns 404 immediately after the first revert, and a second revert fails with `Snapshot not found`. In one run even the first revert failed with `Snapshot not found` while `listSnapshots` still listed the snapshot.
+5. Each snapshot with `node_modules` is about 4 GB of storage, billed from 2026-10-01 above 10 GB, and nothing deletes it automatically.
 
-Still open: `fromSnapshot` timings, PTY interactivity, guest user and architecture.
+Because of 3 to 5, bisect uses no snapshots. Env, time zone and runtime trials need no reset (both runtimes are installed up front and switched through PATH); working-tree trials are undone with an idempotent `git apply -R`; dependency trials are undone by rerunning the good world's install. `twin gc` deletes any `twin-*` snapshot (for example from `replay --keep`).
+
+Final live run on a pair with five differences (node version, an npm dependency, two env unsets, time zone): 66 s end to end, 15 trials, result identical to the Docker harness. It also showed why trials that fail with a different signature are reported separately: on node 22 the time zone bug fails too, but the assertion message is formatted differently, so the exact captured failure needs node 26 and the time zone together.
+
+Guest runs as root (npm logs under `/root/.npm`). Still open: `fromSnapshot` timings, PTY interactivity, architecture.
 
 ## 12. Milestones
 
