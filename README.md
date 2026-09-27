@@ -6,7 +6,7 @@ Turns "fails on my machine" into something a maintainer can run.
 
 A reporter runs one command. twin runs their failing command, records the environment it ran in (OS, runtimes, package managers, installed dependency versions, git state, env var names, time zone, locale), strips secrets, and writes a small JSON **capsule** to attach to the issue. Nothing is uploaded.
 
-A maintainer replays the capsule on a [Solari](https://getsolari.com) sandbox: same runtime, package manager, lockfile, commit, diff, env values and time zone, on a clean Linux machine. Bisecting the difference between two environments is in progress. See [DESIGN.md](DESIGN.md).
+A maintainer replays the capsule on a [Solari](https://getsolari.com) sandbox: same runtime, package manager, lockfile, commit, diff, env values and time zone, on a clean Linux machine. Given a passing capsule too, `twin bisect` finds the smallest set of differences (env values, time zone, node version, npm dependency versions, working tree diff) that turns pass into fail. See [DESIGN.md](DESIGN.md).
 
 ## Status
 
@@ -14,9 +14,10 @@ A maintainer replays the capsule on a [Solari](https://getsolari.com) sandbox: s
 |---|---|
 | `twin capture -- <cmd>` | works |
 | `twin inspect <capsule> [<other>]` | works |
-| `twin replay <capsule>` | works (verified end to end against a local Linux container; live Solari check pending) |
+| `twin replay <capsule>` | works (verified live on Solari) |
 | `twin gc` | works |
-| `twin bisect`, `twin ci`, `twin verify` | planned |
+| `twin bisect <bad> --good <good>` | works (verified live on Solari) |
+| `twin ci`, `twin verify`, `twin shell` | planned |
 
 ## Usage
 
@@ -35,6 +36,11 @@ export SOLARI_API_KEY=...
 twin replay twin-capsule.json            # REPRODUCED / DIFFERENT FAILURE / NOT REPRODUCED / FLAKY
 twin replay twin-capsule.json --keep     # keep the machine at the failure
 twin gc                                  # release anything twin left running
+
+# Maintainer: which difference between a passing and a failing environment breaks it?
+twin bisect twin-capsule.json --good my-capsule.json
+#   Minimal failing difference:
+#     TZ=Asia/Calcutta
 ```
 
 Capture options:
@@ -63,7 +69,8 @@ pnpm check        # typecheck + lint + tests
 pnpm coverage     # tests with coverage thresholds
 pnpm dev capture -- npm test     # run from source (Node 22.18+)
 pnpm build        # compile to dist/
-pnpm e2e:docker <capsule.json>   # replay against a local Docker container (no key needed)
+pnpm e2e:docker <capsule.json>                  # replay in a local Docker container (no key)
+pnpm e2e:docker:bisect <bad.json> <good.json>   # bisect in a local Docker container
 ```
 
 Layout and design decisions are in [DESIGN.md](DESIGN.md).
