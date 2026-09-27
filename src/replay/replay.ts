@@ -52,7 +52,7 @@ function tailLines(text: string, count: number): string {
   return text.trimEnd().split('\n').slice(-count).join('\n');
 }
 
-async function runStep(
+export async function runStep(
   machine: Machine,
   step: Step,
   env: Record<string, string>,
