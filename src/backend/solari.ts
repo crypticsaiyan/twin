@@ -15,6 +15,9 @@ const OUTPUT_TAIL_CHARS = 64_000;
 const SIGKILL = 9;
 const START_ATTEMPTS = 4;
 const RETRY_BASE_MS = 500;
+/** Measured live: after revert the guest drops even a freshly reopened channel once or twice. */
+const SETTLE_ATTEMPTS = 20;
+const SETTLE_PROBES = 2;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -110,13 +113,25 @@ export class SolariMachine implements Machine {
   }
 
   /**
-   * The guest is restored in place and the control channel from before the revert goes stale a
-   * moment later. A no-op command (which retries through reconnects) proves the channel works
-   * before the caller relies on it.
+   * Measured on SDK 0.1.4: revert returns with the channel closed, and the guest drops the next
+   * reopened channel too while it finishes restoring. Keep reconnecting and running a no-op until
+   * it succeeds twice in a row. Retrying is safe only because `true` has no effect.
    */
   async revert(snapshotId: string): Promise<void> {
     await this.#sandbox.revert(snapshotId);
-    await this.run({ argv: ['true'], timeoutMs: 60_000 });
+    let streak = 0;
+    for (let attempt = 1; attempt <= SETTLE_ATTEMPTS; attempt++) {
+      try {
+        await this.#sandbox.reconnect();
+        const probe = await this.run({ argv: ['true'], timeoutMs: 30_000 });
+        if (probe.exitCode === 0 && ++streak >= SETTLE_PROBES) return;
+      } catch (error) {
+        if (!isConnectionError(error)) throw error;
+        streak = 0;
+        await sleep(this.#retryBaseMs * 2);
+      }
+    }
+    throw new Error(`control channel did not settle after reverting to ${snapshotId}`);
   }
 
   kill(): Promise<void> {

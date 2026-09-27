@@ -103,7 +103,15 @@ describe('SolariMachine', () => {
     expect(await machine.snapshot('fail')).toBe('snap_fail');
     await machine.revert('snap_fail');
     await machine.kill();
-    expect(calls).toEqual(['write /tmp/x', 'revert snap_fail', 'start true {"args":[]}', 'kill']);
+    expect(calls).toEqual([
+      'write /tmp/x',
+      'revert snap_fail',
+      'reconnect',
+      'start true {"args":[]}',
+      'reconnect',
+      'start true {"args":[]}',
+      'kill',
+    ]);
   });
 
   it('reconnects and retries when the channel dropped before the command started', async () => {
@@ -122,6 +130,29 @@ describe('SolariMachine', () => {
     });
     expect(outcome.exitCode).toBe(0);
     expect(calls).toEqual(['start dropped', 'reconnect', 'start true {"args":[]}']);
+  });
+
+  it('keeps probing after a revert until the channel stays up', async () => {
+    const { sandbox, handle, calls } = fakeSandbox({ exitCode: 0 });
+    const closed = Object.assign(new Error('Control channel closed (1005)'), {
+      name: 'ConnectionError',
+    });
+    const wait = vi.spyOn(handle, 'wait');
+    wait.mockRejectedValueOnce(closed);
+    await new SolariMachine(sandbox, Date.now, 0).revert('snap_1');
+    expect(calls.filter((c) => c === 'reconnect')).toHaveLength(3);
+    expect(wait).toHaveBeenCalledTimes(3);
+  });
+
+  it('fails a revert whose channel never settles, and passes other errors through', async () => {
+    const { sandbox, handle } = fakeSandbox({ exitCode: 0 });
+    const wait = vi.spyOn(handle, 'wait');
+    wait.mockRejectedValue(Object.assign(new Error('closed'), { name: 'ConnectionError' }));
+    await expect(new SolariMachine(sandbox, Date.now, 0).revert('snap_1')).rejects.toThrow(
+      'did not settle',
+    );
+    wait.mockRejectedValue(new Error('boom'));
+    await expect(new SolariMachine(sandbox, Date.now, 0).revert('snap_1')).rejects.toThrow('boom');
   });
 
   it('gives up after repeated connection errors and never retries other errors', async () => {
