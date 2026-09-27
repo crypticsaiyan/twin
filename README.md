@@ -19,6 +19,10 @@ A maintainer replays the capsule on a [Solari](https://getsolari.com) sandbox: s
 | `twin bisect <bad> --good <good>` | works (verified live on Solari) |
 | `twin ci`, `twin verify`, `twin shell` | planned |
 
+## Proof on a real issue
+
+[`examples/echarts-21538`](examples/echarts-21538) captures [apache/echarts#21538](https://github.com/apache/echarts/issues/21538), a test that fails only in daylight-saving time zones. On Solari, `twin replay` reproduced it in 72 s with an identical failure signature, and `twin bisect` isolated `TZ=America/New_York` as the minimal difference in 69 s. The capsules and recorded output are in that folder.
+
 ## Usage
 
 Requires Node 22 or newer.
