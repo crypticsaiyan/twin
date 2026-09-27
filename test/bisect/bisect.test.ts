@@ -27,6 +27,7 @@ function capsules(): { good: Capsule; bad: Capsule } {
     env: { NODE_ENV: { state: 'set', value: 'development' }, CI: { state: 'absent' } },
     locale: { timeZone: 'Asia/Kolkata', locale: 'en-IN' },
     repo: { ...repo, diff: '+changed\n', dirty: true },
+    resolved: { node: { 'left-pad': ['1.4.0'] } },
   });
   return { good, bad };
 }
@@ -35,6 +36,7 @@ interface World {
   tz: string | undefined;
   node22: boolean;
   diff: boolean;
+  dependency: boolean;
   unsetCi: boolean;
 }
 
@@ -49,16 +51,22 @@ function simulatedBackend(
   overrides: (spec: RunSpec) => { exitCode: number; output?: string } | undefined = () => undefined,
 ) {
   let diffApplied = false;
+  let dependencyInstalled = false;
   const backend = new FakeBackend((spec) => {
     const override = overrides(spec);
     if (override) return override;
-    if (spec.argv.join(' ').includes('git apply --whitespace=nowarn /tmp/twin/failing.diff'))
+    const text = spec.argv.join(' ');
+    if (text.includes('git apply -R --whitespace=nowarn /tmp/twin/failing.diff'))
+      diffApplied = false;
+    else if (text.includes('git apply --whitespace=nowarn /tmp/twin/failing.diff'))
       diffApplied = true;
+    if (text.includes('npm install --no-save')) dependencyInstalled = true;
     if (!isCommand(spec)) return undefined;
     const world: World = {
       tz: spec.env?.TZ,
       node22: spec.env?.PATH?.includes('node-22.3.0') ?? false,
       diff: diffApplied,
+      dependency: dependencyInstalled,
       unsetCi: spec.argv[0] === 'env' && spec.argv.includes('CI'),
     };
     return fails(world) ? { exitCode: 1, output: FAILURE } : { exitCode: 0 };
@@ -69,6 +77,7 @@ function simulatedBackend(
     const revert = machine.revert.bind(machine);
     machine.revert = async (id) => {
       diffApplied = false;
+      dependencyInstalled = false;
       await revert(id);
     };
     return machine;
@@ -87,6 +96,7 @@ describe('bisect', () => {
     expect(report.minimal).toEqual(['TZ=Asia/Kolkata']);
     expect(report.candidates).toEqual([
       'node 22.3.0',
+      'left-pad@1.4.0',
       'unset CI',
       'NODE_ENV=development',
       'TZ=Asia/Kolkata',
@@ -103,6 +113,7 @@ describe('bisect', () => {
   it('never reverts when every candidate is a process setting', async () => {
     const { good, bad } = capsules();
     bad.repo = { ...(bad.repo as NonNullable<Capsule['repo']>), diff: '', dirty: false };
+    bad.resolved = good.resolved;
     const backend = simulatedBackend((w) => w.tz === 'Asia/Kolkata' && w.node22);
     const report = await bisect(good, bad, backend);
     expect(report.minimal.sort()).toEqual(['TZ=Asia/Kolkata', 'node 22.3.0']);
@@ -127,15 +138,40 @@ describe('bisect', () => {
     expect(report.minimal.sort()).toEqual(['node 22.3.0', 'unset CI']);
   });
 
-  it('reverts the machine after trials that change files', async () => {
+  it('undoes working tree trials with git instead of reverting', async () => {
     const { good, bad } = capsules();
+    bad.resolved = good.resolved;
     const backend = simulatedBackend((w) => w.diff);
     const report = await bisect(good, bad, backend);
     expect(report.minimal).toEqual(['working tree diff']);
+    expect(backend.machines[0]?.reverts).toEqual([]);
+    expect(report.timings.revertsMs).toEqual([]);
+    expect(backend.machines[0]?.files.get('/tmp/twin/failing.diff')).toBe('+changed\n');
+    expect(backend.machines[0]?.runs.some((r) => r.argv.join(' ').includes('git apply -R'))).toBe(
+      true,
+    );
+  });
+
+  it('reverts the machine after trials that change dependencies', async () => {
+    const { good, bad } = capsules();
+    const backend = simulatedBackend((w) => w.dependency);
+    const report = await bisect(good, bad, backend);
+    expect(report.minimal).toEqual(['left-pad@1.4.0']);
     expect(backend.machines[0]?.reverts.length).toBeGreaterThan(0);
     expect(report.timings.revertsMs).toHaveLength(backend.machines[0]?.reverts.length ?? -1);
     expect(report.timings.snapshotMs).toBeGreaterThanOrEqual(0);
-    expect(backend.machines[0]?.files.get('/tmp/twin/failing.diff')).toBe('+changed\n');
+  });
+
+  it('falls back to a revert when a git undo fails', async () => {
+    const { good, bad } = capsules();
+    bad.resolved = good.resolved;
+    const backend = simulatedBackend(
+      (w) => w.tz === 'Asia/Kolkata',
+      (spec) => (spec.argv.join(' ').includes('git apply -R') ? { exitCode: 1 } : undefined),
+    );
+    const report = await bisect(good, bad, backend);
+    expect(report.minimal).toEqual(['TZ=Asia/Kolkata']);
+    expect(backend.machines[0]?.reverts.length).toBeGreaterThan(0);
   });
 
   it('reports a good world that fails on its own', async () => {

@@ -6,6 +6,8 @@ export const WORK_DIR = '/tmp/twin';
 export const TOOLS_DIR = `${WORK_DIR}/tools`;
 export const REPO_DIR = `${WORK_DIR}/repo`;
 export const VENV_DIR = `${WORK_DIR}/venv`;
+/** The capsule's working-tree diff, uploaded during replay setup. */
+export const CAPSULE_DIFF_PATH = `${WORK_DIR}/capsule.diff`;
 export const SYSTEM_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
 export function nodeDir(version: string): string {

@@ -8,7 +8,7 @@ import { script } from '../replay/shell.ts';
 import { type AttemptResult, describeAttempt } from '../replay/verdict.ts';
 import { type Atom, deriveAtoms, type Skipped } from './atoms.ts';
 import { ddmin, type TrialResult } from './ddmin.ts';
-import { planTrial, type TrialBase } from './trial.ts';
+import { type Cleanup, planTrial, type TrialBase } from './trial.ts';
 
 export type BisectVerdict =
   /** A minimal set of differences turns the good world into the failing one. */
@@ -131,6 +131,7 @@ export async function bisect(
     argv: good.command.argv,
     dependencyDir: dependencyStep?.cwd ?? REPO_DIR,
     repoDir: REPO_DIR,
+    goodDiff: plan.setup.some((step) => step.id === 'diff-file'),
   };
 
   const machine: Machine = await backend.create({
@@ -152,19 +153,33 @@ export async function bisect(
     const snapshotStarted = Date.now();
     const snapshot = await machine.snapshot(`twin-${report.runId}-base`);
     report.timings.snapshotMs = Date.now() - snapshotStarted;
-    let dirty = false;
+    let pending: Cleanup = { kind: 'none' };
+    const revert = async () => {
+      const started = Date.now();
+      await machine.revert(snapshot);
+      report.timings.revertsMs.push(Date.now() - started);
+    };
+    /** Brings the machine back to the base world after the previous trial. */
+    const restore = async () => {
+      if (pending.kind === 'revert') {
+        await revert();
+      } else if (pending.kind === 'undo') {
+        for (const step of pending.steps) {
+          if (!(await runStep(machine, step, plan.env, emit)).ok) {
+            await revert();
+            break;
+          }
+        }
+      }
+      pending = { kind: 'none' };
+    };
 
     const trial = async (subset: readonly Atom[]): Promise<TrialResult> => {
       const index = report.trials.length;
       const labels = subset.map((atom) => atom.label);
       emit({ type: 'trial-start', index, atoms: labels });
       const started = Date.now();
-      if (dirty) {
-        const revertStarted = Date.now();
-        await machine.revert(snapshot);
-        report.timings.revertsMs.push(Date.now() - revertStarted);
-        dirty = false;
-      }
+      await restore();
       const planned = planTrial(subset, base);
       let result: TrialResult = 'unresolved';
       const attempts: AttemptResult[] = [];
@@ -176,7 +191,8 @@ export async function bisect(
           break;
         }
       }
-      dirty = planned.mutatesDisk;
+      // A failed setup may have changed files halfway; only a revert is certain to undo that.
+      pending = setupOk ? planned.cleanup : { kind: 'revert' };
       if (setupOk) {
         for (let i = 0; i < Math.max(1, options.attempts ?? 1); i++) {
           const outcome = await machine.run({

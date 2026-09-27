@@ -2,6 +2,7 @@ import { posix } from 'node:path';
 import type { Capsule } from '../capsule/schema.ts';
 import { TwinError } from '../errors.ts';
 import {
+  CAPSULE_DIFF_PATH,
   installNodeScript,
   installPythonDepsScript,
   installPythonScript,
@@ -148,7 +149,7 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
 
   const diff = options.ref === undefined ? capsule.repo?.diff : undefined;
   if (diff) {
-    const diffPath = `${WORK_DIR}/capsule.diff`;
+    const diffPath = CAPSULE_DIFF_PATH;
     setup.push(
       {
         kind: 'write',
