@@ -5,6 +5,7 @@ import { TwinError } from '../errors.ts';
 import { replay } from '../replay/replay.ts';
 import { renderReplay } from '../report/replay.ts';
 import { type Command, type CommandContext, stderrStyle, stdoutStyle } from './context.ts';
+import { parseEnvAssignments, positiveInt } from './options.ts';
 
 const USAGE = `Usage: twin replay <capsule> [options]
 
@@ -26,26 +27,6 @@ Options:
   -h, --help               show this help
 
 Exit status: 0 reproduced, 1 anything else, 2 usage error.`;
-
-export function parseEnvAssignments(assignments: readonly string[]): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const assignment of assignments) {
-    const eq = assignment.indexOf('=');
-    if (eq <= 0)
-      throw new TwinError(`--env expects NAME=value, got "${assignment}"`, { exitCode: 2 });
-    env[assignment.slice(0, eq)] = assignment.slice(eq + 1);
-  }
-  return env;
-}
-
-function positiveInt(value: string | undefined, flag: string, fallback: number): number {
-  if (value === undefined) return fallback;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new TwinError(`${flag} expects a positive whole number, got "${value}"`, { exitCode: 2 });
-  }
-  return parsed;
-}
 
 async function run(args: string[], context: CommandContext): Promise<number> {
   const { values, positionals } = parseArgs({

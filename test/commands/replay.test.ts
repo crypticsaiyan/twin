@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FakeBackend } from '../../src/backend/fake.ts';
 import { writeCapsule } from '../../src/capsule/file.ts';
 import { main } from '../../src/cli.ts';
-import { parseEnvAssignments } from '../../src/commands/replay.ts';
+import { parseEnvAssignments } from '../../src/commands/options.ts';
 import type { ReplayReport } from '../../src/replay/replay.ts';
 import { renderReplay, shortId } from '../../src/report/replay.ts';
 import { createStyle } from '../../src/report/style.ts';
