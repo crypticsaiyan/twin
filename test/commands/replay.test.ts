@@ -106,9 +106,11 @@ describe('twin replay', () => {
 });
 
 describe('twin gc', () => {
-  it('releases leftover twin machines', async () => {
+  it('releases leftover twin machines and deletes twin snapshots', async () => {
     const backend = new FakeBackend();
-    await backend.create({ labels: { app: 'twin', run: 'x' }, idleTimeoutMs: 1 });
+    const machine = await backend.create({ labels: { app: 'twin', run: 'x' }, idleTimeoutMs: 1 });
+    const kept = await machine.snapshot('twin-x-failure');
+    await machine.snapshot('someone-elses');
     const { io, stdout } = fakeIo();
     const context = {
       io,
@@ -118,9 +120,11 @@ describe('twin gc', () => {
       getBackend: async () => backend,
     };
     expect(await main(['gc'], context)).toBe(0);
-    expect(stdout.text).toBe('Released 1: sbx_fake0\n');
+    expect(stdout.text).toBe(`Released 1 machines: sbx_fake0\nDeleted 1 snapshots: ${kept}\n`);
+    expect([...backend.snapshots.values()]).toEqual(['someone-elses']);
+    stdout.text = '';
     expect(await main(['gc'], context)).toBe(0);
-    expect(stdout.text).toContain('No twin machines running.');
+    expect(stdout.text).toBe('No twin machines running.\nNo twin snapshots.\n');
     expect(await main(['gc', '-h'], context)).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type Backend, type Machine, TWIN_LABELS } from '../backend/types.ts';
+import { type Backend, type Machine, SNAPSHOT_PREFIX, TWIN_LABELS } from '../backend/types.ts';
 import type { Capsule } from '../capsule/schema.ts';
 import { planReplay, type Step } from '../replay/plan.ts';
 import { type ReplayEvent, runStep, type StepResult } from '../replay/replay.ts';
@@ -140,6 +140,7 @@ export async function bisect(
   });
   report.machineId = machine.id;
   emit({ type: 'machine', id: machine.id });
+  let snapshot: string | null = null;
 
   try {
     for (const step of [...plan.setup, ...stagingSteps(atoms)]) {
@@ -150,14 +151,18 @@ export async function bisect(
         return report;
       }
     }
+    const snapshotName = `${SNAPSHOT_PREFIX}${report.runId}-base`;
     const snapshotStarted = Date.now();
-    const snapshot = await machine.snapshot(`twin-${report.runId}-base`);
+    snapshot = await machine.snapshot(snapshotName);
     report.timings.snapshotMs = Date.now() - snapshotStarted;
     let pending: Cleanup = { kind: 'none' };
+    /** Reverting consumes the snapshot, so the base world is re-snapshotted right after. */
     const revert = async () => {
       const started = Date.now();
-      await machine.revert(snapshot);
+      await machine.revert(snapshot as string);
+      snapshot = null;
       report.timings.revertsMs.push(Date.now() - started);
+      snapshot = await machine.snapshot(snapshotName);
     };
     /** Brings the machine back to the base world after the previous trial. */
     const restore = async () => {
@@ -234,5 +239,13 @@ export async function bisect(
     await machine.kill().catch((error: unknown) => {
       report.notes.push(`Could not release ${machine.id} (${String(error)}); run \`twin gc\`.`);
     });
+    // Snapshots are billed storage and outlive the machine.
+    if (snapshot) {
+      await backend.deleteSnapshot(snapshot).catch((error: unknown) => {
+        report.notes.push(
+          `Could not delete snapshot ${snapshot} (${String(error)}); run \`twin gc\`.`,
+        );
+      });
+    }
   }
 }

@@ -106,7 +106,9 @@ describe('bisect', () => {
     expect(report.trials[1]).toMatchObject({ result: 'fail' });
     const [machine] = backend.machines;
     expect(machine?.killed).toBe(true);
-    expect(machine?.snapshots).toHaveLength(1);
+    // One base snapshot, plus a fresh one after each (snapshot-consuming) revert; all deleted.
+    expect(machine?.snapshots).toHaveLength((machine?.reverts.length ?? 0) + 1);
+    expect(backend.snapshots.size).toBe(0);
     expect(events).toContain('trial-end');
   });
 
@@ -160,6 +162,16 @@ describe('bisect', () => {
     expect(backend.machines[0]?.reverts.length).toBeGreaterThan(0);
     expect(report.timings.revertsMs).toHaveLength(backend.machines[0]?.reverts.length ?? -1);
     expect(report.timings.snapshotMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('notes a snapshot it could not delete', async () => {
+    const { good, bad } = capsules();
+    const backend = simulatedBackend((w) => w.tz === 'Asia/Kolkata');
+    backend.deleteSnapshot = async () => {
+      throw new Error('503');
+    };
+    const report = await bisect(good, bad, backend);
+    expect(report.notes.at(-1)).toMatch(/Could not delete snapshot snap_.*twin gc/);
   });
 
   it('falls back to a revert when a git undo fails', async () => {

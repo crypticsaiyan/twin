@@ -113,4 +113,14 @@ export class DockerBackend implements Backend {
     if (ids.length > 0) await docker(['rm', '-f', ...ids]);
     return ids;
   }
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    await docker(['rmi', '-f', snapshotId]);
+  }
+
+  async reapSnapshots(prefix: string): Promise<string[]> {
+    const { out } = await docker(['images', '--format', '{{.Repository}}:{{.Tag}}', 'twin-e2e']);
+    const ids = out.split('\n').filter((ref) => ref.split(':')[1]?.startsWith(prefix));
+    if (ids.length > 0) await docker(['rmi', '-f', ...ids]);
+    return ids;
+  }
 }

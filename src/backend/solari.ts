@@ -4,7 +4,10 @@ import { TwinError } from '../errors.ts';
 import type { Backend, CreateMachineOptions, Machine, RunOutcome, RunSpec } from './types.ts';
 
 /** The SDK surface twin uses, narrowed so tests can pass a structural fake. */
-export type SandboxApi = Pick<SandboxClient, 'create' | 'listAll' | 'kill'>;
+export type SandboxApi = Pick<
+  SandboxClient,
+  'create' | 'listAll' | 'kill' | 'listSnapshots' | 'deleteSnapshot'
+>;
 export type SandboxHandle = Pick<
   Sandbox,
   'id' | 'connect' | 'reconnect' | 'commands' | 'files' | 'snapshot' | 'revert' | 'kill'
@@ -172,6 +175,17 @@ export class SolariBackend implements Backend {
       killed.push(view.sandboxId);
     }
     return killed;
+  }
+  deleteSnapshot(snapshotId: string): Promise<void> {
+    return this.#sandboxes.deleteSnapshot(snapshotId);
+  }
+
+  /** Snapshots are billed storage (about 4 GB each with node_modules), so leftovers matter. */
+  async reapSnapshots(prefix: string): Promise<string[]> {
+    const { snapshots } = await this.#sandboxes.listSnapshots({ limit: 200 });
+    const ids = snapshots.filter((s) => s.name?.startsWith(prefix)).map((s) => s.id);
+    for (const id of ids) await this.#sandboxes.deleteSnapshot(id);
+    return ids;
   }
 }
 

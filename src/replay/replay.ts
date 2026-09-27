@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type Backend, type Machine, TWIN_LABELS } from '../backend/types.ts';
+import { type Backend, type Machine, SNAPSHOT_PREFIX, TWIN_LABELS } from '../backend/types.ts';
 import type { Capsule } from '../capsule/schema.ts';
 import { type PlanOptions, planReplay, type ReplayPlan, type Step } from './plan.ts';
 import { type AttemptResult, classify, describeAttempt, type Verdict } from './verdict.ts';
@@ -151,7 +151,7 @@ export async function replay(
     report.verdict = classify(capsule, report.attempts);
 
     if (options.keep && report.verdict === 'reproduced') {
-      report.failureSnapshot = await machine.snapshot(`twin-${runId}-failure`);
+      report.failureSnapshot = await machine.snapshot(`${SNAPSHOT_PREFIX}${runId}-failure`);
       report.kept = true;
     }
     return report;

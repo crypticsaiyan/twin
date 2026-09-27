@@ -187,8 +187,33 @@ describe('SolariBackend', () => {
     const listAll = vi.fn(async function* (_opts: object) {
       yield* views;
     });
-    return { sandboxes: { create, kill, listAll } as unknown as SandboxApi, create, kill, listAll };
+    const listSnapshots = vi.fn(async (_opts: object) => ({
+      snapshots: [
+        { id: 'snap_a', name: 'twin-r1-base' },
+        { id: 'snap_b', name: 'mine' },
+        { id: 'snap_c', name: null },
+      ],
+    }));
+    const deleteSnapshot = vi.fn(async (_id: string) => {});
+    return {
+      sandboxes: { create, kill, listAll, listSnapshots, deleteSnapshot } as unknown as SandboxApi,
+      create,
+      kill,
+      listAll,
+      listSnapshots,
+      deleteSnapshot,
+    };
   }
+
+  it('deletes only snapshots with the twin prefix', async () => {
+    const { sandbox } = fakeSandbox();
+    const { sandboxes, deleteSnapshot, listSnapshots } = api(sandbox);
+    const backend = new SolariBackend(sandboxes);
+    expect(await backend.reapSnapshots('twin-')).toEqual(['snap_a']);
+    expect(listSnapshots).toHaveBeenCalledWith({ limit: 200 });
+    await backend.deleteSnapshot('snap_z');
+    expect(deleteSnapshot.mock.calls).toEqual([['snap_a'], ['snap_z']]);
+  });
 
   it('creates a labeled base sandbox with an idle timeout and opens its control channel', async () => {
     const { sandbox, calls } = fakeSandbox();
