@@ -261,7 +261,25 @@ Capsule: a time-zone-dependent assertion in `sindresorhus/is-plain-obj@666df7c`,
 
 Answers so far: `base` has `sh`, `curl`, `tar`/gzip and `git`; outbound HTTPS to nodejs.org, GitHub and the npm registry works and is fast; Node 26 official binaries run. Dependency install dominates, which confirms the bisect design (install once, snapshot, fork trials). Sandbox ids are opaque strings of about 200 characters.
 
-Still open: snapshot and `fromSnapshot` timings with `node_modules`, snapshot durability during a bisect session, PTY interactivity, guest user and architecture.
+### Live bisect and snapshot measurements, 2026-09-28
+
+Bisect of the same capsule against a passing capsule (`TZ=UTC`, `NODE_ENV=test`, `FORCE_COLOR=0`, plus a README edit):
+
+| Measured | Result |
+|---|---|
+| End to end `twin bisect` (build good world, snapshot, 5 trials, kill) | 76 s |
+| `snapshot()` of a running sandbox with `node_modules` | 28.4 s and 34.7 s (docs suggest about 1 s) |
+| `revert()` in place | 21.7 s and 14.2 s |
+| Trials that only change env, time zone or node version | 0.3 to 0.7 s each, no reset needed |
+| Result | minimal difference `TZ=Asia/Calcutta`, 5 trials |
+
+Platform behavior found, candidates for cookbook issues:
+
+1. After `revert()` the control channel is closed, and the first command after `reconnect()` still fails (`Not connected` or `Control channel closed (1005)`) while the guest finishes restoring. twin works around it by reconnecting and running a no-op until two succeed in a row.
+2. `listAll({ metadata })` keeps returning sandboxes as live for several minutes after `kill()` succeeded, so orphan reapers report and re-kill machines that are already gone.
+3. Snapshot and revert take tens of seconds, not about one second. Bisect therefore avoids reverts: env, time zone and runtime trials need none, working-tree trials are undone with `git apply -R`, and only dependency trials revert.
+
+Still open: `fromSnapshot` timings, PTY interactivity, guest user and architecture.
 
 ## 12. Milestones
 
