@@ -70,8 +70,13 @@ describe('replay', () => {
       attempts: 1,
     });
     expect(report.kept).toBe(true);
-    expect(report.failureSnapshot).toMatch(/^snap_/);
-    expect(backend.machines[0]?.killed).toBe(false);
+    const [machine] = backend.machines;
+    expect(machine?.killed).toBe(false);
+    expect(machine?.snapshots).toEqual([]);
+    // The kept machine carries the reporter's env and a shell entry point for `twin shell`.
+    expect(machine?.files.get('/tmp/twin/env.sh')).toContain('export NODE_ENV=test');
+    expect(machine?.files.get('/tmp/twin/shell.sh')).toContain('. /tmp/twin/env.sh');
+    expect(machine?.runs.at(-1)?.argv).toEqual(['chmod', '+x', '/tmp/twin/shell.sh']);
   });
 
   it('does not keep machines that did not reproduce', async () => {

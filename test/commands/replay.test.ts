@@ -151,7 +151,6 @@ describe('renderReplay', () => {
     backend: 'fake',
     machineId: 'sbx_1',
     kept: false,
-    failureSnapshot: null,
     expected: { outcome: 'fail', signature: 'exit1:aaaa', keyLines: ['Error: a'] },
     steps: [],
     attempts: [],
@@ -220,7 +219,6 @@ describe('renderReplay', () => {
     const text = renderReplay(
       report({
         kept: true,
-        failureSnapshot: 'snap_1',
         expected: { outcome: 'pass', signature: null, keyLines: [] },
         attempts: [
           {
@@ -249,7 +247,10 @@ describe('renderReplay', () => {
     expect(text).toContain('✗ setup (exit timeout)');
     expect(text).toContain('  1  PASS  0.0s');
     expect(text).toContain('expected  PASS');
-    expect(text).toContain('Machine sbx_1 kept at the failure (snapshot snap_1).');
+    expect(text).toContain("still running at the failure, in the reporter's environment");
+    expect(text).toContain('twin shell sbx_1         open a terminal on it');
+    expect(text).toContain('twin shell sbx_1 --web');
+    expect(text).toContain('It is billed while running');
   });
 
   it.each(['not-reproduced', 'flaky', 'inconclusive'] as const)('renders %s', (verdict) => {

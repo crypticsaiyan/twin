@@ -19,7 +19,7 @@ Needs SOLARI_API_KEY in the environment.
 
 Options:
       --attempts <n>       runs of the command (default 3)
-      --keep               keep the machine at the failure when it reproduces
+      --keep               keep the machine running at the failure (then: twin shell)
       --repo <url>         clone from here instead of the capsule's remote
       --ref <sha>          check out this commit instead (skips the diff)
       --env <NAME=value>   value for a variable the capsule recorded by name (repeatable)

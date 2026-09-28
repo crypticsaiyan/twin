@@ -103,9 +103,15 @@ export function renderReplay(
   lines.push('', verdictLine(report.verdict, style, options.verify === true));
 
   if (report.kept) {
+    const id = report.machineId?.slice(0, 12) ?? '';
     lines.push(
-      `Machine ${report.machineId} kept at the failure (snapshot ${report.failureSnapshot}).`,
-      style.dim('It is released after 15 minutes idle, or now with: twin gc'),
+      '',
+      style.bold("The machine is still running at the failure, in the reporter's environment:"),
+      `  twin shell ${id}         open a terminal on it`,
+      `  twin shell ${id} --web   get a browser terminal link to share`,
+      style.dim(
+        'It is billed while running and released after 15 minutes idle, or now with: twin gc',
+      ),
     );
   }
   if (report.notes.length > 0) {

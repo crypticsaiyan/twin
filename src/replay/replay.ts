@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { type Backend, type Machine, SNAPSHOT_PREFIX, TWIN_LABELS } from '../backend/types.ts';
+import { type Backend, type Machine, TWIN_LABELS } from '../backend/types.ts';
 import type { Capsule } from '../capsule/schema.ts';
+import { ENV_SCRIPT, envScript, SHELL_SCRIPT, shellScript } from '../shell/guest.ts';
 import { type PlanOptions, planReplay, type ReplayPlan, type Step } from './plan.ts';
+import { REPO_DIR } from './runtimes.ts';
 import { type AttemptResult, classify, describeAttempt, type Verdict } from './verdict.ts';
 
 export interface StepResult {
@@ -22,7 +24,6 @@ export interface ReplayReport {
   machineId: string | null;
   /** Set when the machine was left running for inspection. */
   kept: boolean;
-  failureSnapshot: string | null;
   expected: { outcome: 'pass' | 'fail'; signature: string | null; keyLines: string[] };
   steps: StepResult[];
   attempts: AttemptResult[];
@@ -89,6 +90,20 @@ export async function runStep(
   return result;
 }
 
+/** Writes the reporter's environment and a shell entry point into a machine that is being kept. */
+async function prepareShell(machine: Machine, plan: ReplayPlan, capsule: Capsule): Promise<void> {
+  await machine.writeFile(ENV_SCRIPT, envScript(plan.env));
+  await machine.writeFile(
+    SHELL_SCRIPT,
+    shellScript({
+      cwd: plan.command.cwd ?? REPO_DIR,
+      argv: capsule.command.argv,
+      commit: capsule.repo?.commit ?? null,
+    }),
+  );
+  await machine.run({ argv: ['chmod', '+x', SHELL_SCRIPT], timeoutMs: 30_000 });
+}
+
 /**
  * Rebuilds the capsule's environment on a fresh machine, runs the command several times and
  * classifies the outcome. The machine is always released unless the caller asked to keep a
@@ -108,7 +123,6 @@ export async function replay(
     backend: backend.name,
     machineId: null,
     kept: false,
-    failureSnapshot: null,
     expected: {
       outcome: capsule.command.outcome,
       signature: capsule.command.failure?.signature ?? null,
@@ -151,7 +165,9 @@ export async function replay(
     report.verdict = classify(capsule, report.attempts);
 
     if (options.keep && report.verdict === 'reproduced') {
-      report.failureSnapshot = await machine.snapshot(`${SNAPSHOT_PREFIX}${runId}-failure`);
+      // The machine itself is what is kept (a snapshot would cost ~30 s and ~4 GB of billed storage,
+      // and revert proved unreliable). These files let `twin shell` open it in the same environment.
+      await prepareShell(machine, plan, capsule);
       report.kept = true;
     }
     return report;
