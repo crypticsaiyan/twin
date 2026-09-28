@@ -172,8 +172,11 @@ const seeAlso = [
 
       <main>
         <section class="hero" aria-labelledby="name">
-          <h1 id="name" class="wordmark">twin<span class="cursor" aria-hidden="true"></span></h1>
-          <p class="whatis">reproduce a bug in the environment where it was reported</p>
+          <div class="hero-name">
+            <h1 id="name" class="wordmark">twin<span class="cursor" aria-hidden="true"></span></h1>
+            <p class="whatis">reproduce a bug in the environment where it was reported</p>
+          </div>
+          <div class="hero-text">
           <p class="lede">
             Most “works on my machine” bugs aren’t in the code. They’re in a runtime version, a
             dependency the lockfile resolved differently, an environment variable, the time zone. twin
@@ -189,6 +192,7 @@ const seeAlso = [
             Node 22 or newer. The reporter needs no account and nothing is uploaded. ·
             <a href={docs.quickstart}>quickstart</a>
           </p>
+          </div>
         </section>
 
         <section aria-labelledby="synopsis">
@@ -218,13 +222,15 @@ const seeAlso = [
           <ol class="steps">
             {
               steps.map((step) => (
-                <li>
+                <li class="pair">
+                  <div>
                   <h3>
                     <span class="cmd">twin {step.cmd}</span>
                     <span class="title">{step.title}</span>
                     {step.time && <span class="time">{step.time}</span>}
                   </h3>
                   <p>{step.text}</p>
+                  </div>
                   <pre class="printout"><code set:html={paint(step.log)} /></pre>
                 </li>
               ))
@@ -234,26 +240,31 @@ const seeAlso = [
 
         <section aria-labelledby="agents">
           <h2 id="agents">Agents</h2>
-          <p>
+          <div class="pair">
+            <div><p>
             A coding agent asked to fix #21538 runs the tests on its own machine, they pass, and it has
             nothing to work with. Its “tests pass” is also checked in the wrong place. The MCP server
             gives the agent the reporter’s machine:
-          </p>
-          <pre class="plain"><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
-          <p>
+          </p></div>
+            <pre class="plain"><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
+          </div>
+          <div class="pair">
+            <div><p>
             Tools: <code>inspect</code>, <code>replay</code>, <code>run</code>, <code>write_file</code>,
             <code>verify</code>, <code>bisect</code>, <code>release</code>. <code>run</code> executes in
             the kept machine with the reporter’s env, PATH, time zone and working directory. A recorded
             session on the same issue, driven by a script rather than a model (ids shortened):
-          </p>
-          <pre class="printout"><code set:html={paint(agentLog)} /></pre>
-          <p>
+          </p></div>
+            <pre class="printout"><code set:html={paint(agentLog)} /></pre>
+          </div>
+          <div class="pair">
+            <div><p>
             The pull request that comes out of it is checked the same way. The
             <a href={docs.action}>GitHub Action</a> finds the capsule on the issue a pull request
             closes, verifies the head commit in the reporter’s environment and comments the verdict. The
             check fails unless it is fixed.
-          </p>
-          <pre class="plain"><code>{`on: pull_request
+          </p></div>
+            <pre class="plain"><code>{`on: pull_request
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -261,6 +272,7 @@ jobs:
       - uses: crypticsaiyan/twin@main
         with:
           solari-api-key: \${{ secrets.SOLARI_API_KEY }}`}</code></pre>
+          </div>
           <p class="small"><a href={docs.agents}>agent guide</a> · <a href={docs.action}>action reference</a></p>
         </section>
 
@@ -416,38 +428,11 @@ jobs:
     outline-offset: 3px;
   }
 
-  /* One sheet of continuous-form paper: pin-feed holes down both margins. */
   .sheet {
-    position: relative;
-    max-width: 58rem;
+    max-width: 86rem;
     margin: 0 auto;
-    padding-inline: 4.5rem;
+    padding-inline: clamp(1rem, 4vw, 3.5rem);
     padding-block: 1.25rem 0;
-    border-inline: 1px dashed var(--twin-rule);
-  }
-
-  .sheet::before,
-  .sheet::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2.25rem;
-    background: radial-gradient(
-        circle at center,
-        var(--twin-hole) 0 0.42rem,
-        var(--twin-hole-edge) 0.42rem 0.5rem,
-        transparent 0.5rem
-      )
-      center top / 2.25rem 2.25rem repeat-y;
-  }
-
-  .sheet::before {
-    left: 0.6rem;
-  }
-
-  .sheet::after {
-    right: 0.6rem;
   }
 
   .running {
@@ -503,8 +488,8 @@ jobs:
   }
 
   /* Man-page layout: headings flush left, bodies indented. */
-  main > section:not(.hero) {
-    padding-left: 3ch;
+  main > section:not(.hero) > :not(h2) {
+    margin-left: 3ch;
   }
 
   main p,
@@ -517,7 +502,7 @@ jobs:
   }
 
   h2 {
-    margin: 0 0 1rem -3ch;
+    margin: 0 0 1rem;
     font: 900 1.9rem/1 var(--twin-font-display);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -531,7 +516,8 @@ jobs:
 
   .wordmark {
     margin: 0;
-    font: 900 clamp(5.5rem, 22vw, 12rem)/0.85 var(--twin-font-display);
+    font: 900 clamp(5.5rem, 18vw, 13rem)/0.85 var(--twin-font-display);
+    white-space: nowrap;
     letter-spacing: -0.02em;
     color: var(--twin-display);
     text-shadow: 0 0 22px var(--twin-glow);
@@ -697,6 +683,40 @@ jobs:
     color: var(--twin-ink);
   }
 
+  /* Explanation beside its output on wide screens, stacked otherwise. */
+  .pair {
+    display: grid;
+    gap: 0 3rem;
+    align-items: start;
+  }
+
+  .pair + .pair {
+    margin-top: 1.5rem;
+  }
+
+  @media (min-width: 64rem) {
+    .pair {
+      grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 34rem);
+      gap: 1rem 4rem;
+      align-items: center;
+    }
+
+    .whatis {
+      margin-bottom: 0;
+    }
+
+    .wordmark {
+      font-size: clamp(5.5rem, 12.5vw, 13rem);
+    }
+  }
+
   .steps {
     list-style: none;
     margin: 1.5rem 0 0;
@@ -753,25 +773,11 @@ jobs:
   }
 
   @media (max-width: 40rem) {
-    .sheet {
-      padding-inline: 1rem;
-      border-inline: 0;
-    }
-
-    .sheet::before,
-    .sheet::after {
-      display: none;
-    }
-
     .running .center {
       display: none;
     }
 
-    main > section:not(.hero) {
-      padding-left: 0;
-    }
-
-    h2 {
+    main > section:not(.hero) > :not(h2) {
       margin-left: 0;
     }
 
