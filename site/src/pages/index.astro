@@ -799,6 +799,9 @@ jobs:
     margin: 0;
     padding: 1rem;
     overflow-x: auto;
+    /* Long lines wrap instead of scrolling; indentation still shows the structure. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     font: 400 0.8rem/1.6 var(--twin-font-mono);
     scrollbar-width: thin;
   }
@@ -810,7 +813,6 @@ jobs:
   .hero-term pre {
     font-size: 0.85rem;
     line-height: 1.7;
-    white-space: pre-wrap;
   }
 
   .t-cmd {
