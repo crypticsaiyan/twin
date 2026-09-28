@@ -34,17 +34,10 @@ h1#_top {
   letter-spacing: -0.02em;
 }
 
-/* The logo, as on the landing page. */
+/* The dot-matrix wordmark, as on the landing page. */
 .site-title {
-  gap: 0.55rem;
   color: var(--twin-text);
-  font: 700 1.3rem/1 var(--twin-font-mark);
-  letter-spacing: -0.03em;
-}
-
-.site-title img {
-  width: 1.7rem;
-  height: 1.7rem;
+  font: 900 1.6rem/1 var(--twin-font-mark);
 }
 
 .sidebar-content .group-label .large,

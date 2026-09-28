@@ -1,7 +1,7 @@
 /*
  * twin site tokens, shared by the landing page and the Starlight docs.
  * Neutral surfaces with a slight warm bias, graphite text, and color only where it means
- * something: red for a failure, green for a pass. The logo keeps its own two colors.
+ * something: red for a failure (and the brand's cursor), green for a pass.
  * Light tokens live on bare :root; dark redefines only tokens, for the system setting
  * (unless light was chosen) and for an explicit dark choice.
  */
@@ -10,7 +10,7 @@
   --twin-font-body: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --twin-font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
-  --twin-font-mark: 'Bricolage Grotesque Variable', 'Geist Variable', system-ui, sans-serif;
+  --twin-font-mark: 'Doto', 'Geist Mono Variable', ui-monospace, monospace;
   --twin-font-label: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --twin-bg: #fafaf8;
@@ -23,11 +23,6 @@
   --twin-fail: #c3362b;
   --twin-pass: #1d7a49;
   --twin-focus: #2f5bd3;
-
-  /* The logo: the reporter's machine in front of the maintainer's. */
-  --twin-logo-back: #1d5fc4;
-  --twin-logo-front: #c2410c;
-  --twin-logo-prompt: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,9 +38,6 @@
     --twin-fail: #f0695c;
     --twin-pass: #5ec98d;
     --twin-focus: #7d9dff;
-    --twin-logo-back: #6cb4ff;
-    --twin-logo-front: #ff7a45;
-    --twin-logo-prompt: #1a0b04;
   }
 }
 
@@ -61,7 +53,4 @@
   --twin-fail: #f0695c;
   --twin-pass: #5ec98d;
   --twin-focus: #7d9dff;
-  --twin-logo-back: #6cb4ff;
-  --twin-logo-front: #ff7a45;
-  --twin-logo-prompt: #1a0b04;
 }

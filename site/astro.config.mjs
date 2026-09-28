@@ -31,11 +31,6 @@ export default defineConfig({
       title: 'twin',
       description:
         'Capture the environment a command failed in, rebuild it on a clean Solari sandbox, and find the difference that breaks it.',
-      logo: {
-        light: './src/assets/logo-light.svg',
-        dark: './src/assets/logo-dark.svg',
-        alt: '',
-      },
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/crypticsaiyan/twin' }],
       lastUpdated: false,
@@ -44,7 +39,7 @@ export default defineConfig({
       customCss: [
         '@fontsource-variable/geist',
         '@fontsource-variable/geist-mono',
-        '@fontsource-variable/bricolage-grotesque',
+        '@fontsource/doto/900.css',
         './src/styles/tokens.css',
         './src/styles/starlight.css',
       ],
