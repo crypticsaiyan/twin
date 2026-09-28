@@ -1,8 +1,8 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FakeBackend } from '../../src/backend/fake.ts';
-import { writeCapsule } from '../../src/capsule/file.ts';
+import { serializeCapsule, writeCapsule } from '../../src/capsule/file.ts';
 import { main } from '../../src/cli.ts';
 import { planReplay } from '../../src/replay/plan.ts';
 import { FIX_PATCH_PATH } from '../../src/replay/runtimes.ts';
@@ -78,6 +78,21 @@ describe('twin verify', () => {
     expect(stdout.text).toContain("FIXED: the command passes in the reporter's environment");
     expect(stdout.text).toMatch(/^Verify on fake/);
     expect(backend.machines[0]?.files.get(FIX_PATCH_PATH)).toBe(FIX);
+  });
+
+  it('writes a pull request comment when asked', async () => {
+    const backend = backendWhereFixWorks(true);
+    const { context } = await setup(backend);
+    const url = 'https://github.com/user-attachments/files/1/twin-capsule.json';
+    context.host = fakeHost({
+      fetch: async () => new Response(serializeCapsule(failingCapsule())),
+    });
+    expect(await main(['verify', url, '--patch', 'fix.patch', '--comment', 'c.md'], context)).toBe(
+      0,
+    );
+    const comment = await readFile(join(context.cwd, 'c.md'), 'utf8');
+    expect(comment.startsWith('<!-- twin-verify verdict=fixed -->\n')).toBe(true);
+    expect(comment).toContain(`[capsule](${url})`);
   });
 
   it('exits 1 when the failure is unchanged', async () => {

@@ -1,9 +1,10 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCapsule } from '../capsule/source.ts';
 import { TwinError } from '../errors.ts';
 import { replay } from '../replay/replay.ts';
+import { renderVerifyMarkdown } from '../report/markdown.ts';
 import { renderReplay } from '../report/replay.ts';
 import {
   type Command,
@@ -33,6 +34,7 @@ Options:
       --timeout <minutes>  per-attempt limit (default 15)
   -v, --verbose            stream guest output
       --json               machine-readable report on stdout
+      --comment <file>     also write a Markdown pull request comment to <file>
   -h, --help               show this help
 
 Exit status: 0 fixed, 1 otherwise, 2 usage error.`;
@@ -50,6 +52,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
       timeout: { type: 'string' },
       verbose: { type: 'boolean', short: 'v', default: false },
       json: { type: 'boolean', default: false },
+      comment: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -102,6 +105,13 @@ async function run(args: string[], context: CommandContext): Promise<number> {
     onEvent: replayProgress(io, stderrStyle(context), values.verbose),
   });
 
+  if (values.comment !== undefined) {
+    const markdown = renderVerifyMarkdown(report, capsule, {
+      source: positionals[0] as string,
+      ...(values.ref === undefined ? {} : { ref: values.ref }),
+    });
+    await writeFile(resolve(context.cwd, values.comment), markdown, 'utf8');
+  }
   if (values.json) io.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   else io.stdout.write(`${renderReplay(report, stdoutStyle(context), { verify: true })}\n`);
   return report.verdict === 'not-reproduced' ? 0 : 1;
