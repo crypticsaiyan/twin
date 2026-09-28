@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { parseArgs } from 'node:util';
-import { type Backend, type Machine, type MachineInfo, TWIN_LABELS } from '../backend/types.ts';
+import type { Machine } from '../backend/types.ts';
 import { TwinError } from '../errors.ts';
 import { script } from '../replay/shell.ts';
 import { SHELL_SCRIPT, WEB_TERMINAL_PORT, webTerminalScript } from '../shell/guest.ts';
+import { ensureKept, resolveMachine, shortMachineId } from '../shell/machines.ts';
 import { attach } from '../shell/session.ts';
 import { type Command, type CommandContext, stderrStyle } from './context.ts';
 
@@ -24,32 +25,6 @@ Ctrl-] detaches without stopping the machine. It keeps running (and billing)
 until 15 minutes idle, or until \`twin gc\`.`;
 
 export const WEB_USER = 'twin';
-
-async function resolveMachine(backend: Backend, prefix: string | undefined): Promise<MachineInfo> {
-  const running = await backend.list({ ...TWIN_LABELS });
-  const matches = prefix ? running.filter((m) => m.id.startsWith(prefix)) : running;
-  if (matches.length === 1) return matches[0] as MachineInfo;
-  const known = running.map((m) => `  ${m.id.slice(0, 12)}  run ${m.labels.run ?? '?'}`).join('\n');
-  if (matches.length === 0) {
-    throw new TwinError(
-      running.length === 0
-        ? 'no twin machine is running; keep one with: twin replay <capsule> --keep'
-        : `no running twin machine starts with "${prefix}". Running:\n${known}`,
-    );
-  }
-  throw new TwinError(`several twin machines match; pass more of the id:\n${known}`, {
-    exitCode: 2,
-  });
-}
-
-async function ensureKept(machine: Machine, short: string): Promise<void> {
-  const ready = await machine.run({ argv: ['test', '-x', SHELL_SCRIPT], timeoutMs: 30_000 });
-  if (ready.exitCode !== 0) {
-    throw new TwinError(
-      `machine ${short} was not kept by \`twin replay --keep\` (no ${SHELL_SCRIPT})`,
-    );
-  }
-}
 
 async function shareWeb(machine: Machine, short: string, context: CommandContext): Promise<number> {
   const { io } = context;
@@ -126,9 +101,9 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   const backend = await context.getBackend();
   const info = await resolveMachine(backend, positionals[0]);
   const machine = await backend.connect(info.id);
-  const short = info.id.slice(0, 12);
+  const short = shortMachineId(info.id);
   try {
-    await ensureKept(machine, short);
+    await ensureKept(machine);
     return await (values.web ? shareWeb : attachLocal)(machine, short, context);
   } finally {
     // The machine stays up for the next session; only the local connection is dropped.
