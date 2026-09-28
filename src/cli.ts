@@ -4,6 +4,7 @@ import type { Command, CommandContext } from './commands/context.ts';
 import { gcCommand } from './commands/gc.ts';
 import { inspectCommand } from './commands/inspect.ts';
 import { replayCommand } from './commands/replay.ts';
+import { shellCommand } from './commands/shell.ts';
 import { verifyCommand } from './commands/verify.ts';
 import { TwinError } from './errors.ts';
 
@@ -13,6 +14,7 @@ export const COMMANDS: readonly Command[] = [
   replayCommand,
   bisectCommand,
   verifyCommand,
+  shellCommand,
   gcCommand,
 ];
 

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { afterEach } from 'vitest';
 import type { Host } from '../../src/host.ts';
 import type { Io, Output } from '../../src/io.ts';
+import type { LocalTerminal } from '../../src/shell/session.ts';
 import type { Exec, ExecResult } from '../../src/util/exec.ts';
 
 export function ok(stdout: string, stderr = ''): ExecResult {
@@ -112,3 +113,34 @@ export const manifest = (name: string, version: string) => JSON.stringify({ name
 export const noBackend = async (): Promise<never> => {
   throw new Error('this test must not use a backend');
 };
+
+/** A local terminal driven by the test: push keystrokes and resizes, read what was shown. */
+export function fakeLocal(cols = 100, rows = 30) {
+  let onInput: ((data: Uint8Array) => void) | undefined;
+  let onResize: (() => void) | undefined;
+  const state = { shown: '', stopped: false, cols, rows };
+  const local: LocalTerminal = {
+    size: () => ({ cols: state.cols, rows: state.rows }),
+    write: (data) => {
+      state.shown += typeof data === 'string' ? data : Buffer.from(data).toString('utf8');
+    },
+    start: (input, resize) => {
+      onInput = input;
+      onResize = resize;
+      return () => {
+        state.stopped = true;
+      };
+    },
+  };
+  return {
+    local,
+    state,
+    type: (text: string) => onInput?.(Buffer.from(text, 'utf8')),
+    press: (byte: number) => onInput?.(Uint8Array.of(byte)),
+    resize: (c: number, r: number) => {
+      state.cols = c;
+      state.rows = r;
+      onResize?.();
+    },
+  };
+}
