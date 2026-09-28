@@ -1,9 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <style>
-    .back { stroke: #1d5fc4; }
-    @media (prefers-color-scheme: dark) { .back { stroke: #6cb4ff; } }
+    .ink { fill: none; stroke: #1c1c1a; }
+    @media (prefers-color-scheme: dark) { .ink { stroke: #e6e4df; } }
   </style>
-  <rect class="back" x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke-width="2.5"/>
-  <rect x="10" y="10" width="20" height="20" rx="6" fill="#ff7a45"/>
-  <path d="M15 17l3.25 3.25L15 23.5M20.5 24h4" stroke="#1a0b04" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="ink" x="3" y="3" width="17" height="17" rx="2" stroke-width="2.5"/>
+  <rect x="12" y="12" width="17" height="17" rx="2" fill="#b3261e"/>
 </svg>

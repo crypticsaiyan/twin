@@ -11,6 +11,8 @@ export default defineConfig({
   site: SITE,
   base: BASE,
   output: 'static',
+  // Keep the whitespace between text and inline links in hand-written pages.
+  compressHTML: false,
   vite: {
     // The landing page reads the recorded transcripts from ../examples at build time.
     server: { fs: { allow: ['..'] } },
@@ -29,30 +31,33 @@ export default defineConfig({
       title: 'twin',
       description:
         'Capture the environment a command failed in, rebuild it on a clean Solari sandbox, and find the difference that breaks it.',
-      logo: {
-        light: './src/assets/logo-light.svg',
-        dark: './src/assets/logo-dark.svg',
-        alt: 'twin',
-        replacesTitle: false,
-      },
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/crypticsaiyan/twin' }],
       lastUpdated: false,
       // The branded 404 lives in src/pages/404.astro.
       disable404Route: true,
       customCss: [
-        '@fontsource-variable/inter',
-        '@fontsource-variable/bricolage-grotesque',
-        '@fontsource-variable/jetbrains-mono',
+        '@fontsource/ibm-plex-sans/400.css',
+        '@fontsource/ibm-plex-sans/400-italic.css',
+        '@fontsource/ibm-plex-sans/500.css',
+        '@fontsource/ibm-plex-sans/600.css',
+        '@fontsource/ibm-plex-mono/400.css',
+        '@fontsource/ibm-plex-mono/500.css',
         './src/styles/tokens.css',
         './src/styles/starlight.css',
       ],
       expressiveCode: {
+        // Plain code blocks; no fake terminal window chrome.
+        defaultProps: { frame: 'code' },
         themes: ['github-dark-default', 'github-light-default'],
         styleOverrides: {
-          borderRadius: '10px',
+          borderRadius: '4px',
+          borderColor: 'var(--twin-rule)',
+          codeBackground: 'var(--twin-bg-code)',
           codeFontFamily: 'var(--twin-font-mono)',
+          codeFontSize: '0.85rem',
           uiFontFamily: 'var(--twin-font-body)',
+          frames: { shadowColor: 'transparent', editorActiveTabIndicatorTopColor: 'transparent' },
         },
       },
       sidebar: [

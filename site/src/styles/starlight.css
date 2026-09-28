@@ -1,52 +1,49 @@
-/* Starlight theme: maps twin's brand tokens (tokens.css) onto Starlight's variables. */
+/* Starlight theme: maps the site tokens (tokens.css) onto Starlight's variables. */
 
 :root,
 :root[data-theme='light'] {
   --sl-font: var(--twin-font-body);
   --sl-font-mono: var(--twin-font-mono);
 
-  --sl-color-accent-low: var(--twin-accent-soft);
-  --sl-color-accent: var(--twin-accent);
-  --sl-color-accent-high: light-dark(#7c2d12, #ffc2a6);
+  /* Ink, not color: the red stays reserved for failures. */
+  --sl-color-accent-low: light-dark(#e9e6df, #262624);
+  --sl-color-accent: light-dark(#1c1c1a, #e6e4df);
+  --sl-color-accent-high: light-dark(#1c1c1a, #ffffff);
+  --sl-color-text-accent: light-dark(#1c1c1a, #ffffff);
 
-  --sl-color-white: light-dark(#16181d, #ffffff);
-  --sl-color-gray-1: light-dark(#23262d, #ecebe7);
-  --sl-color-gray-2: light-dark(#3a3e47, #c9c8c3);
-  --sl-color-gray-3: light-dark(#555a64, #9ba0a9);
-  --sl-color-gray-4: light-dark(#8d9199, #5f646d);
-  --sl-color-gray-5: light-dark(#cfcbc2, #2b3038);
-  --sl-color-gray-6: light-dark(#ebe8e1, #171a20);
-  --sl-color-gray-7: light-dark(#f3f1ec, #12151a);
-  --sl-color-black: light-dark(#fbfaf7, #0d0f12);
+  --sl-color-white: light-dark(#1c1c1a, #ffffff);
+  --sl-color-gray-1: light-dark(#2a2a27, #e6e4df);
+  --sl-color-gray-2: light-dark(#3d3c38, #c9c6bf);
+  --sl-color-gray-3: light-dark(#5f5d57, #9d9a93);
+  --sl-color-gray-4: light-dark(#8f8c85, #65635e);
+  --sl-color-gray-5: light-dark(#d4d0c7, #333331);
+  --sl-color-gray-6: light-dark(#ebe8e1, #1e1e1e);
+  --sl-color-gray-7: light-dark(#f4f2ed, #171717);
+  --sl-color-black: var(--twin-bg);
 
   --sl-color-bg: var(--twin-bg);
-  --sl-color-bg-nav: light-dark(#fbfaf7, #12151a);
-  --sl-color-bg-sidebar: light-dark(#f6f4ef, #0f1216);
-  --sl-color-hairline-light: var(--twin-border);
-  --sl-color-hairline: var(--twin-border);
-  --sl-color-hairline-shade: light-dark(#dcd8cf, #08090b);
+  --sl-color-bg-nav: var(--twin-bg);
+  --sl-color-bg-sidebar: var(--twin-bg);
+  --sl-color-hairline-light: var(--twin-rule);
+  --sl-color-hairline: var(--twin-rule);
+  --sl-color-hairline-shade: var(--twin-rule);
 }
 
-/* Headings in the display face, like the landing page. */
 .sl-markdown-content :is(h1, h2, h3),
 h1#_top {
-  font-family: var(--twin-font-display);
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-h1#_top {
-  font-weight: 700;
-}
-
 .site-title {
-  gap: 0.5rem;
-  font-family: var(--twin-font-display);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  color: var(--twin-text);
+  font-family: var(--twin-font-mono);
+  font-weight: 600;
+  font-size: 1.05rem;
 }
 
 .site-title img {
-  height: 1.75rem;
+  height: 1.25rem;
   width: auto;
 }
 
@@ -54,3 +51,18 @@ h1#_top {
   outline-color: var(--twin-accent);
 }
 
+/* Quiet heading anchors and a plain active sidebar entry. */
+.sl-anchor-link {
+  color: var(--twin-text-muted);
+}
+
+.sidebar-content a[aria-current='page'] {
+  background: var(--sl-color-accent-low);
+  color: var(--twin-text);
+  font-weight: 600;
+}
+
+.sl-markdown-content a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
