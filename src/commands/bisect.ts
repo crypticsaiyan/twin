@@ -13,7 +13,7 @@ Finds the smallest set of environment differences (env values, time zone,
 node version, npm dependency versions, working tree diff) that turns the
 passing environment into the failing one. Both capsules must come from the
 same commit. Runs on one Solari sandbox: the passing environment is built
-once, snapshotted, and each trial applies a subset of differences.
+once, and each trial applies a subset of differences on that machine.
 
 Needs SOLARI_API_KEY in the environment.
 

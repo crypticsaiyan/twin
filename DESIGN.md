@@ -22,14 +22,16 @@ The core requirement is that two different people share one exact machine. That 
 
 | Need | Solari primitive |
 |---|---|
-| A clean Linux machine per trial, in about a second | `sandboxes.create` (microVM from snapshot) |
-| Replay the expensive setup once, branch many trials off it | `snapshot()` + `create({ fromSnapshot })` |
-| Get the reporter's exact commit and diff | `sandbox.git.clone` + `files.write` |
-| Hand the maintainer a live shell at the failure point | `pty.create` (CLI attach) and `previewUrl` (web terminal link) |
-| Keep downloaded runtimes and package caches between runs | volumes (not for `node_modules`: s3fs breaks hardlinks, cookbook issue #62) |
-| Never leak billing VMs after a crash | run-scoped `metadata` + `listAll` reaper, `kill()` in `finally` |
+| A clean Linux machine per replay, bisect or verify run | `sandboxes.create` (template `base`, run-scoped `metadata`, rolling `idleTimeoutMs`) |
+| Run setup and the command with live output and a real timeout | `commands.start` + `onData` + twin's own timer and `kill(9)` (the streaming path has no server-side timeout) |
+| Get the reporter's exact commit and diff | `git fetch` of one SHA in the guest + `files.write` of the diff |
+| Hand the maintainer a live shell at the failure point | `pty.create` (`twin shell`) and `previewUrl` in front of a guest web terminal (`twin shell --web`) |
+| Re-attach later, from any computer | `sandboxes.connect(id)`, then `close()` to detach without releasing |
+| Never leak billing VMs | `kill()` confirmed with `get()` and repeated until gone; `listAll({ metadata })` reaper in `twin gc` |
 | Web-app bugs (later) | `previewUrl` + recorded Solari browser session |
 | GUI/Electron bugs (later) | Solari desktop |
+
+Snapshots were the original plan for bisect (build once, fork trials). Measured live they take 28 to 35 s, revert consumes them and sometimes fails, so bisect undoes trials in place instead (section 7, findings in section 11).
 
 ## 3. Users and flows
 
@@ -42,32 +44,31 @@ npx twin capture -- npm test
 - Runs the command locally, records exit code and a trimmed output tail.
 - Collects the environment facts (section 4), applies redaction (section 5).
 - Shows exactly what will be written and asks for confirmation.
-- Writes `twin-capsule.json`. The reporter attaches it to the issue (or `--gist` posts it as a secret gist).
+- Writes `twin-capsule.json`. The reporter attaches it to the issue.
 
 No network calls, no Solari key.
 
 ### 3.2 Maintainer: replay
 
 ```
-npx twin replay ./twin-capsule.json      # or an issue/gist URL
+npx twin replay ./twin-capsule.json
 ```
 
 - Builds a sandbox matching the capsule (section 6), runs the command.
-- Verdict: `REPRODUCED` (same failure identity), `DIFFERENT_FAILURE`, `PASSED` (does not reproduce on Linux with these versions, see 3.6), or `INCONCLUSIVE` (setup failed, timeout, flaky across repeats).
-- On `REPRODUCED` it snapshots the machine at the failure and prints:
-  - `twin shell <id>`: attach a local terminal (PTY over the control channel)
-  - a web terminal link (served from the guest through `previewUrl`) the maintainer can share with the reporter for a joint session.
+- Verdict: `REPRODUCED` (same failure identity), `DIFFERENT FAILURE`, `NOT REPRODUCED` (the same versions pass on Linux, see 3.6), `FLAKY` (attempts disagree), or `INCONCLUSIVE` (setup failed or a timeout).
+- With `--keep`, on `REPRODUCED` the machine stays running at the failure with the reporter's env written to `/tmp/twin/env.sh`, and twin prints:
+  - `twin shell <id>`: a local terminal (PTY over the control channel; Ctrl-] detaches)
+  - `twin shell <id> --web`: a browser terminal (ttyd in the guest behind a random password, exposed with `previewUrl`) the maintainer can share with the reporter.
 
 ### 3.3 Maintainer: bisect
 
 ```
-npx twin bisect ./twin-capsule.json --good local        # maintainer's own env as baseline
-npx twin bisect ./twin-capsule.json --good ./good.json  # or another capsule, e.g. from CI
+npx twin bisect ./twin-capsule.json --good ./good.json  # a capsule where the command passes
 ```
 
 Finds the smallest set of environment differences that turns the good world into the failing one (section 7).
 
-### 3.4 CI mode: "passes locally, fails in CI" (and the reverse)
+### 3.4 CI mode: "passes locally, fails in CI" (not built yet)
 
 ```
 npx twin ci https://github.com/o/r/actions/runs/123/job/456
@@ -78,10 +79,11 @@ The CI side needs no capture: GitHub Actions logs state the runner image and ver
 ### 3.5 Verify a fix, then guard it
 
 ```
-npx twin verify ./twin-capsule.json --ref pr/123
+npx twin verify ./twin-capsule.json --patch fix.patch   # nothing pushed yet
+npx twin verify ./twin-capsule.json --ref <sha> --repo <fork-url>
 ```
 
-Replays the capsule against a PR branch. Posts "verified fixed in the reporter's environment" (or not). A small GitHub Action reruns stored capsules nightly as regression guards.
+Rebuilds the reporter's environment, applies the fix and reports `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE`. A GitHub Action that reruns stored capsules nightly as regression guards is not built yet.
 
 ### 3.6 Linux-only, stated plainly
 
@@ -146,23 +148,19 @@ capsule
   ▼
 create sandbox (template "base", metadata {app:"twin", run:<id>}, idleTimeoutMs)
   │  install runtimes: node from official tarball, python via uv (both fast, no compiling)
-  │  git.clone repo → checkout commit → apply diff
-  │  install package manager at captured version → install deps (frozen lockfile)
-  │  pin resolved versions that differ from the lockfile resolution (if any)
-  │  set env (placeholders / allowlisted values), TZ, LANG
+  │  fetch the commit by SHA → apply the reporter's diff
+  │  install the package manager at the captured version → install deps (frozen lockfile)
+  │  env: allowlisted values, TZ from the captured zone, PATH to the installed runtime
   ▼
-snapshot "base-world"          ← everything expensive is done once
+run command N times (default 3) → fingerprint each failure → verdict
   │
-  ▼
-run command (repeat N=3 for stability) → classify → verdict
-  │
-  └─ REPRODUCED → snapshot "failure" → offer shell / web terminal
+  ├─ --keep and REPRODUCED → write env.sh + shell.sh, detach, leave running for `twin shell`
+  └─ otherwise → kill, confirmed with get()
 ```
 
 Notes:
-- Commands are not shell-interpreted by the sandbox. twin passes argv explicitly and uses `sh -c` only where it builds a pipeline itself.
-- Runtime and package-manager downloads go to a persistent volume cache when available, keyed by version.
-- Everything runs inside `try/finally` with `kill()`. Every VM carries `metadata.run`; `twin gc` and startup both reap leftovers with `listAll({ metadata })`.
+- Commands are not shell-interpreted by the sandbox. twin passes argv explicitly and uses `sh -c` only where it builds a script itself; the captured command runs as `sh -c 'exec "$@"'` so PATH resolves to the installed runtime without re-parsing arguments.
+- Everything runs inside `try/finally`. Every VM carries `metadata.run`; `twin gc` reaps leftovers with `listAll({ metadata })`, checking each with `get()` because the listing lags.
 - `idleTimeoutMs` is a rolling idle window, not a deadline (cookbook gotcha); long installs keep it alive.
 
 ## 7. Bisect
@@ -180,33 +178,32 @@ Notes:
 
 **Search.** Classic ddmin over the atom set: start from GOOD, apply subsets of BAD's atoms, run the predicate, keep shrinking until removing any single remaining atom makes it pass. This is established delta debugging (prior art: Zeller's ddmin, [worldbisect](https://github.com/iwadjp/worldbisect), [crux](https://github.com/meagoodboy/solari-cookbook/tree/main/applications/crux)); twin's contribution is running it across machines and runtimes on disposable VMs.
 
-**Each trial** forks from the snapshot of GOOD's base world, applies the subset, runs the command N times. PASS, FAIL (same signature as BAD), or INCONCLUSIVE (anything else, including flakiness across repeats). Inconclusive trials are treated conservatively and reported.
+**Each trial** runs on the one machine that holds GOOD's world, applies the subset, and runs the command N times: FAIL only if every run fails with BAD's signature, PASS if every run passes, otherwise unresolved (reported, never counted as the bug). The search is bracketed by two checks: GOOD alone must pass and all atoms together must fail.
 
-**Cost.** Runtime atoms are the expensive ones (install), so they are pre-staged in the base snapshot (both versions downloaded, a symlink switches). Trials are sequential on Free (1 sandbox at a time) and fan out on higher plans.
+**Resetting between trials without snapshots.** Env, time zone and runtime atoms are process settings (both node versions are installed up front and switched through PATH), so those trials need no reset. Working-tree trials swap diffs with `git apply` and undo with an idempotent `git apply -R`. Dependency trials (`npm install --no-save`) are undone by rerunning GOOD's install. If an undo fails, bisect stops rather than trust later trials. One machine means it fits a single concurrent slot.
 
-**Output.** "Observed minimal set: `node 22.3.0`, `TZ=Asia/Kolkata`. Removing either makes it pass. 14 trials, 0 inconclusive." Plus the version-range sweep when a runtime or dependency is in the set: "fails on node ≥ 22.3.0, passes on 22.2.x and 20.x".
+**Output.** The minimal set ("Together they fail the captured way; removing any one of them makes it pass"), every trial, and the smallest trials that failed with a *different* signature (for example the right cause with a runtime that formats the error differently). A version-range sweep ("fails on node ≥ 22.3.0") is not built yet.
 
 **Not a claim of root cause.** Scoped to the captured differences and this predicate, stated in the report.
 
-## 8. Commands (v1)
+## 8. Commands
 
-| Command | Needs Solari key | What it does |
-|---|---|---|
-| `twin capture -- <cmd>` | no | record capsule |
-| `twin inspect <capsule>` | no | pretty-print, diff two capsules |
-| `twin replay <capsule>` | yes | reproduce on a sandbox |
-| `twin shell <id>` | yes | attach terminal to a kept sandbox |
-| `twin bisect <bad> --good <good\|local>` | yes | minimal difference |
-| `twin ci <job-url>` | yes | capsule from a GitHub Actions job, then replay/bisect |
-| `twin verify <capsule> --ref <ref>` | yes | replay against a branch or PR |
-| `twin gc` | yes | kill leftover twin VMs |
-| `twin demo` | no | offline walkthrough with a bundled capsule and a fake backend |
+| Command | Needs Solari key | What it does | State |
+|---|---|---|---|
+| `twin capture -- <cmd>` | no | record a capsule | done |
+| `twin inspect <capsule> [<other>]` | no | summarize, or diff two capsules | done |
+| `twin replay <capsule> [--keep]` | yes | reproduce on a sandbox | done |
+| `twin bisect <bad> --good <good>` | yes | minimal failing difference | done |
+| `twin verify <capsule> --patch <file> \| --ref <sha>` | yes | check a fix in the reporter's environment | done |
+| `twin shell [id] [--web]` | yes | terminal or browser terminal on a kept machine | done |
+| `twin gc` | yes | kill leftover twin machines, confirmed | done |
+| `twin ci <job-url>` | yes | capsule from a GitHub Actions job | not built |
 
 ## 9. Implementation
 
-- TypeScript, Node ≥ 22, ESM. Published to npm; runnable via `npx`.
+- TypeScript, Node ≥ 22, ESM. Runnable via `npx` from the repository (npm publish once the name is final).
 - One runtime dependency: `@solarisdk/sdk` (added with replay). Argument parsing with `node:util` `parseArgs`. No framework. Dev: TypeScript, Vitest, Biome.
-- A `Backend` interface (`create`, `run`, `snapshot`, `fork`, `kill`, …) with two implementations: `SolariBackend` and `FakeBackend`. The fake powers `twin demo` and the unit tests, so the whole pipeline is testable with no key and no network.
+- A `Backend` / `Machine` interface (`create`, `connect`, `list`, `reap`; `run`, `writeFile`, `openTerminal`, `previewUrl`, `detach`, `kill`) with `SolariBackend`, an in-memory `FakeBackend` for unit tests, and a development-only Docker backend (`test/e2e/`) that runs the real guest scripts without a key.
 
 ```
 src/
@@ -232,7 +229,7 @@ Every collector takes its dependencies (an `Exec`, a `Host`, a `Redactor`) as ar
 - Synced from this standalone repo by `scripts/sync-fork.sh` (rsync with an exclude list: `.github/`, videos, `node_modules/`, build output, `.env`).
 - Quickstart uses `export SOLARI_API_KEY=...`, not a `.env` the code does not read.
 - `.env.example` lists exactly the variables the code reads.
-- Small extracted examples as separate PRs: `sandbox-snapshot-bisect-ts` (fork one snapshot into trials), `sandbox-runtime-matrix-ts` (same command across runtime versions).
+- A possible small extracted example as a separate PR: `sandbox-runtime-matrix-ts` (same command across runtime versions on one sandbox).
 
 ## 11. Open questions for the first live check
 
@@ -283,18 +280,18 @@ Platform behavior found, candidates for cookbook issues:
 7. `kill()` is not always effective. Two sandboxes from replays at about 06:15 UTC stayed `running` and kept billing (ledger: about 0.5 cents every few minutes each, 06:20 to 08:19, until the balance ran out) after twin's `kill()` and two later `DELETE`s from `twin gc` all returned success. Their 15-minute idle timeout did not stop them either (`expiresAt` kept moving forward). At 08:36 a plain `DELETE` removed both within 16 s. twin now confirms every kill with `get()` and re-kills until the sandbox is gone, and reports loudly if it never goes.
 6. `listSnapshots` returns stale entries: snapshots consumed by a revert or already deleted keep appearing, `getSnapshot`/`deleteSnapshot` on them return 404, and the listed set differs between consecutive calls. `listAll` for sandboxes shows the same pattern for killed machines. `twin gc` treats a 404 on delete as already gone.
 
-Because of 3 to 5, bisect uses no snapshots. Env, time zone and runtime trials need no reset (both runtimes are installed up front and switched through PATH); working-tree trials are undone with an idempotent `git apply -R`; dependency trials are undone by rerunning the good world's install. `twin gc` deletes any `twin-*` snapshot (for example from `replay --keep`).
+Because of 3 to 5, bisect uses no snapshots. Env, time zone and runtime trials need no reset (both runtimes are installed up front and switched through PATH); working-tree trials are undone with an idempotent `git apply -R`; dependency trials are undone by rerunning the good world's install.
 
 Final live run on a pair with five differences (node version, an npm dependency, two env unsets, time zone): 66 s end to end, 15 trials, result identical to the Docker harness. It also showed why trials that fail with a different signature are reported separately: on node 22 the time zone bug fails too, but the assertion message is formatted differently, so the exact captured failure needs node 26 and the time zone together.
 
-Guest runs as root (npm logs under `/root/.npm`). Still open: `fromSnapshot` timings, PTY interactivity, architecture.
+Guest runs as root (npm logs under `/root/.npm`). `pty.create` and `previewUrl` both work for interactive use: a ttyd browser terminal behind basic auth answered through the preview proxy (401 without the password, a working WebSocket session with it), and a PTY session ended cleanly on an exit marker (the SDK's PTY has no exit event).
 
 ## 12. Milestones
 
-1. **Capture + inspect** (offline): facts, redaction, signature, preview, capsule diff. Unit tests.
-2. **Replay** on Solari for Node and Python projects. Verdicts, failure snapshot, `shell`.
-3. **Bisect**: atoms, ddmin, sweep, reports. FakeBackend tests plus live runs.
-4. **Proof**: dogfood on Solari's own cookbook issues; then 5 to 10 "cannot reproduce" issues from popular repos.
-5. **CI mode, verify, nightly guard Action.**
-6. **Web terminal share, web-app bugs via browser, desktop for GUI.**
-7. Packaging, README, demo, fork sync, PRs, launch.
+1. **Capture + inspect** (offline). Done.
+2. **Replay** on Solari, `--keep`, `shell`, browser terminal. Done, verified live.
+3. **Bisect** (atoms, ddmin, in-place undo). Done, verified live. Version sweep not built.
+4. **Proof** on a real issue: apache/echarts#21538 reproduced, bisected and fix-verified (`examples/echarts-21538`). Done.
+5. **Verify** done; CI mode and a nightly guard Action not built.
+6. Web-app bugs via the browser and GUI bugs via desktops: not built.
+7. Packaging, README, fork sync, PRs, launch: in progress.
