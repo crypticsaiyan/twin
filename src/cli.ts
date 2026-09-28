@@ -3,6 +3,7 @@ import { captureCommand } from './commands/capture.ts';
 import type { Command, CommandContext } from './commands/context.ts';
 import { gcCommand } from './commands/gc.ts';
 import { inspectCommand } from './commands/inspect.ts';
+import { mcpCommand } from './commands/mcp.ts';
 import { replayCommand } from './commands/replay.ts';
 import { shellCommand } from './commands/shell.ts';
 import { verifyCommand } from './commands/verify.ts';
@@ -16,6 +17,7 @@ export const COMMANDS: readonly Command[] = [
   verifyCommand,
   shellCommand,
   gcCommand,
+  mcpCommand,
 ];
 
 function usage(commands: readonly Command[]): string {

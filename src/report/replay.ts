@@ -50,7 +50,11 @@ function indent(text: string, prefix: string): string {
 export function renderReplay(
   report: ReplayReport,
   style: Style,
-  options: { verify?: boolean } = {},
+  options: {
+    verify?: boolean;
+    /** Kept-machine hints name the MCP tools instead of the CLI. */
+    agent?: boolean;
+  } = {},
 ): string {
   const lines = [
     style.bold(`${options.verify ? 'Verify' : 'Replay'} on ${report.backend}`) +
@@ -102,7 +106,15 @@ export function renderReplay(
 
   lines.push('', verdictLine(report.verdict, style, options.verify === true));
 
-  if (report.kept) {
+  if (report.kept && options.agent) {
+    lines.push(
+      '',
+      style.bold("The machine is still running at the failure, in the reporter's environment:"),
+      `  machine ${report.machineId}`,
+      'Explore and try fixes with run and write_file on this machine, check the final diff with',
+      'verify, then release it. It is billed while running and released after 15 minutes idle.',
+    );
+  } else if (report.kept) {
     const id = report.machineId?.slice(0, 12) ?? '';
     lines.push(
       '',
