@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FakeBackend } from '../../src/backend/fake.ts';
 import {
+  killAndConfirm,
   type SandboxApi,
   type SandboxHandle,
   SolariBackend,
@@ -181,9 +182,32 @@ describe('SolariMachine', () => {
 });
 
 describe('SolariBackend', () => {
-  function api(sandbox: SandboxHandle, views: { sandboxId: string; state: string }[] = []) {
+  const FAST = { attempts: 3, intervalMs: 0 };
+
+  /**
+   * `views` is what the (lagging) listing returns; `server` is what `get` reports. A sandbox dies
+   * after `killsToDie` kills (1 unless set), which models the kills that were ignored live.
+   */
+  function api(
+    sandbox: SandboxHandle,
+    views: { sandboxId: string; state: string }[] = [],
+    server: Record<string, { state: string; killsToDie?: number }> = Object.fromEntries(
+      views.map((v) => [v.sandboxId, { state: v.state }]),
+    ),
+  ) {
+    const live = new Map(Object.entries(server).map(([id, s]) => [id, { ...s }]));
     const create = vi.fn(async (_opts: object) => sandbox);
-    const kill = vi.fn(async (_id: string) => {});
+    const get = vi.fn(async (id: string) => {
+      const entry = live.get(id);
+      if (!entry) throw Object.assign(new Error('Not found'), { status: 404 });
+      return { sandboxId: id, state: entry.state };
+    });
+    const kill = vi.fn(async (id: string) => {
+      const entry = live.get(id);
+      if (!entry) return;
+      entry.killsToDie = (entry.killsToDie ?? 1) - 1;
+      if (entry.killsToDie <= 0) live.delete(id);
+    });
     const listAll = vi.fn(async function* (_opts: object) {
       yield* views;
     });
@@ -196,8 +220,16 @@ describe('SolariBackend', () => {
     }));
     const deleteSnapshot = vi.fn(async (_id: string) => {});
     return {
-      sandboxes: { create, kill, listAll, listSnapshots, deleteSnapshot } as unknown as SandboxApi,
+      sandboxes: {
+        create,
+        get,
+        kill,
+        listAll,
+        listSnapshots,
+        deleteSnapshot,
+      } as unknown as SandboxApi,
       create,
+      get,
       kill,
       listAll,
       listSnapshots,
@@ -260,17 +292,59 @@ describe('SolariBackend', () => {
     expect(calls).toEqual(['connect', 'kill']);
   });
 
-  it('reaps live sandboxes matching the labels', async () => {
+  it('reaps live sandboxes, skipping ghosts the listing still shows', async () => {
     const { sandbox } = fakeSandbox();
-    const { sandboxes, kill, listAll } = api(sandbox, [
-      { sandboxId: 'a', state: 'running' },
-      { sandboxId: 'b', state: 'gone' },
-      { sandboxId: 'c', state: 'paused' },
-      { sandboxId: 'd', state: 'releasing' },
-    ]);
-    expect(await new SolariBackend(sandboxes).reap({ app: 'twin' })).toEqual(['a', 'c']);
+    const { sandboxes, kill, listAll } = api(
+      sandbox,
+      [
+        { sandboxId: 'a', state: 'running' },
+        { sandboxId: 'ghost', state: 'running' },
+        { sandboxId: 'c', state: 'paused' },
+        { sandboxId: 'd', state: 'releasing' },
+      ],
+      { a: { state: 'running' }, c: { state: 'paused' }, d: { state: 'releasing' } },
+    );
+    expect(await new SolariBackend(sandboxes, FAST).reap({ app: 'twin' })).toEqual(['a', 'c']);
     expect(listAll).toHaveBeenCalledWith({ metadata: { app: 'twin' } });
     expect(kill.mock.calls).toEqual([['a'], ['c']]);
+  });
+
+  it('keeps killing until the sandbox is confirmed gone', async () => {
+    const { sandbox } = fakeSandbox();
+    const { sandboxes, kill } = api(sandbox, [], { z: { state: 'running', killsToDie: 3 } });
+    await killAndConfirm(sandboxes, 'z', FAST);
+    expect(kill).toHaveBeenCalledTimes(3);
+  });
+
+  it('waits without re-killing while the sandbox is releasing', async () => {
+    const { sandbox } = fakeSandbox();
+    const { sandboxes, kill, get } = api(sandbox, [], { r: { state: 'running', killsToDie: 99 } });
+    get.mockResolvedValueOnce({ sandboxId: 'r', state: 'releasing' } as never);
+    get.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
+    await killAndConfirm(sandboxes, 'r', FAST);
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails loudly when a kill never takes effect, and passes other errors through', async () => {
+    const { sandbox } = fakeSandbox();
+    const { sandboxes, get } = api(sandbox, [], { zombie: { state: 'running', killsToDie: 99 } });
+    await expect(killAndConfirm(sandboxes, 'zombie', FAST)).rejects.toThrow(
+      /still reports running after 4 kills; it is billed/,
+    );
+    get.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+    await expect(killAndConfirm(sandboxes, 'zombie', FAST)).rejects.toThrow('boom');
+  });
+
+  it('releases created machines with a verified kill', async () => {
+    const { sandbox, calls } = fakeSandbox();
+    const { sandboxes, kill } = api(sandbox, [], { sbx_1: { state: 'running' } });
+    const machine = await new SolariBackend(sandboxes, FAST).create({
+      labels: {},
+      idleTimeoutMs: 1,
+    });
+    await machine.kill();
+    expect(calls).toContain('kill');
+    expect(kill).toHaveBeenCalledWith('sbx_1');
   });
 });
 

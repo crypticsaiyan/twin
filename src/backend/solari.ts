@@ -6,7 +6,7 @@ import type { Backend, CreateMachineOptions, Machine, RunOutcome, RunSpec } from
 /** The SDK surface twin uses, narrowed so tests can pass a structural fake. */
 export type SandboxApi = Pick<
   SandboxClient,
-  'create' | 'listAll' | 'kill' | 'listSnapshots' | 'deleteSnapshot'
+  'create' | 'get' | 'listAll' | 'kill' | 'listSnapshots' | 'deleteSnapshot'
 >;
 export type SandboxHandle = Pick<
   Sandbox,
@@ -29,16 +29,64 @@ function isConnectionError(error: unknown): boolean {
   return error instanceof Error && error.name === 'ConnectionError';
 }
 
+export interface ReleaseTiming {
+  attempts: number;
+  intervalMs: number;
+}
+
+/**
+ * Measured on 2026-09-28: two sandboxes stayed `running` and kept billing for over two hours after
+ * `kill()` (and later `DELETE`s) returned successfully; a later kill removed them in seconds. So a
+ * kill is only trusted once `get()` stops reporting the sandbox as live.
+ */
+const RELEASE_TIMING: ReleaseTiming = { attempts: 8, intervalMs: 5_000 };
+
+async function liveState(api: Pick<SandboxApi, 'get'>, id: string): Promise<string | null> {
+  try {
+    const { state } = await api.get(id);
+    return state === 'gone' ? null : state;
+  } catch (error) {
+    if ((error as { status?: unknown }).status === 404) return null;
+    throw error;
+  }
+}
+
+/** Kills a sandbox and waits until the gateway confirms it is gone, re-killing while it is not. */
+export async function killAndConfirm(
+  api: Pick<SandboxApi, 'get' | 'kill'>,
+  id: string,
+  timing: ReleaseTiming = RELEASE_TIMING,
+): Promise<void> {
+  await api.kill(id);
+  for (let attempt = 1; attempt <= timing.attempts; attempt++) {
+    await sleep(timing.intervalMs);
+    const state = await liveState(api, id);
+    if (state === null) return;
+    if (state !== 'releasing') await api.kill(id);
+  }
+  throw new Error(
+    `sandbox ${id.slice(0, 16)}… still reports running after ${timing.attempts + 1} kills; it is billed until it stops, check the Solari console`,
+  );
+}
+
 export class SolariMachine implements Machine {
   readonly #sandbox: SandboxHandle;
   readonly #now: () => number;
 
   readonly #retryBaseMs: number;
+  readonly #release: () => Promise<void>;
 
-  constructor(sandbox: SandboxHandle, now: () => number = Date.now, retryBaseMs = RETRY_BASE_MS) {
+  constructor(
+    sandbox: SandboxHandle,
+    now: () => number = Date.now,
+    retryBaseMs = RETRY_BASE_MS,
+    /** How to release the machine; the backend supplies a verified kill. */
+    release?: () => Promise<void>,
+  ) {
     this.#sandbox = sandbox;
     this.#now = now;
     this.#retryBaseMs = retryBaseMs;
+    this.#release = release ?? (() => sandbox.kill());
   }
 
   /**
@@ -138,16 +186,18 @@ export class SolariMachine implements Machine {
   }
 
   kill(): Promise<void> {
-    return this.#sandbox.kill();
+    return this.#release();
   }
 }
 
 export class SolariBackend implements Backend {
   readonly name = 'solari';
   readonly #sandboxes: SandboxApi;
+  readonly #timing: ReleaseTiming;
 
-  constructor(sandboxes: SandboxApi) {
+  constructor(sandboxes: SandboxApi, timing: ReleaseTiming = RELEASE_TIMING) {
     this.#sandboxes = sandboxes;
+    this.#timing = timing;
   }
 
   async create(options: CreateMachineOptions): Promise<Machine> {
@@ -164,14 +214,20 @@ export class SolariBackend implements Backend {
       await sandbox.kill().catch(() => {});
       throw error;
     }
-    return new SolariMachine(sandbox);
+    return new SolariMachine(sandbox, Date.now, RETRY_BASE_MS, async () => {
+      // Closes the local channel and marks the handle killed; the verified kill does the rest.
+      await sandbox.kill();
+      await killAndConfirm(this.#sandboxes, sandbox.id, this.#timing);
+    });
   }
 
   async reap(labels: Record<string, string>): Promise<string[]> {
     const killed: string[] = [];
     for await (const view of this.#sandboxes.listAll({ metadata: labels })) {
-      if (view.state === 'gone' || view.state === 'releasing') continue;
-      await this.#sandboxes.kill(view.sandboxId);
+      // The listing lags; ask for the sandbox itself before counting it as live.
+      const state = await liveState(this.#sandboxes, view.sandboxId);
+      if (state === null || state === 'releasing') continue;
+      await killAndConfirm(this.#sandboxes, view.sandboxId, this.#timing);
       killed.push(view.sandboxId);
     }
     return killed;
