@@ -1,0 +1,1879 @@
+---
+import '@fontsource-variable/inter';
+import '@fontsource-variable/bricolage-grotesque';
+import '@fontsource-variable/jetbrains-mono';
+import '../styles/tokens.css';
+import '../styles/landing.css';
+import CopyCommand from '../components/CopyCommand.astro';
+import AgentSession from '../components/AgentSession.astro';
+import Terminal from '../components/Terminal.astro';
+import { EXAMPLE, ISSUE, link, REPO, SOLARI } from '../site';
+
+const title = 'twin: turn “cannot reproduce” into a machine you can open';
+const description =
+  'twin captures the environment a command failed in, rebuilds it on a clean Solari sandbox, finds the difference that breaks it, and checks your fix there.';
+const canonical = new URL(link(''), Astro.site).href;
+
+const docs = {
+  intro: link('start/introduction/'),
+  quickstart: link('start/quickstart/'),
+  agents: link('guides/ai-agents/'),
+  action: link('guides/github-action/'),
+  privacy: link('reference/privacy/'),
+  comparison: link('start/comparison/'),
+  caseStudy: link('examples/echarts-21538/'),
+};
+
+const steps = [
+  {
+    n: '01',
+    name: 'Capture',
+    who: 'Reporter, no account',
+    cmd: 'twin capture -- npm test',
+    body: 'Runs the failing command as usual and records what it ran in: OS and libc, runtimes, package managers, resolved dependencies, commit and diff, env var names, time zone, and a fingerprint of the failure. You review it, then attach the capsule to the issue.',
+    chips: [{ t: 'twin-capsule.json', k: 'file' }],
+  },
+  {
+    n: '02',
+    name: 'Replay',
+    who: 'Maintainer',
+    cmd: 'twin replay twin-capsule.json',
+    body: 'Rebuilds that environment on a clean Linux sandbox: the same runtime, the exact commit fetched by SHA, a lockfile install, the same time zone. Reruns the command and compares every attempt with the captured failure.',
+    chips: [
+      { t: 'REPRODUCED', k: 'hot' },
+      { t: 'DIFFERENT FAILURE', k: 'warn' },
+      { t: 'NOT REPRODUCED', k: 'cool' },
+      { t: 'FLAKY', k: 'warn' },
+      { t: 'INCONCLUSIVE', k: 'mute' },
+    ],
+  },
+  {
+    n: '03',
+    name: 'Bisect',
+    who: 'Maintainer',
+    cmd: 'twin bisect bad.json --good good.json',
+    body: 'Starts from an environment that passes and applies the failing one’s differences (env values, time zone, Node version, npm dependency versions, working tree diff) until it finds the smallest set that flips pass to fail.',
+    chips: [{ t: 'TZ=America/New_York', k: 'hot' }],
+  },
+  {
+    n: '04',
+    name: 'Verify',
+    who: 'Maintainer',
+    cmd: 'twin verify bad.json --patch fix.patch',
+    body: 'Applies a candidate fix in the reporter’s environment before anything is pushed, or checks a pushed branch with --ref. You know the fix works where the bug actually happens.',
+    chips: [
+      { t: 'FIXED', k: 'pass' },
+      { t: 'STILL FAILING', k: 'fail' },
+    ],
+  },
+];
+
+const replaySegments = [
+  { label: 'setup', detail: 'workspace, Node 22.23.3, checkout, npm 10.9.9', s: 10.6, k: 'cool' },
+  { label: 'npm ci', detail: 'install from the lockfile', s: 46.4, k: 'hot' },
+  { label: 'attempts', detail: '8.0 s + 1.7 s', s: 9.7, k: 'fail' },
+  { label: 'other', detail: 'the rest of the 72 s run', s: 5.3, k: 'mute' },
+];
+
+const capsuleRows = [
+  { code: '"env": {', tag: '' },
+  { code: '  "PATH": { "state": "set" },', tag: 'name only' },
+  { code: '  "NODE_ENV": { "state": "absent" },', tag: 'name only' },
+  { code: '  "LANG": { "state": "set", "value": "en_US.UTF-8" },', tag: 'allowlisted' },
+  { code: '  "TZ": { "state": "set", "value": "America/New_York" }', tag: 'allowlisted' },
+  { code: '},', tag: '' },
+  { code: '"redaction": {', tag: '' },
+  { code: '  "valuesIncluded": ["LANG", "TZ"],', tag: '' },
+  { code: '  "scrubbed": {}', tag: 'counted' },
+  { code: '}', tag: '' },
+];
+
+const comparison = [
+  {
+    tool: 'envinfo',
+    gives: 'Versions printed as text',
+    twin: 'A capsule you can replay, diff and bisect, with secrets scrubbed',
+  },
+  {
+    tool: 'Dev containers, Codespaces, Nix',
+    gives: 'Contributors get the maintainer’s environment',
+    twin: 'Rebuilds the reporter’s environment, the one where it fails',
+  },
+  {
+    tool: 'wsp',
+    gives: 'Clones your own setup for your agents',
+    twin: 'Rebuilds a stranger’s failing environment from a scrubbed capsule',
+  },
+  {
+    tool: 'StackBlitz, CodeSandbox',
+    gives: 'Browser repros of a minimal example',
+    twin: 'The reporter’s actual commit, lockfile, env and time zone, on a real Linux VM',
+  },
+  {
+    tool: 'git bisect',
+    gives: 'The commit that broke something',
+    twin: 'The environment difference that breaks it, at a fixed commit',
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href={link('favicon.svg')} type="image/svg+xml" />
+    <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0f12" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    <script is:inline>
+      // Same storage key as Starlight's theme picker, so the choice carries over to the docs.
+      (() => {
+        let stored = null;
+        try {
+          stored = localStorage.getItem('starlight-theme');
+        } catch {}
+        const light = window.matchMedia('(prefers-color-scheme: light)').matches;
+        document.documentElement.dataset.theme =
+          stored === 'light' || stored === 'dark' ? stored : light ? 'light' : 'dark';
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="brand" href={link('')} aria-label="twin home">
+          <svg class="mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+            <rect class="mark-back" x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25"></rect>
+            <rect class="mark-front" x="10" y="10" width="20" height="20" rx="6"></rect>
+            <path class="mark-prompt" d="M15 17l3.25 3.25L15 23.5M20.5 24h4"></path>
+          </svg>
+          <span>twin</span>
+        </a>
+        <nav aria-label="Main">
+          <ul class="nav-links">
+            <li class="hide-sm"><a href="#how">How it works</a></li>
+            <li class="hide-sm"><a href="#agents">For agents</a></li>
+            <li class="hide-sm"><a href="#privacy">Privacy</a></li>
+            <li><a href={docs.intro}>Docs</a></li>
+          </ul>
+        </nav>
+        <div class="nav-actions">
+          <a class="icon-btn" href={REPO} aria-label="twin on GitHub">
+            <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+              ></path>
+            </svg>
+          </a>
+          <button type="button" class="icon-btn" data-theme-toggle aria-label="Switch theme">
+            <svg class="i-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"
+              ></circle>
+              <path
+                d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"></path>
+            </svg>
+            <svg class="i-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Hero -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="wrap hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <span class="dot" aria-hidden="true"></span> Open source CLI · MIT · runs on
+              <a href={SOLARI}>Solari</a> sandboxes
+            </p>
+            <h1 id="hero-title">
+              Turn <span class="strike">“cannot reproduce”</span> into a machine you can open.
+            </h1>
+            <p class="lead">
+              A bug reporter captures the environment their command failed in. twin rebuilds it on a
+              clean cloud sandbox, reruns the command, finds the one difference that breaks it, and
+              checks your fix right there.
+            </p>
+            <div class="install">
+              <p class="install-label" id="install-label">
+                Reporter: run the failing command through twin. Nothing is uploaded.
+              </p>
+              <CopyCommand
+                command="npx github:crypticsaiyan/twin capture -- npm test"
+                label="Copy the capture command"
+                size="lg"
+              />
+            </div>
+            <div class="ctas">
+              <a class="btn btn-primary" href={docs.quickstart}>
+                Get started
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path
+                    d="M3 8h10M9 4l4 4-4 4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"></path>
+                </svg>
+              </a>
+              <a class="btn btn-ghost" href={docs.intro}>Read the docs</a>
+            </div>
+            <ul class="facts" aria-label="At a glance">
+              <li>Node 22+</li>
+              <li>Node and Python (uv) projects</li>
+              <li>~70 s per run</li>
+            </ul>
+          </div>
+          <div class="hero-term">
+            <Terminal />
+          </div>
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <section id="how" class="section" aria-labelledby="how-title">
+        <div class="wrap">
+          <header class="section-head">
+            <p class="kicker">How it works</p>
+            <h2 id="how-title">From a bug report to a machine where it fails.</h2>
+            <p class="section-lead">
+              The reporter runs one command and needs no account. Everything after that happens on a
+              fresh Solari sandbox, in about 70 seconds per run on a real project.
+            </p>
+          </header>
+
+          <ol class="steps">
+            {
+              steps.map((s) => (
+                <li class="step">
+                  <div class="step-top">
+                    <span class="step-n" aria-hidden="true">
+                      {s.n}
+                    </span>
+                    <span class="step-who">{s.who}</span>
+                  </div>
+                  <h3>{s.name}</h3>
+                  <code class="step-cmd">{s.cmd}</code>
+                  <p>{s.body}</p>
+                  <ul class="chips" aria-label={`${s.name} results`}>
+                    {s.chips.map((c) => (
+                      <li class={`chip chip-${c.k}`}>{c.t}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))
+            }
+          </ol>
+
+          <div class="shell-card">
+            <div class="shell-copy">
+              <p class="step-who">Then, open it</p>
+              <h3>A shell at the failure point.</h3>
+              <p>
+                Keep a reproduced machine running and get a terminal in the reporter’s environment,
+                with their runtime, time zone and working tree. Add <code>--web</code> for a browser terminal
+                link and password you can share with the reporter. Ctrl-] detaches, <code>twin gc</code> cleans
+                up.
+              </p>
+            </div>
+            <div class="shell-demo" aria-label="Example commands">
+              <pre><code><span class="p">$</span> twin replay capsule.json --keep
+<span class="p">$</span> twin shell
+<span class="m">/tmp/twin/repo</span> <span class="o">TZ=America/New_York</span> <span class="m">node 22.23.3</span>
+<span class="p">#</span> npx jest test/ut/spec/util/time.test.ts<span class="caret" aria-hidden="true"></span></code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI agents -->
+      <section id="agents" class="section agents" aria-labelledby="agents-title">
+        <div class="wrap">
+          <header class="section-head">
+            <p class="kicker"><span class="new">New</span> For AI coding agents</p>
+            <h2 id="agents-title">
+              Coding agents can’t fix bugs they can’t reproduce.
+              <span class="accent">twin gives them the reporter’s machine.</span>
+            </h2>
+            <p class="section-lead">
+              An agent handed a “works on my machine” issue is guessing. With twin it runs the failing
+              command where it actually fails, tries a fix there, and proves it.
+            </p>
+          </header>
+
+          <div class="agent-grid">
+            <article class="card agent-card">
+              <div class="card-top">
+                <span class="card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <path
+                      d="M8 9l-3 3 3 3M16 9l3 3-3 3M13.5 6l-3 12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"></path>
+                  </svg>
+                </span>
+                <div>
+                  <h3>MCP server</h3>
+                  <p class="card-sub"><code>twin mcp</code> for Claude Code, Cursor and Codex</p>
+                </div>
+              </div>
+              <p>
+                Your agent can replay a reporter’s failure, run commands inside the kept machine, try
+                fixes, bisect against a good environment, and verify, all through tools it calls itself.
+              </p>
+              <ol class="flow" aria-label="What an agent does with twin">
+                <li>replay</li>
+                <li>run commands</li>
+                <li>try a fix</li>
+                <li>verify</li>
+              </ol>
+              <CopyCommand
+                command="claude mcp add twin -e SOLARI_API_KEY=... -- npx -y github:crypticsaiyan/twin mcp"
+                label="Copy the MCP setup command"
+              />
+              <a class="more" href={docs.agents}>Set up twin for your agent <span aria-hidden="true">→</span></a>
+            </article>
+
+            <article class="card agent-card">
+              <div class="card-top">
+                <span class="card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <circle cx="6" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"
+                    ></circle>
+                    <circle cx="6" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"
+                    ></circle>
+                    <circle cx="18" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"
+                    ></circle>
+                    <path
+                      d="M6 8.5v7M18 15.5V10a3 3 0 0 0-3-3h-4m0 0l2.5-2.5M11 7l2.5 2.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"></path>
+                  </svg>
+                </span>
+                <div>
+                  <h3>GitHub Action</h3>
+                  <p class="card-sub"><code>crypticsaiyan/twin@main</code> on pull requests</p>
+                </div>
+              </div>
+              <p>
+                When a pull request, often agent-written, claims to fix an issue with a capsule
+                attached, the action verifies it in the reporter’s environment and comments the
+                verdict. The check fails unless the verdict is <strong>FIXED</strong>, so “fixed” is
+                checked where the bug actually happens.
+              </p>
+              <pre class="yaml"><code><span class="m">- uses:</span> crypticsaiyan/twin@main
+  <span class="m">with:</span>
+    <span class="m">solari-api-key:</span> {'${{ secrets.SOLARI_API_KEY }}'}</code></pre>
+              <div class="pr-comment" aria-label="Example pull request comment">
+                <div class="pr-head">
+                  <svg class="mark mark-sm" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
+                    <rect class="mark-back" x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25"
+                    ></rect>
+                    <rect class="mark-front" x="10" y="10" width="20" height="20" rx="6"></rect>
+                    <path class="mark-prompt" d="M15 17l3.25 3.25L15 23.5M20.5 24h4"></path>
+                  </svg>
+                  <strong>twin</strong><span>commented on this pull request</span>
+                </div>
+                <p>
+                  <span class="chip chip-pass">FIXED</span>: the command passes in the reporter’s environment
+                  with the fix applied.
+                </p>
+              </div>
+              <a class="more" href={docs.action}>Check fix PRs in CI <span aria-hidden="true">→</span></a>
+            </article>
+          </div>
+          <AgentSession />
+        </div>
+      </section>
+
+      <!-- Privacy -->
+      <section id="privacy" class="section" aria-labelledby="privacy-title">
+        <div class="wrap privacy-grid">
+          <div>
+            <header class="section-head section-head-left">
+              <p class="kicker">Privacy</p>
+              <h2 id="privacy-title">Secrets never leave the reporter’s machine.</h2>
+              <p class="section-lead">
+                A capsule is a small JSON file the reporter reads before it exists. twin records what
+                changes behavior, not what grants access.
+              </p>
+            </header>
+            <ul class="guarantees">
+              <li>
+                <h3>Env vars: names only</h3>
+                <p>
+                  Values are kept only for a short allowlist of behavior-changing variables such as
+                  <code>TZ</code>, <code>NODE_ENV</code>, <code>LANG</code> and <code>LC_*</code>, or
+                  ones you name. <code>--salt</code> stores salted hashes instead.
+                </p>
+              </li>
+              <li>
+                <h3>Pattern and entropy redaction</h3>
+                <p>
+                  Output, diff and argv are scrubbed of private keys, cloud and API tokens, JWTs, URL
+                  credentials, password assignments and random-looking strings. Home paths become
+                  <code>~</code>. Every replacement is counted.
+                </p>
+              </li>
+              <li>
+                <h3>Untracked files: names only</h3>
+                <p>Never their contents.</p>
+              </li>
+              <li>
+                <h3>You review before it is written</h3>
+                <p>
+                  twin shows a summary and the full JSON first. Nothing is uploaded, and the reporter
+                  needs no account.
+                </p>
+              </li>
+            </ul>
+            <a class="more" href={docs.privacy}>What a capsule contains <span aria-hidden="true">→</span></a>
+          </div>
+
+          <figure class="capsule">
+            <div class="capsule-bar">
+              <span class="file">new-york.json</span><span class="excerpt">excerpt</span>
+            </div>
+            <div class="capsule-body">
+              {
+                capsuleRows.map((r) => (
+                  <div class="row">
+                    <code>{r.code}</code>
+                    {r.tag && <span class:list={['tag', `tag-${r.tag.split(' ')[0]}`]}>{r.tag}</span>}
+                  </div>
+                ))
+              }
+            </div>
+            <figcaption>
+              From the real echarts capsule: <code>PATH</code> is recorded as set, never its value.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Proof -->
+      <section id="proof" class="section proof" aria-labelledby="proof-title">
+        <div class="wrap">
+          <header class="section-head">
+            <p class="kicker">Proof on a real, open issue</p>
+            <h2 id="proof-title">
+              <a href={ISSUE}>apache/echarts#21538</a>: a test that fails only in daylight-saving time zones.
+            </h2>
+            <p class="section-lead">
+              <code>roundTime_locale</code> fails for a reporter in New York and passes for a maintainer
+              in Kolkata. Same commit, same Node 22.23.3, same lockfile. We captured both and ran twin on
+              Solari.
+            </p>
+          </header>
+
+          <ul class="stats">
+            <li class="stat">
+              <span class="stat-num">72<span class="unit">s</span></span>
+              <span class="stat-cmd">twin replay</span>
+              <span class="chip chip-hot">REPRODUCED</span>
+              <span class="stat-text">Identical failure signature on a fresh sandbox.</span>
+            </li>
+            <li class="stat">
+              <span class="stat-num">69<span class="unit">s</span></span>
+              <span class="stat-cmd">twin bisect</span>
+              <span class="chip chip-hot">TZ=America/New_York</span>
+              <span class="stat-text">The minimal difference between the two capsules.</span>
+            </li>
+            <li class="stat">
+              <span class="stat-num">71<span class="unit">s</span></span>
+              <span class="stat-cmd">twin verify</span>
+              <span class="chip chip-pass">FIXED</span>
+              <span class="stat-text">The patch passes in the reporter’s environment. Nothing pushed.</span>
+            </li>
+          </ul>
+
+          <figure class="breakdown">
+            <figcaption>
+              <strong>Where the 72 seconds of replay go.</strong> Installing from the lockfile dominates;
+              the test itself fails in 8 s, then 1.7 s.
+            </figcaption>
+            <div class="bar" aria-hidden="true">
+              {
+                replaySegments.map((seg) => (
+                  <span class={`seg seg-${seg.k}`} style={`flex-grow:${seg.s}`} />
+                ))
+              }
+            </div>
+            <ul class="legend">
+              {
+                replaySegments.map((seg) => (
+                  <li>
+                    <span class={`swatch seg-${seg.k}`} aria-hidden="true" />
+                    <strong>{seg.label}</strong> {seg.s} s <span class="muted">{seg.detail}</span>
+                  </li>
+                ))
+              }
+            </ul>
+            <p class="cost">
+              At about $0.125 per sandbox-hour, each run costs a fraction of a cent.
+            </p>
+          </figure>
+
+          <div class="ctas ctas-center">
+            <a class="btn btn-primary" href={docs.caseStudy}>Read the case study</a>
+            <a class="btn btn-ghost" href={EXAMPLE}>Capsules and transcripts</a>
+            <a class="btn btn-ghost" href={ISSUE}>The issue on GitHub</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Comparison -->
+      <section id="compare" class="section" aria-labelledby="compare-title">
+        <div class="wrap">
+          <header class="section-head">
+            <p class="kicker">How it compares</p>
+            <h2 id="compare-title">Other tools share <em>your</em> environment. twin rebuilds a stranger’s.</h2>
+          </header>
+          <div class="table-card">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th scope="col">Tool</th>
+                  <th scope="col">What it gives you</th>
+                  <th scope="col">What twin does instead</th>
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  comparison.map((c) => (
+                    <tr>
+                      <th scope="row">{c.tool}</th>
+                      <td data-label="Gives you">{c.gives}</td>
+                      <td data-label="twin" class="twin-col">
+                        {c.twin}
+                      </td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="center-link">
+            <a class="more" href={docs.comparison}>The full comparison <span aria-hidden="true">→</span></a>
+          </p>
+        </div>
+      </section>
+
+      <!-- Closing CTA -->
+      <section class="section closing" aria-labelledby="closing-title">
+        <div class="wrap">
+          <div class="closing-card">
+            <h2 id="closing-title">Ask for a capsule, not more details.</h2>
+            <p>
+              Add one line to your issue template. The next “works on my machine” report comes with a
+              machine.
+            </p>
+            <CopyCommand
+              command="npx github:crypticsaiyan/twin capture -- <your failing command>"
+              label="Copy the capture command for your issue template"
+            />
+            <div class="ctas ctas-center">
+              <a class="btn btn-primary" href={docs.quickstart}>Quickstart</a>
+              <a class="btn btn-ghost" href={REPO}>Star on GitHub</a>
+            </div>
+            <ul class="facts facts-center" aria-label="Project facts">
+              <li>371 tests</li>
+              <li>99% line coverage</li>
+              <li>Node and Python (uv)</li>
+              <li>MIT licensed</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href={link('')}>
+            <svg class="mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
+              <rect class="mark-back" x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25"></rect>
+              <rect class="mark-front" x="10" y="10" width="20" height="20" rx="6"></rect>
+              <path class="mark-prompt" d="M15 17l3.25 3.25L15 23.5M20.5 24h4"></path>
+            </svg>
+            <span>twin</span>
+          </a>
+          <p>Turns “cannot reproduce” into a machine you can open.</p>
+        </div>
+        <nav aria-label="Footer: docs">
+          <h2>Docs</h2>
+          <ul>
+            <li><a href={docs.intro}>Introduction</a></li>
+            <li><a href={docs.quickstart}>Quickstart</a></li>
+            <li><a href={docs.agents}>AI agents</a></li>
+            <li><a href={docs.privacy}>Privacy</a></li>
+            <li><a href={docs.caseStudy}>Case study</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Footer: project">
+          <h2>Project</h2>
+          <ul>
+            <li><a href={REPO}>GitHub</a></li>
+            <li><a href={EXAMPLE}>echarts example</a></li>
+            <li><a href={`${REPO}/blob/main/LICENSE`}>MIT license</a></li>
+            <li><a href={SOLARI}>Solari</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="wrap footer-base">
+        <p>MIT licensed. Replays run on <a href={SOLARI}>Solari</a> sandboxes.</p>
+      </div>
+    </footer>
+
+    <script>
+      const root = document.documentElement;
+      const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+      const label = () => {
+        const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+        toggle?.setAttribute('aria-label', `Switch to ${next} theme`);
+      };
+      label();
+      toggle?.addEventListener('click', () => {
+        const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+        root.dataset.theme = next;
+        try {
+          localStorage.setItem('starlight-theme', next);
+        } catch {}
+        label();
+      });
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+        let stored: string | null = null;
+        try {
+          stored = localStorage.getItem('starlight-theme');
+        } catch {}
+        if (stored !== 'light' && stored !== 'dark') {
+          root.dataset.theme = e.matches ? 'light' : 'dark';
+          label();
+        }
+      });
+    </script>
+  </body>
+</html>
+
+<style>
+  /* Brand mark: colors follow the theme */
+  .mark-back {
+    fill: none;
+    stroke: var(--twin-cool);
+    stroke-width: 2.5;
+  }
+
+  .mark-front {
+    fill: var(--twin-accent);
+  }
+
+  .mark-prompt {
+    fill: none;
+    stroke: var(--twin-accent-ink);
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Nav */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--twin-bg) 82%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px);
+    -webkit-backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1px solid color-mix(in srgb, var(--twin-border) 70%, transparent);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 4rem;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font: 700 1.3rem/1 var(--twin-font-display);
+    letter-spacing: -0.03em;
+    text-decoration: none;
+  }
+
+  .nav nav {
+    margin-left: auto;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 0.25rem;
+    list-style: none;
+    padding: 0;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: 0.45rem 0.7rem;
+    border-radius: 8px;
+    color: var(--twin-text-muted);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .nav-links a:hover {
+    color: var(--twin-text);
+    background: var(--twin-surface-2);
+  }
+
+  .nav-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--twin-text-muted);
+    cursor: pointer;
+  }
+
+  .icon-btn:hover {
+    color: var(--twin-text);
+    background: var(--twin-surface-2);
+  }
+
+  .i-moon,
+  :global([data-theme='light']) .i-sun {
+    display: none;
+  }
+
+  :global([data-theme='light']) .i-moon {
+    display: block;
+  }
+
+  @media (max-width: 760px) {
+    .hide-sm {
+      display: none;
+    }
+  }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    padding-block: clamp(3rem, 8vw, 6rem) clamp(3rem, 7vw, 5.5rem);
+    isolation: isolate;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background:
+      radial-gradient(40rem 26rem at 12% 8%, color-mix(in srgb, var(--twin-accent) 16%, transparent), transparent 70%),
+      radial-gradient(38rem 28rem at 92% 30%, color-mix(in srgb, var(--twin-cool) 14%, transparent), transparent 70%);
+  }
+
+  .hero-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--twin-text) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--twin-text) 7%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 20%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 20%, transparent 75%);
+  }
+
+  .hero-grid {
+    display: grid;
+    gap: clamp(2.5rem, 5vw, 4rem);
+    align-items: center;
+  }
+
+  @media (min-width: 1080px) {
+    .hero-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+    }
+  }
+
+  .hero-copy,
+  .hero-term {
+    min-width: 0;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem 0.3rem 0.65rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--twin-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--twin-surface) 70%, transparent);
+    color: var(--twin-text-muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .eyebrow a {
+    color: var(--twin-text);
+    text-underline-offset: 2px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--twin-pass);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--twin-pass) 25%, transparent);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--twin-font-display);
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: clamp(2.3rem, 5.6vw, 3.9rem);
+    font-weight: 750;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+
+  .strike {
+    color: var(--twin-text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--twin-accent);
+    text-decoration-thickness: 0.085em;
+  }
+
+  .lead {
+    max-width: 36rem;
+    margin-top: 1.4rem;
+    color: var(--twin-text-muted);
+    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+    line-height: 1.6;
+  }
+
+  .install {
+    max-width: 36rem;
+    margin-top: 2rem;
+  }
+
+  .install-label {
+    margin-bottom: 0.55rem;
+    color: var(--twin-text-muted);
+    font-size: 0.875rem;
+  }
+
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .ctas-center {
+    justify-content: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.2rem;
+    border-radius: 11px;
+    border: 1px solid transparent;
+    font-weight: 600;
+    font-size: 0.975rem;
+    text-decoration: none;
+    transition:
+      transform 150ms,
+      background 150ms,
+      border-color 150ms;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-primary {
+    background: var(--twin-accent);
+    color: var(--twin-accent-ink);
+  }
+
+  .btn-primary:hover {
+    background: var(--twin-accent-strong);
+  }
+
+  .btn-ghost {
+    background: var(--twin-surface);
+    border-color: var(--twin-border);
+    color: var(--twin-text);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--twin-border-strong);
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    margin-top: 1.75rem;
+    padding: 0;
+    list-style: none;
+    color: var(--twin-text-faint);
+    font-size: 0.8125rem;
+    font-family: var(--twin-font-mono);
+  }
+
+  .facts li::before {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-right: 0.5rem;
+    border-radius: 1px;
+    background: var(--twin-accent);
+    vertical-align: 0.15em;
+  }
+
+  .facts-center {
+    justify-content: center;
+  }
+
+  /* Sections */
+  .section {
+    padding-block: clamp(4rem, 9vw, 7rem);
+    border-top: 1px solid var(--twin-border);
+  }
+
+  .section-head {
+    max-width: 48rem;
+    margin: 0 auto clamp(2.5rem, 5vw, 3.5rem);
+    text-align: center;
+  }
+
+  .section-head-left {
+    margin-inline: 0;
+    text-align: left;
+  }
+
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.9rem;
+    color: var(--twin-accent);
+    font: 600 0.8125rem/1 var(--twin-font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .new {
+    padding: 0.2rem 0.45rem;
+    border-radius: 5px;
+    background: var(--twin-accent);
+    color: var(--twin-accent-ink);
+    letter-spacing: 0.04em;
+  }
+
+  h2 {
+    font-size: clamp(1.85rem, 4.2vw, 3rem);
+    font-weight: 700;
+  }
+
+  h2 a {
+    color: var(--twin-accent);
+    text-decoration-thickness: 0.06em;
+    text-underline-offset: 0.12em;
+  }
+
+  h2 em {
+    font-style: italic;
+    color: var(--twin-cool);
+  }
+
+  .accent {
+    display: block;
+    color: var(--twin-accent);
+  }
+
+  .section-lead {
+    margin-top: 1rem;
+    color: var(--twin-text-muted);
+    font-size: 1.075rem;
+  }
+
+  code {
+    font-size: 0.9em;
+  }
+
+  p code,
+  li p code {
+    padding: 0.1em 0.35em;
+    border-radius: 5px;
+    background: var(--twin-surface-2);
+    font-size: 0.85em;
+  }
+
+  /* Steps */
+  .steps {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+
+  .step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius);
+    background: var(--twin-surface);
+    box-shadow: var(--twin-shadow);
+  }
+
+  .step-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .step-n {
+    font: 700 0.875rem/1 var(--twin-font-mono);
+    color: var(--twin-accent);
+  }
+
+  .step-who {
+    color: var(--twin-text-faint);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .step h3 {
+    font-size: 1.5rem;
+  }
+
+  .step p {
+    color: var(--twin-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .step-cmd {
+    display: block;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--twin-radius-sm);
+    background: var(--twin-term-bg);
+    color: var(--twin-term-text);
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+  }
+
+  .step-cmd::before {
+    content: '$ ';
+    color: var(--twin-term-orange);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: auto;
+    padding: 0.25rem 0 0;
+    list-style: none;
+  }
+
+  .chip {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font: 600 0.72rem/1.4 var(--twin-font-mono);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .chip-hot {
+    background: var(--twin-accent-soft);
+    color: var(--twin-accent-strong);
+  }
+
+  .chip-pass {
+    background: var(--twin-pass-soft);
+    color: var(--twin-pass);
+  }
+
+  .chip-fail {
+    background: var(--twin-fail-soft);
+    color: var(--twin-fail);
+  }
+
+  .chip-warn {
+    background: var(--twin-warn-soft);
+    color: var(--twin-warn);
+  }
+
+  .chip-cool {
+    background: var(--twin-cool-soft);
+    color: var(--twin-cool);
+  }
+
+  .chip-mute,
+  .chip-file {
+    background: var(--twin-surface-2);
+    color: var(--twin-text-muted);
+  }
+
+  .shell-card {
+    display: grid;
+    gap: 1.5rem 2.5rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius);
+    background:
+      linear-gradient(120deg, color-mix(in srgb, var(--twin-cool) 8%, transparent), transparent 60%),
+      var(--twin-surface);
+  }
+
+  @media (min-width: 900px) {
+    .shell-card {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    }
+  }
+
+  .shell-copy h3 {
+    margin: 0.5rem 0 0.75rem;
+    font-size: 1.6rem;
+  }
+
+  .shell-copy p:last-child {
+    color: var(--twin-text-muted);
+  }
+
+  .shell-demo pre,
+  .yaml {
+    padding: 1rem 1.1rem;
+    border-radius: var(--twin-radius-sm);
+    background: var(--twin-term-bg);
+    color: var(--twin-term-text);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .shell-demo .p {
+    color: var(--twin-term-orange);
+  }
+
+  .shell-demo .m,
+  .yaml .m {
+    color: var(--twin-term-muted);
+  }
+
+  .shell-demo .o {
+    color: var(--twin-term-orange);
+  }
+
+  .caret {
+    display: inline-block;
+    width: 0.55em;
+    height: 1.1em;
+    margin-left: 2px;
+    vertical-align: -0.2em;
+    background: var(--twin-term-orange);
+    animation: blink 1s steps(1) infinite;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* Agents */
+  .agents {
+    background:
+      radial-gradient(50rem 30rem at 50% 0%, color-mix(in srgb, var(--twin-accent) 9%, transparent), transparent 70%),
+      var(--twin-bg-raised);
+  }
+
+  .agent-grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding: clamp(1.25rem, 3vw, 2rem);
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius);
+    background: var(--twin-surface);
+    box-shadow: var(--twin-shadow);
+    min-width: 0;
+  }
+
+  .card > p {
+    color: var(--twin-text-muted);
+  }
+
+  .card-top {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+  }
+
+  .card-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 11px;
+    background: var(--twin-accent-soft);
+    color: var(--twin-accent);
+  }
+
+  .card h3 {
+    font-size: 1.45rem;
+  }
+
+  .card-sub {
+    color: var(--twin-text-faint);
+    font-size: 0.875rem;
+  }
+
+  .card-sub code {
+    color: var(--twin-text);
+  }
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0;
+    list-style: none;
+    font: 500 0.8rem/1 var(--twin-font-mono);
+  }
+
+  .flow li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--twin-border);
+    border-radius: 999px;
+    color: var(--twin-text-muted);
+  }
+
+  .flow li:not(:last-child)::after {
+    content: '→';
+    color: var(--twin-accent);
+  }
+
+  .flow li:last-child {
+    border-color: color-mix(in srgb, var(--twin-pass) 45%, transparent);
+    color: var(--twin-pass);
+  }
+
+  .pr-comment {
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius-sm);
+    overflow: hidden;
+    font-size: 0.9rem;
+  }
+
+  .pr-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.8rem;
+    background: var(--twin-surface-2);
+    border-bottom: 1px solid var(--twin-border);
+    color: var(--twin-text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .pr-head strong {
+    color: var(--twin-text);
+  }
+
+  .pr-comment p {
+    padding: 0.8rem;
+  }
+
+  .more {
+    align-self: flex-start;
+    display: inline-flex;
+    gap: 0.35rem;
+    margin-top: auto;
+    color: var(--twin-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .more:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Privacy */
+  .privacy-grid {
+    display: grid;
+    gap: clamp(2.5rem, 5vw, 4rem);
+    align-items: start;
+  }
+
+  @media (min-width: 980px) {
+    .privacy-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+    }
+  }
+
+  .privacy-grid > div {
+    min-width: 0;
+  }
+
+  .guarantees {
+    display: grid;
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .guarantees li {
+    position: relative;
+    padding-left: 2rem;
+  }
+
+  .guarantees li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.2rem;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 5px;
+    background: var(--twin-pass-soft);
+    box-shadow: inset 0 0 0 1.5px var(--twin-pass);
+  }
+
+  .guarantees li::after {
+    content: '';
+    position: absolute;
+    left: 0.4rem;
+    top: 0.42rem;
+    width: 0.3rem;
+    height: 0.55rem;
+    border: solid var(--twin-pass);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .guarantees h3 {
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+  }
+
+  .guarantees p {
+    margin-top: 0.25rem;
+    color: var(--twin-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .capsule {
+    min-width: 0;
+    margin: 0;
+    border: 1px solid var(--twin-term-border);
+    border-radius: var(--twin-radius);
+    background: var(--twin-term-bg);
+    box-shadow: 0 30px 80px -30px light-dark(#3b1c0a44, #000000);
+    overflow: hidden;
+  }
+
+  .capsule-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 1rem;
+    background: var(--twin-term-bar);
+    border-bottom: 1px solid #ffffff10;
+    font: 500 0.8rem/1 var(--twin-font-mono);
+  }
+
+  .file {
+    color: var(--twin-term-text);
+  }
+
+  .excerpt {
+    color: var(--twin-term-muted);
+  }
+
+  .capsule-body {
+    padding: 0.9rem 0;
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.1rem 1rem;
+  }
+
+  .row code {
+    color: var(--twin-term-text);
+    font-size: 0.75rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .tag {
+    flex: none;
+    padding: 0.1rem 0.45rem;
+    border-radius: 5px;
+    font: 600 0.68rem/1.5 var(--twin-font-mono);
+  }
+
+  .tag-name {
+    background: #0f2540;
+    color: var(--twin-term-blue);
+  }
+
+  .tag-allowlisted {
+    background: #3a1a0c;
+    color: var(--twin-term-orange);
+  }
+
+  .tag-counted {
+    background: #0e2a1e;
+    color: var(--twin-term-green);
+  }
+
+  .capsule figcaption {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #ffffff10;
+    color: var(--twin-term-muted);
+    font-size: 0.8125rem;
+  }
+
+  .capsule figcaption code {
+    color: var(--twin-term-text);
+  }
+
+  /* Proof */
+  .proof h2 {
+    font-size: clamp(1.7rem, 3.6vw, 2.6rem);
+  }
+
+  .stats {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    padding: 0;
+    list-style: none;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 1.6rem;
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius);
+    background: var(--twin-surface);
+    box-shadow: var(--twin-shadow);
+  }
+
+  .stat-num {
+    font: 750 clamp(3rem, 6vw, 4.25rem)/0.95 var(--twin-font-display);
+    letter-spacing: -0.05em;
+  }
+
+  .unit {
+    margin-left: 0.1em;
+    color: var(--twin-accent);
+    font-size: 0.5em;
+    letter-spacing: 0;
+  }
+
+  .stat-cmd {
+    color: var(--twin-text-faint);
+    font: 500 0.8125rem/1 var(--twin-font-mono);
+  }
+
+  .stat-text {
+    color: var(--twin-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .breakdown {
+    margin: 1.25rem 0 0;
+    padding: 1.5rem;
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius);
+    background: var(--twin-bg-raised);
+  }
+
+  .breakdown figcaption {
+    color: var(--twin-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .breakdown figcaption strong {
+    color: var(--twin-text);
+  }
+
+  .bar {
+    display: flex;
+    gap: 3px;
+    height: 14px;
+    margin: 1rem 0;
+  }
+
+  .seg {
+    flex-basis: 0;
+    border-radius: 4px;
+  }
+
+  .seg-cool {
+    background: var(--twin-cool);
+  }
+
+  .seg-hot {
+    background: var(--twin-accent);
+  }
+
+  .seg-fail {
+    background: var(--twin-fail);
+  }
+
+  .seg-mute {
+    background: var(--twin-border-strong);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0;
+    list-style: none;
+    font-size: 0.875rem;
+  }
+
+  .legend li {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .muted {
+    color: var(--twin-text-faint);
+  }
+
+  .cost {
+    margin-top: 1rem;
+    color: var(--twin-text-muted);
+    font-size: 0.875rem;
+  }
+
+  .proof .ctas {
+    margin-top: 2rem;
+  }
+
+  /* Comparison */
+  .table-card {
+    border: 1px solid var(--twin-border);
+    border-radius: var(--twin-radius);
+    background: var(--twin-surface);
+    box-shadow: var(--twin-shadow);
+    overflow: hidden;
+  }
+
+  .compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+
+  .compare th,
+  .compare td {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--twin-border);
+  }
+
+  .compare tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .compare thead th {
+    background: var(--twin-surface-2);
+    color: var(--twin-text-faint);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .compare tbody th {
+    font-family: var(--twin-font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .compare td {
+    color: var(--twin-text-muted);
+  }
+
+  .compare .twin-col {
+    color: var(--twin-text);
+    background: color-mix(in srgb, var(--twin-accent) 5%, transparent);
+  }
+
+  .compare thead th:last-child {
+    color: var(--twin-accent);
+  }
+
+  @media (max-width: 720px) {
+    .compare thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    .compare tr,
+    .compare th,
+    .compare td {
+      display: block;
+    }
+
+    .compare tbody tr {
+      padding: 1rem 1.1rem;
+      border-bottom: 1px solid var(--twin-border);
+    }
+
+    .compare tbody tr:last-child {
+      border-bottom: 0;
+    }
+
+    .compare tbody th,
+    .compare td {
+      padding: 0;
+      border: 0;
+      white-space: normal;
+    }
+
+    .compare td {
+      margin-top: 0.5rem;
+    }
+
+    .compare td::before {
+      content: attr(data-label);
+      display: block;
+      color: var(--twin-text-faint);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .compare .twin-col {
+      padding: 0.5rem 0.65rem;
+      border-radius: 8px;
+    }
+
+    .compare .twin-col::before {
+      color: var(--twin-accent);
+    }
+  }
+
+  .center-link {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
+
+  /* Closing */
+  .closing-card {
+    display: grid;
+    justify-items: center;
+    gap: 1.25rem;
+    padding: clamp(2rem, 6vw, 4rem) clamp(1.25rem, 5vw, 4rem);
+    border: 1px solid var(--twin-border);
+    border-radius: calc(var(--twin-radius) * 1.5);
+    background:
+      radial-gradient(30rem 18rem at 15% 0%, color-mix(in srgb, var(--twin-accent) 14%, transparent), transparent 70%),
+      radial-gradient(30rem 18rem at 85% 100%, color-mix(in srgb, var(--twin-cool) 12%, transparent), transparent 70%),
+      var(--twin-surface);
+    text-align: center;
+  }
+
+  .closing-card > p {
+    max-width: 34rem;
+    color: var(--twin-text-muted);
+    font-size: 1.075rem;
+  }
+
+  .closing-card :global(.copy) {
+    width: min(100%, 36rem);
+    text-align: left;
+  }
+
+  .closing-card .ctas {
+    margin-top: 0;
+  }
+
+  .closing-card .facts {
+    margin-top: 0.5rem;
+  }
+
+  /* Footer */
+  .footer {
+    padding-block: 3rem 2rem;
+    border-top: 1px solid var(--twin-border);
+    background: var(--twin-bg-raised);
+    font-size: 0.9375rem;
+  }
+
+  .footer-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  }
+
+  .footer-brand {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 560px) {
+    .footer-brand {
+      grid-column: auto;
+    }
+  }
+
+  .footer-brand p {
+    margin-top: 0.75rem;
+    max-width: 22rem;
+    color: var(--twin-text-muted);
+  }
+
+  .footer h2 {
+    margin-bottom: 0.75rem;
+    color: var(--twin-text-faint);
+    font: 600 0.75rem/1 var(--twin-font-body);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .footer ul {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .footer nav a {
+    color: var(--twin-text-muted);
+    text-decoration: none;
+  }
+
+  .footer nav a:hover {
+    color: var(--twin-text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .footer-base {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--twin-border);
+    color: var(--twin-text-faint);
+    font-size: 0.8125rem;
+  }
+
+  .footer-base a {
+    color: var(--twin-text-muted);
+  }
+
+  .mark-sm {
+    flex: none;
+  }
+</style>

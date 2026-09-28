@@ -1,0 +1,56 @@
+/* Starlight theme: maps twin's brand tokens (tokens.css) onto Starlight's variables. */
+
+:root,
+:root[data-theme='light'] {
+  --sl-font: var(--twin-font-body);
+  --sl-font-mono: var(--twin-font-mono);
+
+  --sl-color-accent-low: var(--twin-accent-soft);
+  --sl-color-accent: var(--twin-accent);
+  --sl-color-accent-high: light-dark(#7c2d12, #ffc2a6);
+
+  --sl-color-white: light-dark(#16181d, #ffffff);
+  --sl-color-gray-1: light-dark(#23262d, #ecebe7);
+  --sl-color-gray-2: light-dark(#3a3e47, #c9c8c3);
+  --sl-color-gray-3: light-dark(#555a64, #9ba0a9);
+  --sl-color-gray-4: light-dark(#8d9199, #5f646d);
+  --sl-color-gray-5: light-dark(#cfcbc2, #2b3038);
+  --sl-color-gray-6: light-dark(#ebe8e1, #171a20);
+  --sl-color-gray-7: light-dark(#f3f1ec, #12151a);
+  --sl-color-black: light-dark(#fbfaf7, #0d0f12);
+
+  --sl-color-bg: var(--twin-bg);
+  --sl-color-bg-nav: light-dark(#fbfaf7, #12151a);
+  --sl-color-bg-sidebar: light-dark(#f6f4ef, #0f1216);
+  --sl-color-hairline-light: var(--twin-border);
+  --sl-color-hairline: var(--twin-border);
+  --sl-color-hairline-shade: light-dark(#dcd8cf, #08090b);
+}
+
+/* Headings in the display face, like the landing page. */
+.sl-markdown-content :is(h1, h2, h3),
+h1#_top {
+  font-family: var(--twin-font-display);
+  letter-spacing: -0.01em;
+}
+
+h1#_top {
+  font-weight: 700;
+}
+
+.site-title {
+  gap: 0.5rem;
+  font-family: var(--twin-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.site-title img {
+  height: 1.75rem;
+  width: auto;
+}
+
+:focus-visible {
+  outline-color: var(--twin-accent);
+}
+

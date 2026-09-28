@@ -1,0 +1,107 @@
+---
+import '@fontsource-variable/inter';
+import '@fontsource-variable/bricolage-grotesque';
+import '@fontsource-variable/jetbrains-mono';
+import '../styles/tokens.css';
+import '../styles/landing.css';
+import { link } from '../site';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Not found · twin</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href={link('favicon.svg')} type="image/svg+xml" />
+    <script is:inline>
+      (() => {
+        let stored = null;
+        try {
+          stored = localStorage.getItem('starlight-theme');
+        } catch {}
+        const light = window.matchMedia('(prefers-color-scheme: light)').matches;
+        document.documentElement.dataset.theme =
+          stored === 'light' || stored === 'dark' ? stored : light ? 'light' : 'dark';
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="wrap">
+      <pre aria-hidden="true"><span class="p">$</span> twin replay this-page.json
+<span class="v">NOT REPRODUCED</span>: this page does not exist here.</pre>
+      <h1>Page not found</h1>
+      <p>The link may be old, or the page moved while the docs were reorganized.</p>
+      <p class="links">
+        <a class="btn" href={link('')}>Home</a>
+        <a class="btn ghost" href={link('start/introduction/')}>Docs</a>
+      </p>
+    </main>
+  </body>
+</html>
+
+<style>
+  main {
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 1rem;
+    min-height: 100vh;
+    max-width: 44rem;
+  }
+
+  pre {
+    max-width: 100%;
+    padding: 1rem 1.25rem;
+    border-radius: var(--twin-radius);
+    background: var(--twin-term-bg);
+    color: var(--twin-term-text);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .p {
+    color: var(--twin-term-orange);
+  }
+
+  .v {
+    padding: 0 0.35em;
+    border-radius: 4px;
+    background: var(--twin-term-blue);
+    color: #0a0c0f;
+    font-weight: 700;
+  }
+
+  h1 {
+    font: 750 clamp(2.2rem, 6vw, 3.5rem) / 1.05 var(--twin-font-display);
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    color: var(--twin-text-muted);
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .btn {
+    padding: 0.7rem 1.1rem;
+    border-radius: 11px;
+    background: var(--twin-accent);
+    color: var(--twin-accent-ink);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .ghost {
+    border: 1px solid var(--twin-border);
+    background: var(--twin-surface);
+    color: var(--twin-text);
+  }
+</style>

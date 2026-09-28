@@ -1,0 +1,73 @@
+/*
+ * twin brand tokens, shared by the landing page and the Starlight docs.
+ *
+ * Two machines, two colors: warm "signal" orange is the reporter's machine (where it fails),
+ * cool blue is the maintainer's (where it passes). Every color is defined once with
+ * light-dark(), so it follows `color-scheme`, which Starlight sets from `data-theme`.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --twin-font-display: 'Bricolage Grotesque Variable', 'Inter Variable', system-ui, sans-serif;
+  --twin-font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --twin-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  /* Surfaces */
+  --twin-bg: light-dark(#f6f4ef, #0d0f12);
+  --twin-bg-raised: light-dark(#fbfaf7, #12151a);
+  --twin-surface: light-dark(#ffffff, #161a20);
+  --twin-surface-2: light-dark(#efece5, #1c2028);
+  --twin-border: light-dark(#dcd8cf, #272c35);
+  --twin-border-strong: light-dark(#c4bfb4, #363c47);
+
+  /* Text */
+  --twin-text: light-dark(#16181d, #ecebe7);
+  --twin-text-muted: light-dark(#555a64, #a0a5ae);
+  --twin-text-faint: light-dark(#6b707a, #8a909a);
+
+  /* Brand */
+  --twin-accent: light-dark(#c2410c, #ff7a45);
+  --twin-accent-strong: light-dark(#9a3412, #ff9466);
+  --twin-accent-soft: light-dark(#ffe4d6, #3a1a0c);
+  --twin-accent-ink: light-dark(#ffffff, #1a0b04);
+  --twin-cool: light-dark(#1d5fc4, #6cb4ff);
+  --twin-cool-soft: light-dark(#dde9fb, #0f2540);
+
+  /* Verdicts */
+  --twin-pass: light-dark(#13744a, #5ad19a);
+  --twin-pass-soft: light-dark(#dcf3e7, #0e2a1e);
+  --twin-fail: light-dark(#b42328, #ff7b72);
+  --twin-fail-soft: light-dark(#fbe1e0, #3a1414);
+  --twin-warn: light-dark(#8a5a00, #f2c14e);
+  --twin-warn-soft: light-dark(#fbefd1, #33280c);
+
+  /* Terminal: always dark, in both themes */
+  --twin-term-bg: #0a0c0f;
+  --twin-term-bar: #14171c;
+  --twin-term-border: light-dark(#1f232a, #2a2f38);
+  --twin-term-text: #d9dce1;
+  --twin-term-muted: #8b929c;
+  --twin-term-green: #5ad19a;
+  --twin-term-red: #ff7b72;
+  --twin-term-orange: #ff9466;
+  --twin-term-blue: #79c0ff;
+
+  --twin-radius: 14px;
+  --twin-radius-sm: 8px;
+  --twin-shadow: 0 1px 0 light-dark(#0000000d, #ffffff08),
+    0 12px 32px -12px light-dark(#1a140c33, #00000099);
+  --twin-focus: 0 0 0 2px var(--twin-bg), 0 0 0 4px var(--twin-accent);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+/* No-JS fallback: the theme script sets data-theme; without it, follow the OS. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+  }
+}
