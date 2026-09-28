@@ -86,7 +86,7 @@ twin runs the command as usual, shows what it recorded, and writes `twin-capsule
 **Maintainer**:
 
 ```sh
-export SOLARI_API_KEY=slr_live_...     # https://console.getsolari.com
+export SOLARI_API_KEY=slr_live_...     # https://console.getsolari.com, or put it in a .env file
 npx github:crypticsaiyan/twin replay twin-capsule.json
 ```
 

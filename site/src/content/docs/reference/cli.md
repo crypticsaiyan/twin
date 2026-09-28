@@ -45,7 +45,7 @@ Run `twin <command> --help` for the same details in the terminal. `twin --versio
 
 | Variable | Used by | Meaning |
 |---|---|---|
-| `SOLARI_API_KEY` | replay, bisect, verify, shell, gc, mcp | Solari API key from [console.getsolari.com](https://console.getsolari.com). twin does not read `.env` files; export it. |
+| `SOLARI_API_KEY` | replay, bisect, verify, shell, gc, mcp | Solari API key from [console.getsolari.com](https://console.getsolari.com). Export it, or put `SOLARI_API_KEY=...` in a `.env` file: twin reads it (and `SOLARI_BASE_URL`, nothing else) from the nearest `.env` above the working directory. An exported value wins. |
 | `SOLARI_BASE_URL` | same | Optional gateway override. Defaults to the SDK's gateway, `https://api.getsolari.com`. |
 | `NO_COLOR` | all | Any value disables colored output. |
 

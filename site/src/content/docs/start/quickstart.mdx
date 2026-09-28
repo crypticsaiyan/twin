@@ -47,10 +47,12 @@ You have a capsule from an issue and want to see the failure.
 
 <Steps>
 
-1. Get a Solari API key from [console.getsolari.com](https://console.getsolari.com) and export it. twin reads it from the environment; it does not load `.env` files.
+1. Get a Solari API key from [console.getsolari.com](https://console.getsolari.com). Export it, or put it in a `.env` file in the project; twin reads `SOLARI_API_KEY` from the nearest `.env` above the working directory.
 
    ```sh
    export SOLARI_API_KEY=slr_live_...
+   # or
+   echo 'SOLARI_API_KEY=slr_live_...' >> .env
    ```
 
 2. Replay the capsule. Pass the attachment link from the issue directly, or a downloaded file:

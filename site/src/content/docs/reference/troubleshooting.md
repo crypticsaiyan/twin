@@ -9,9 +9,9 @@ twin prints expected problems as one line starting with `twin:` and no stack tra
 
 ## Key and account
 
-**`twin: SOLARI_API_KEY is not set. Get a key at https://getsolari.com, then: export SOLARI_API_KEY=...`** (exit 2)
+**`twin: SOLARI_API_KEY is not set. Get a key at https://console.getsolari.com, then export SOLARI_API_KEY=... or add SOLARI_API_KEY=... to a .env file in this project.`** (exit 2)
 
-replay, bisect, verify, shell, gc and the MCP server's sandbox tools need the key in the process environment. twin does not read `.env` files. Export it in the shell you run twin from, or pass it with `-e` / `env` in your MCP client configuration.
+replay, bisect, verify, shell, gc and the MCP server's sandbox tools need the key. Export it in the shell you run twin from, or add `SOLARI_API_KEY=...` to a `.env` file in the directory you run twin from (or any parent). For the MCP server, pass it with `-e` / `env` in the client configuration, or keep a `.env` in the directory the client starts the server in.
 
 **`twin: Solari refused the request: <message>`** (exit 1)
 
