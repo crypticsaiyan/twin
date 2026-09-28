@@ -12,6 +12,7 @@ This folder is that situation captured with twin, then reproduced and explained 
 | `bisect.txt` | `twin bisect new-york.json --good kolkata.json` on Solari, recorded 2026-09-28 |
 | `fix.patch` | a candidate fix for the test helper |
 | `verify.txt` | `twin verify new-york.json --patch fix.patch` on Solari, recorded 2026-09-28 |
+| `mcp.txt` | a scripted MCP client driving `twin mcp` like a coding agent (`test/e2e/mcp-session.ts`), recorded 2026-09-28 |
 
 Both capsules are from echarts commit `984bf46` (master on 2026-09-12), Node 22.23.3, npm 10.9.9, captured with a minimal environment (`env -i` keeping only `PATH`, `HOME`, `LANG` and `TZ`).
 
@@ -32,6 +33,8 @@ npx jest --config test/ut/jest.config.cjs --coverage=false test/ut/spec/util/tim
 **Verify (71 s).** The test builds its expected dates with a fixed UTC offset taken from January 1970, which is wrong for October in any zone with daylight saving time. `fix.patch` drops the offset: an ISO date-time string without one is parsed as local time, which is what `roundTime(..., false)` works in. It passes locally under seven zones (New York, Berlin, Sydney, Kolkata, UTC, Chatham, São Paulo). `twin verify` then rebuilt the New York reporter's environment on a fresh sandbox, applied the patch on top of the captured commit and ran the test: both attempts passed, `FIXED`. Nothing had to be pushed first.
 
 Timing detail from the runs: `npm ci` dominates setup (about 46 s); the first Jest run on a fresh machine takes 8 s and later runs about 1.7 s. That first run prints a slow-file timing that later runs do not; twin ignores such timing annotations when fingerprinting failures, which is why both attempts match.
+
+**Agent session over MCP (162 s).** `test/e2e/mcp-session.ts` drives `twin mcp` over stdio the way a coding agent would: `replay` reproduced the failure in 71 s and kept the machine; `run` showed `TZ=America/New_York`, Node v22.23.3 and the failing `roundTime_locale` with the issue's numbers; `write_file` and `git apply` put the fix in place and all 15 tests passed; `verify` confirmed `FIXED` on a fresh machine in 74 s; `release` stopped the kept machine (kill confirmed in 7 s).
 
 ## Run it yourself
 
