@@ -47,6 +47,32 @@ function fakeSandbox(
       }),
     },
     snapshot: vi.fn(async (name?: string) => `snap_${name}`),
+    pty: {
+      create: vi.fn(async (opts: { cols: number; rows: number; cmd?: string }) => {
+        calls.push(`pty ${opts.cmd} ${opts.cols}x${opts.rows}`);
+        const listeners: ((data: Uint8Array) => void)[] = [];
+        return {
+          ptyId: 'pty_1',
+          write: async (data: string | Uint8Array) => {
+            calls.push(`pty write ${String(data)}`);
+          },
+          resize: async (cols: number, rows: number) => {
+            calls.push(`pty resize ${cols}x${rows}`);
+          },
+          onData: (cb: (data: Uint8Array) => void) => {
+            listeners.push(cb);
+            cb(Buffer.from('hello'));
+          },
+          kill: async () => {
+            calls.push('pty kill');
+          },
+        };
+      }),
+    },
+    previewUrl: vi.fn(async (port: number) => ({
+      url: `https://x-${port}.preview.getsolari.com/?pt_token=t`,
+      token: 't',
+    })),
     revert: vi.fn(async (id: string) => {
       calls.push(`revert ${id}`);
     }),
@@ -197,6 +223,7 @@ describe('SolariBackend', () => {
   ) {
     const live = new Map(Object.entries(server).map(([id, s]) => [id, { ...s }]));
     const create = vi.fn(async (_opts: object) => sandbox);
+    const connect = vi.fn(async (_id: string) => sandbox);
     const get = vi.fn(async (id: string) => {
       const entry = live.get(id);
       if (!entry) throw Object.assign(new Error('Not found'), { status: 404 });
@@ -222,6 +249,7 @@ describe('SolariBackend', () => {
     return {
       sandboxes: {
         create,
+        connect,
         get,
         kill,
         listAll,
@@ -307,6 +335,53 @@ describe('SolariBackend', () => {
     expect(await new SolariBackend(sandboxes, FAST).reap({ app: 'twin' })).toEqual(['a', 'c']);
     expect(listAll).toHaveBeenCalledWith({ metadata: { app: 'twin' } });
     expect(kill.mock.calls).toEqual([['a'], ['c']]);
+  });
+
+  it('reconnects to a running sandbox by id and opens its control channel', async () => {
+    const { sandbox, calls } = fakeSandbox();
+    const { sandboxes } = api(sandbox);
+    const machine = await new SolariBackend(sandboxes, FAST).connect('sbx_1');
+    expect(machine.id).toBe('sbx_1');
+    expect(calls).toEqual(['connect']);
+  });
+
+  it('lists only machines the gateway confirms as live', async () => {
+    const { sandbox } = fakeSandbox();
+    const views = [
+      { sandboxId: 'a', state: 'running', metadata: { app: 'twin', run: '1' } },
+      { sandboxId: 'ghost', state: 'running', metadata: { app: 'twin', run: '2' } },
+      { sandboxId: 'c', state: 'running', metadata: { app: 'twin', run: '3' } },
+    ];
+    const { sandboxes } = api(sandbox, views, {
+      a: { state: 'running' },
+      c: { state: 'releasing' },
+    });
+    expect(await new SolariBackend(sandboxes, FAST).list({ app: 'twin' })).toEqual([
+      { id: 'a', state: 'running', labels: { app: 'twin', run: '1' } },
+    ]);
+  });
+
+  it('opens terminals over the PTY and returns preview URLs', async () => {
+    const { sandbox, calls } = fakeSandbox();
+    const machine = new SolariMachine(sandbox);
+    const terminal = await machine.openTerminal({
+      cols: 90,
+      rows: 20,
+      command: '/tmp/twin/shell.sh',
+    });
+    const seen: string[] = [];
+    terminal.onData((data) => seen.push(Buffer.from(data).toString('utf8')));
+    await terminal.write('ls\r');
+    await terminal.resize(100, 30);
+    await terminal.close();
+    expect(seen).toEqual(['hello']);
+    expect(calls).toEqual([
+      'pty /tmp/twin/shell.sh 90x20',
+      'pty write ls\r',
+      'pty resize 100x30',
+      'pty kill',
+    ]);
+    expect(await machine.previewUrl(7681)).toBe('https://x-7681.preview.getsolari.com/?pt_token=t');
   });
 
   it('keeps killing until the sandbox is confirmed gone', async () => {

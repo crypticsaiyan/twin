@@ -3,8 +3,10 @@ import type {
   Backend,
   CreateMachineOptions,
   Machine,
+  MachineInfo,
   RunOutcome,
   RunSpec,
+  Terminal,
 } from '../../src/backend/types.ts';
 
 /**
@@ -85,6 +87,15 @@ class DockerMachine implements Machine {
   async kill(): Promise<void> {
     await docker(['rm', '-f', this.id]);
   }
+
+  async openTerminal(): Promise<Terminal> {
+    throw new Error('the Docker harness has no terminal; use `docker exec -it` instead');
+  }
+
+  /** Containers use host networking, so a guest port is a local port. */
+  async previewUrl(port: number): Promise<string> {
+    return `http://localhost:${port}/`;
+  }
 }
 
 export class DockerBackend implements Backend {
@@ -113,6 +124,19 @@ export class DockerBackend implements Backend {
     if (ids.length > 0) await docker(['rm', '-f', ...ids]);
     return ids;
   }
+  async list(labels: Record<string, string>): Promise<MachineInfo[]> {
+    const filters = Object.entries(labels).flatMap(([k, v]) => ['--filter', `label=${k}=${v}`]);
+    const { stdout } = await docker(['ps', '-q', '--no-trunc', ...filters]);
+    return stdout
+      .split('\n')
+      .filter(Boolean)
+      .map((id) => ({ id, state: 'running', labels }));
+  }
+
+  async connect(id: string): Promise<Machine> {
+    return new DockerMachine(id);
+  }
+
   async deleteSnapshot(snapshotId: string): Promise<void> {
     await docker(['rmi', '-f', snapshotId]);
   }

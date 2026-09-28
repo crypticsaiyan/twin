@@ -1,16 +1,33 @@
 import type { Sandbox, SandboxClient } from '@solarisdk/sdk';
 import { TailBuffer } from '../capture/tail-buffer.ts';
 import { TwinError } from '../errors.ts';
-import type { Backend, CreateMachineOptions, Machine, RunOutcome, RunSpec } from './types.ts';
+import type {
+  Backend,
+  CreateMachineOptions,
+  Machine,
+  MachineInfo,
+  RunOutcome,
+  RunSpec,
+  Terminal,
+} from './types.ts';
 
 /** The SDK surface twin uses, narrowed so tests can pass a structural fake. */
 export type SandboxApi = Pick<
   SandboxClient,
-  'create' | 'get' | 'listAll' | 'kill' | 'listSnapshots' | 'deleteSnapshot'
+  'create' | 'connect' | 'get' | 'listAll' | 'kill' | 'listSnapshots' | 'deleteSnapshot'
 >;
 export type SandboxHandle = Pick<
   Sandbox,
-  'id' | 'connect' | 'reconnect' | 'commands' | 'files' | 'snapshot' | 'revert' | 'kill'
+  | 'id'
+  | 'connect'
+  | 'reconnect'
+  | 'commands'
+  | 'files'
+  | 'snapshot'
+  | 'revert'
+  | 'kill'
+  | 'pty'
+  | 'previewUrl'
 >;
 
 const TEMPLATE = 'base';
@@ -188,6 +205,24 @@ export class SolariMachine implements Machine {
   kill(): Promise<void> {
     return this.#release();
   }
+
+  async openTerminal(options: { cols: number; rows: number; command: string }): Promise<Terminal> {
+    const pty = await this.#sandbox.pty.create({
+      cols: options.cols,
+      rows: options.rows,
+      cmd: options.command,
+    });
+    return {
+      write: (data) => pty.write(data),
+      resize: (cols, rows) => pty.resize(cols, rows),
+      onData: (listener) => pty.onData(listener),
+      close: () => pty.kill(),
+    };
+  }
+
+  async previewUrl(port: number): Promise<string> {
+    return (await this.#sandbox.previewUrl(port)).url;
+  }
 }
 
 export class SolariBackend implements Backend {
@@ -214,11 +249,32 @@ export class SolariBackend implements Backend {
       await sandbox.kill().catch(() => {});
       throw error;
     }
+    return this.#machine(sandbox);
+  }
+
+  #machine(sandbox: SandboxHandle): SolariMachine {
     return new SolariMachine(sandbox, Date.now, RETRY_BASE_MS, async () => {
       // Closes the local channel and marks the handle killed; the verified kill does the rest.
       await sandbox.kill();
       await killAndConfirm(this.#sandboxes, sandbox.id, this.#timing);
     });
+  }
+
+  async connect(id: string): Promise<Machine> {
+    const sandbox = await this.#sandboxes.connect(id);
+    await sandbox.connect();
+    return this.#machine(sandbox);
+  }
+
+  async list(labels: Record<string, string>): Promise<MachineInfo[]> {
+    const machines: MachineInfo[] = [];
+    for await (const view of this.#sandboxes.listAll({ metadata: labels })) {
+      const state = await liveState(this.#sandboxes, view.sandboxId);
+      if (state !== null && state !== 'releasing') {
+        machines.push({ id: view.sandboxId, state, labels: view.metadata });
+      }
+    }
+    return machines;
   }
 
   async reap(labels: Record<string, string>): Promise<string[]> {
