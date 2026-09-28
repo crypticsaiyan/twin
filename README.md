@@ -137,7 +137,7 @@ Redaction is pattern based; review the capsule before posting it publicly.
 | A shell at the failure point | `pty.create` (`twin shell`), and `previewUrl` in front of a guest web terminal behind a password (`twin shell --web`) |
 | Re-attach from any computer, then let go | `sandboxes.connect(id)`, `close()` to detach without releasing |
 | An agent working inside the reporter's machine | `connect` once per session, then `commands.start` and `files.write` on the kept sandbox (`twin mcp`) |
-| No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; `listAll({ metadata })` reaper in `twin gc` |
+| No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C mid-run releases live machines before exiting; `listAll({ metadata })` reaper in `twin gc` |
 
 Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent. Bisect runs every trial on one machine, so it fits a single concurrent slot.
 

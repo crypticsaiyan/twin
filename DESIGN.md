@@ -27,7 +27,7 @@ The core requirement is that two different people share one exact machine. That 
 | Get the reporter's exact commit and diff | `git fetch` of one SHA in the guest + `files.write` of the diff |
 | Hand the maintainer a live shell at the failure point | `pty.create` (`twin shell`) and `previewUrl` in front of a guest web terminal (`twin shell --web`) |
 | Re-attach later, from any computer | `sandboxes.connect(id)`, then `close()` to detach without releasing |
-| Never leak billing VMs | `kill()` confirmed with `get()` and repeated until gone; `listAll({ metadata })` reaper in `twin gc` |
+| Never leak billing VMs | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C or a stop signal releases every live machine (`src/interrupt.ts`) before exiting 130; `listAll({ metadata })` reaper in `twin gc` |
 | Web-app bugs (later) | `previewUrl` + recorded Solari browser session |
 | GUI/Electron bugs (later) | Solari desktop |
 

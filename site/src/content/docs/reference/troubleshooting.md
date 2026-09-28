@@ -102,3 +102,4 @@ Stop it from the [Solari console](https://console.getsolari.com) and check the l
 | `missing command to run` | Put the command after `--`: `twin capture -- npm test`. |
 | `command not found: <name>` (exit 127) | The command is not on `PATH` in that shell. |
 | `interrupted; no capsule written` (exit 130) | Ctrl-C during the run. |
+| `twin: interrupted, releasing …` (exit 130) | Ctrl-C during `replay`, `bisect` or `verify`. twin kills the machine and waits for Solari to confirm it is gone. Press Ctrl-C again to skip the wait, then run `twin gc`. |
