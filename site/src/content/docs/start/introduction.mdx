@@ -5,9 +5,7 @@ sidebar:
   order: 1
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
-
-twin turns "cannot reproduce" into a machine you can open. A reporter captures the environment their command failed in. A maintainer rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, checks a fix there, and can open a shell in it.
+twin reproduces a bug in the environment where it was reported. A reporter captures the environment their command failed in. A maintainer, or a coding agent, rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, and checks a fix there.
 
 ## The problem
 
@@ -60,19 +58,11 @@ The full transcripts are in the [echarts case study](../../examples/echarts-2153
 
 twin is for bugs whose cause is **environmental**: a version, a variable, a time zone, a resolved dependency, uncommitted changes. It does not find logic bugs, and it does not reproduce network or data problems. Replay runs on Linux. See [Limits](../../reference/limits/) for the full list.
 
-<CardGrid>
-  <Card title="Reporter" icon="document">
-    Run the failing command through `twin capture` and attach the file it writes. No account, no upload. [Capture guide](../../guides/capture/).
-  </Card>
-  <Card title="Maintainer" icon="laptop">
-    Replay the capsule, bisect it against a passing one, verify a fix, open a shell. [Quickstart](../quickstart/).
-  </Card>
-  <Card title="Coding agent" icon="rocket">
-    Give an agent the reporter's machine through MCP, so it can reproduce before it fixes. [AI agents](../../guides/ai-agents/).
-  </Card>
-  <Card title="CI" icon="github">
-    Check that a PR claiming to fix an issue actually fixes it in the reporter's environment. [GitHub Action](../../guides/github-action/).
-  </Card>
-</CardGrid>
+## Where to go next
 
-<LinkCard title="How it works" description="Capsule, replay plan, verdicts, bisect and verify, step by step." href="../how-it-works/" />
+- **Reporters:** run the failing command through `twin capture` and attach the file it writes. See the [capture guide](../../guides/capture/).
+- **Maintainers:** replay the capsule, bisect it against a passing one, verify a fix, open a shell. Start with the [quickstart](../quickstart/).
+- **Coding agents:** get the reporter's machine through MCP, so they reproduce before they fix. See [AI coding agents](../../guides/ai-agents/).
+- **CI:** check that a pull request claiming to fix an issue fixes it in the reporter's environment. See the [GitHub Action](../../guides/github-action/).
+
+[How it works](../how-it-works/) walks through the capsule, the replay plan, verdicts, bisect and verify.
