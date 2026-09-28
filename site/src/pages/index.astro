@@ -1,11 +1,7 @@
 ---
-import '@fontsource/doto/700.css';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import '@fontsource/doto/900.css';
-import '@fontsource/silkscreen/400.css';
-import '@fontsource/vt323/400.css';
-import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/ibm-plex-mono/400-italic.css';
-import '@fontsource/ibm-plex-mono/600.css';
 import '../styles/tokens.css';
 import bisectLog from '../../../examples/echarts-21538/bisect.txt?raw';
 import mcpLog from '../../../examples/echarts-21538/mcp.txt?raw';
@@ -13,7 +9,7 @@ import replayLog from '../../../examples/echarts-21538/replay.txt?raw';
 import verifyLog from '../../../examples/echarts-21538/verify.txt?raw';
 import { EXAMPLE, ISSUE, link, REPO, SOLARI } from '../site';
 
-const title = 'twin(1)';
+const title = 'twin';
 const description =
   'twin records the environment a command failed in, rebuilds it on a clean Solari sandbox, finds the difference that causes the failure, and checks a fix there.';
 const canonical = new URL(link(''), Astro.site).href;
@@ -34,7 +30,7 @@ const docs = {
 const escape = (text: string) =>
   text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
-/** Ribbon colors for recorded output: failures in red, passes in green, commands bold. */
+/** Semantic color for recorded output: failures red, passes green, prompts and timings dim. */
 function paint(text: string): string {
   return text
     .trimEnd()
@@ -44,8 +40,8 @@ function paint(text: string): string {
       if (/^(\$|&gt;&gt;&gt;) /.test(html)) return `<span class="t-cmd">${html}</span>`;
       if (/^(&lt;&lt;&lt;|\s+\.\.\. )/.test(html)) return `<span class="t-dim">${html}</span>`;
       html = html
-        .replace(/^(REPRODUCED|STILL FAILING)(:.*)$/, '<span class="t-bad t-verdict">$1</span>$2')
-        .replace(/^(FIXED)(:.*)$/, '<span class="t-good t-verdict">$1</span>$2')
+        .replace(/^(REPRODUCED|STILL FAILING)(:.*)$/, '<span class="t-bad t-strong">$1</span>$2')
+        .replace(/^(FIXED)(:.*)$/, '<span class="t-good t-strong">$1</span>$2')
         .replaceAll('✓', '<span class="t-good">✓</span>')
         .replaceAll('✕', '<span class="t-bad">✕</span>')
         .replace(/\b(FAIL)\b/g, '<span class="t-bad">$1</span>')
@@ -59,17 +55,32 @@ function paint(text: string): string {
 const shortenIds = (text: string) =>
   text.replace(/\b([A-Za-z0-9_-]{16})[A-Za-z0-9_.-]{40,}/g, '$1…');
 const lines = (text: string) => text.split('\n');
+const lineStarting = (text: string, prefix: string) =>
+  lines(text).find((line) => line.startsWith(prefix)) ?? '';
+
+// Hero: the three verdicts, verbatim from the recorded runs.
+const bisectResult = lines(bisectLog);
+const minimalAt = bisectResult.findIndex((line) => line.startsWith('Minimal failing difference'));
+const heroLog = [
+  '$ twin replay new-york.json',
+  lineStarting(replayLog, 'REPRODUCED'),
+  '',
+  '$ twin bisect new-york.json --good kolkata.json',
+  ...bisectResult.slice(minimalAt, minimalAt + 2),
+  '',
+  '$ twin verify new-york.json --patch fix.patch',
+  lineStarting(verifyLog, 'FIXED'),
+].join('\n');
 
 // The reporter's capsule, as `inspect` summarizes it (from the recorded agent session).
 const summary = lines(mcpLog.slice(0, mcpLog.indexOf('>>> replay')));
-const captureLog = [
-  '$ twin inspect new-york.json',
-  ...summary.filter((line) =>
+const captureLog = summary
+  .filter((line) =>
     /^ {2}(argv|result|time zone)\b|^ {13}(Expected|Received):|^ {2}(node|npm) {2,}|^ {2}commit /.test(
       line,
     ),
-  ),
-].join('\n');
+  )
+  .join('\n');
 
 // The agent session, trimmed to the calls and the lines that matter.
 const agentLog = lines(shortenIds(mcpLog.slice(mcpLog.indexOf('>>> replay'))))
@@ -83,52 +94,52 @@ const agentLog = lines(shortenIds(mcpLog.slice(mcpLog.indexOf('>>> replay'))))
   .join('\n');
 
 const synopsis = [
-  ['twin capture -- <command>', 'run the command and record the environment it failed in'],
-  ['twin inspect <capsule> [<other>]', 'summarize a capsule, or list every difference between two'],
-  ['twin replay <capsule> [--keep]', 'rebuild it on a clean Solari sandbox and rerun'],
-  ['twin bisect <bad> --good <good>', 'find the smallest difference that makes it fail'],
-  ['twin verify <capsule> --patch <file>', "check a fix in the reporter's environment"],
-  ['twin shell [machine] [--web]', 'open a terminal on a kept machine, or share one'],
-  ['twin mcp', 'give a coding agent all of the above over MCP'],
+  ['capture -- <command>', 'Run the command and record the environment it failed in.'],
+  ['inspect <capsule> [<other>]', 'Summarize a capsule, or list every difference between two.'],
+  ['replay <capsule> [--keep]', 'Rebuild it on a clean Solari sandbox and rerun the command.'],
+  ['bisect <bad> --good <good>', 'Find the smallest difference that makes it fail.'],
+  ['verify <capsule> --patch <file>', 'Check a fix in the reporter’s environment.'],
+  ['shell [machine] [--web]', 'Open a terminal on a kept machine, or share one in a browser.'],
+  ['mcp', 'Serve all of the above to a coding agent.'],
 ];
 
 const steps = [
   {
-    cmd: 'capture',
     title: 'The reporter captures the failure',
+    text: 'twin runs the command as usual and records what it ran in: OS, runtimes, package manager and lockfile hash, installed versions, commit and diff, time zone, environment variable names, and a fingerprint of the failure. Secrets are scrubbed, and the reporter reviews the file before it is written.',
+    command: 'twin inspect new-york.json',
     time: null,
-    text: 'Runs the command as usual and records what it ran in: OS, runtimes, package manager and lockfile hash, installed versions, commit and diff, time zone, environment variable names, and a fingerprint of the failure. Secrets are scrubbed; the reporter reviews the file before it is written.',
     log: captureLog,
   },
   {
-    cmd: 'replay',
     title: 'The maintainer replays it',
+    text: 'Same Node, same npm, the exact commit fetched by SHA, npm ci from the lockfile, and the reporter’s time zone. Each attempt is compared with the failure recorded in the capsule.',
+    command: 'twin replay new-york.json',
     time: '72 s',
-    text: 'Same Node, same npm, the exact commit fetched by SHA, npm ci from the lockfile, the reporter’s time zone. Each attempt is compared with the failure in the capsule.',
-    log: `$ twin replay new-york.json\n${replayLog}`,
+    log: replayLog,
   },
   {
-    cmd: 'bisect',
-    title: 'Bisect names the cause',
+    title: 'Bisect finds the cause',
+    text: 'Given a capsule from a machine where the test passes, twin builds that environment, confirms it passes, and applies the differences until the smallest set that fails is left.',
+    command: 'twin bisect new-york.json --good kolkata.json',
     time: '69 s',
-    text: 'Given a capsule from a machine where the test passes, twin builds that environment, checks that it passes, and applies the differences until the smallest set that fails is left.',
-    log: `$ twin bisect new-york.json --good kolkata.json\n${bisectLog}`,
+    log: bisectLog,
   },
   {
-    cmd: 'verify',
     title: 'Verify checks the fix where it failed',
+    text: 'The patch goes onto a fresh copy of the reporter’s environment, so nothing is pushed first. This run was recorded before verify had its own report header, so it prints “Replay”.',
+    command: 'twin verify new-york.json --patch fix.patch',
     time: '71 s',
-    text: 'The patch goes onto a fresh copy of the reporter’s environment. Nothing is pushed first. (This run predates the verify report header, so it still prints “Replay”.)',
-    log: `$ twin verify new-york.json --patch fix.patch\n${verifyLog}`,
+    log: verifyLog,
   },
 ];
 
 const seeAlso = [
-  ['envinfo(1)', 'prints versions as text. twin’s capsule can be replayed, diffed and bisected.'],
-  ['devcontainer(1), nix(1)', 'give contributors the maintainer’s environment. twin rebuilds the reporter’s.'],
-  ['git-bisect(1)', 'finds the commit that broke it. twin finds the environment difference at a fixed commit.'],
-  ['StackBlitz, CodeSandbox', 'run minimal repros in a browser. twin uses the reporter’s real commit, lockfile, env and time zone.'],
-  ['wsp', 'clones your own setup into cloud workspaces for your agents. twin rebuilds a stranger’s failing environment from a scrubbed file.'],
+  ['envinfo', 'Prints versions as text.', 'A capsule can be replayed, diffed and bisected.'],
+  ['Dev containers, Nix', 'Give contributors the maintainer’s environment.', 'twin rebuilds the reporter’s.'],
+  ['git bisect', 'Finds the commit that broke something.', 'twin finds the environment difference at a fixed commit.'],
+  ['StackBlitz, CodeSandbox', 'Run minimal repros in a browser.', 'twin uses the reporter’s real commit, lockfile, env and time zone.'],
+  ['wsp', 'Clones your own setup into cloud workspaces for your agents.', 'twin rebuilds a stranger’s failing environment from a scrubbed file.'],
 ];
 ---
 
@@ -156,115 +167,141 @@ const seeAlso = [
     </script>
   </head>
   <body>
-    <div class="sheet">
-      <header class="running">
-        <span>TWIN(1)</span>
-        <span class="center">General Commands Manual</span>
-        <span>TWIN(1)</span>
+    <div class="page">
+      <header class="nav">
+        <a class="logo" href={link('')} aria-label="twin home">twin<span class="cursor" aria-hidden="true"></span></a>
+        <nav aria-label="Site">
+          <a href={docs.intro}>Docs</a>
+          <a href={docs.caseStudy}>Case study</a>
+          <a href={REPO}>GitHub</a>
+          <button type="button" id="theme">Dark</button>
+        </nav>
       </header>
 
-      <nav class="nav" aria-label="Site">
-        <a href={docs.intro}>docs</a>
-        <a href={docs.caseStudy}>case study</a>
-        <a href={REPO}>github</a>
-        <button type="button" id="theme" class="theme">[ terminal ]</button>
-      </nav>
-
       <main>
-        <section class="hero" aria-labelledby="name">
-          <div class="hero-name">
-            <h1 id="name" class="wordmark">twin<span class="cursor" aria-hidden="true"></span></h1>
-            <p class="whatis">reproduce a bug in the environment where it was reported</p>
-          </div>
+        <section class="hero">
           <div class="hero-text">
-          <p class="lede">
-            Most “works on my machine” bugs aren’t in the code. They’re in a runtime version, a
-            dependency the lockfile resolved differently, an environment variable, the time zone. twin
-            records the environment a command failed in, rebuilds it on a clean
-            <a href={SOLARI}>Solari</a> sandbox, finds the difference that causes the failure, and
-            checks a fix there. For maintainers, and for the coding agents working on their issues.
-          </p>
-          <div class="install">
-            <pre><code><span class="t-dim">$</span> {install}</code></pre>
-            <button type="button" class="copy" data-copy={install}>copy</button>
+            <p class="kicker">For open source maintainers and coding agents</p>
+            <h1>Reproduce the bug in the environment where it was reported.</h1>
+            <p class="lede">
+              Most “works on my machine” bugs aren’t in the code. They’re in a runtime version, a
+              dependency the lockfile resolved differently, an environment variable, the time zone.
+              twin records the environment a command failed in, rebuilds it on a clean
+              <a href={SOLARI}>Solari</a> sandbox, finds the difference that causes the failure, and
+              checks a fix there.
+            </p>
+            <div class="install">
+              <pre><code><span class="t-dim">$</span> {install}</code></pre>
+              <button type="button" class="copy" data-copy={install}>Copy</button>
+            </div>
+            <p class="actions">
+              <a class="button" href={docs.quickstart}>Get started</a>
+              <a href={docs.caseStudy}>Read the case study</a>
+            </p>
           </div>
-          <p class="small">
-            Node 22 or newer. The reporter needs no account and nothing is uploaded. ·
-            <a href={docs.quickstart}>quickstart</a>
-          </p>
-          </div>
+          <figure class="term hero-term">
+            <figcaption>
+              <span><a href={ISSUE}>apache/echarts#21538</a>, recorded on Solari</span>
+            </figcaption>
+            <pre><code set:html={paint(heroLog)} /></pre>
+          </figure>
         </section>
 
-        <section aria-labelledby="synopsis">
-          <h2 id="synopsis">Synopsis</h2>
-          <dl class="synopsis">
-            {
-              synopsis.map(([cmd, what]) => (
-                <div>
-                  <dt>
-                    <code>{cmd}</code>
-                  </dt>
-                  <dd>{what}</dd>
-                </div>
-              ))
-            }
-          </dl>
-          <p class="small">Every command has <code>--help</code>. <a href={docs.cli}>Full reference</a></p>
-        </section>
-
-        <section aria-labelledby="example">
-          <h2 id="example">Example</h2>
-          <p>
-            <a href={ISSUE}>apache/echarts#21538</a> is an open issue: a date test fails in time zones
-            with daylight saving time and passes everywhere else, so a maintainer in Kolkata can’t see it.
-            This is the whole path, printed from the <a href={EXAMPLE}>recorded runs</a>.
-          </p>
-          <ol class="steps">
-            {
-              steps.map((step) => (
-                <li class="pair">
+        <section class="sec" aria-labelledby="commands">
+          <p class="rail">Synopsis</p>
+          <div class="body">
+            <h2 id="commands">Seven commands, one file between them</h2>
+            <dl class="synopsis">
+              {
+                synopsis.map(([cmd, what]) => (
                   <div>
-                  <h3>
-                    <span class="cmd">twin {step.cmd}</span>
-                    <span class="title">{step.title}</span>
-                    {step.time && <span class="time">{step.time}</span>}
-                  </h3>
-                  <p>{step.text}</p>
+                    <dt>
+                      <code>twin {cmd}</code>
+                    </dt>
+                    <dd>{what}</dd>
                   </div>
-                  <pre class="printout"><code set:html={paint(step.log)} /></pre>
-                </li>
-              ))
-            }
-          </ol>
+                ))
+              }
+            </dl>
+            <p class="small">Every command has <code>--help</code>. <a href={docs.cli}>Full reference</a></p>
+          </div>
         </section>
 
-        <section aria-labelledby="agents">
-          <h2 id="agents">Agents</h2>
-          <div class="pair">
-            <div><p>
-            A coding agent asked to fix #21538 runs the tests on its own machine, they pass, and it has
-            nothing to work with. Its “tests pass” is also checked in the wrong place. The MCP server
-            gives the agent the reporter’s machine:
-          </p></div>
-            <pre class="plain"><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
+        <section class="sec" id="example" aria-labelledby="example-title">
+          <p class="rail">Example</p>
+          <div class="body">
+            <h2 id="example-title">A real bug, start to finish</h2>
+            <p class="intro">
+              <a href={ISSUE}>apache/echarts#21538</a> is an open issue: a date test fails in time zones
+              with daylight saving time and passes everywhere else, so a maintainer in Kolkata can’t see
+              it. The output below is copied from the <a href={EXAMPLE}>recorded runs</a>.
+            </p>
+            <ol class="steps">
+              {
+                steps.map((step, index) => (
+                  <li class="pair">
+                    <div>
+                      <p class="step-no">Step {index + 1}</p>
+                      <h3>{step.title}</h3>
+                      <p>{step.text}</p>
+                    </div>
+                    <figure class="term">
+                      <figcaption>
+                        <code>$ {step.command}</code>
+                        {step.time && <span class="time">{step.time}</span>}
+                      </figcaption>
+                      <pre><code set:html={paint(step.log)} /></pre>
+                    </figure>
+                  </li>
+                ))
+              }
+            </ol>
           </div>
-          <div class="pair">
-            <div><p>
-            Tools: <code>inspect</code>, <code>replay</code>, <code>run</code>, <code>write_file</code>,
-            <code>verify</code>, <code>bisect</code>, <code>release</code>. <code>run</code> executes in
-            the kept machine with the reporter’s env, PATH, time zone and working directory. A recorded
-            session on the same issue, driven by a script rather than a model (ids shortened):
-          </p></div>
-            <pre class="printout"><code set:html={paint(agentLog)} /></pre>
-          </div>
-          <div class="pair">
-            <div><p>
-            The pull request that comes out of it is checked the same way. The
-            <a href={docs.action}>GitHub Action</a> finds the capsule on the issue a pull request
-            closes, verifies the head commit in the reporter’s environment and comments the verdict. The
-            check fails unless it is fixed.
-          </p></div>
-            <pre class="plain"><code>{`on: pull_request
+        </section>
+
+        <section class="sec" aria-labelledby="agents">
+          <p class="rail">Agents</p>
+          <div class="body">
+            <h2 id="agents">Give coding agents the reporter’s machine</h2>
+            <div class="pair">
+              <div>
+                <p>
+                  An agent asked to fix #21538 runs the tests on its own machine, they pass, and it has
+                  nothing to work with. twin’s MCP server lets it replay the failure, run commands in the
+                  kept machine with the reporter’s env, PATH, time zone and working directory, try a
+                  change, and verify the final diff on a fresh machine.
+                </p>
+                <p class="small">
+                  Tools: inspect, replay, run, write_file, verify, bisect, release. <a href={docs.agents}>Agent guide</a>
+                </p>
+              </div>
+              <div class="stack">
+                <figure class="term">
+                  <figcaption><span>Add to Claude Code</span></figcaption>
+                  <pre><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
+                </figure>
+                <figure class="term">
+                  <figcaption>
+                    <span>Recorded session, scripted client, ids shortened</span>
+                    <span class="time">162 s</span>
+                  </figcaption>
+                  <pre><code set:html={paint(agentLog)} /></pre>
+                </figure>
+              </div>
+            </div>
+            <div class="pair">
+              <div>
+                <h3>Check the pull request where the bug happens</h3>
+                <p>
+                  The GitHub Action finds the capsule on the issue a pull request closes, verifies the
+                  head commit in the reporter’s environment, and comments the verdict. The check fails
+                  unless the bug is fixed.
+                </p>
+                <p class="small"><a href={docs.action}>Action reference</a></p>
+              </div>
+              <figure class="term">
+                <figcaption><code>.github/workflows/twin.yml</code></figcaption>
+                <pre><code>{`on: pull_request
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -272,74 +309,95 @@ jobs:
       - uses: crypticsaiyan/twin@main
         with:
           solari-api-key: \${{ secrets.SOLARI_API_KEY }}`}</code></pre>
-          </div>
-          <p class="small"><a href={docs.agents}>agent guide</a> · <a href={docs.action}>action reference</a></p>
-        </section>
-
-        <section aria-labelledby="files">
-          <h2 id="files">Files</h2>
-          <p><code>twin-capsule.json</code>, a few kilobytes, attached to the issue by the reporter.</p>
-          <div class="cols">
-            <div>
-              <h3 class="label">recorded</h3>
-              <ul>
-                <li>OS, libc, architecture</li>
-                <li>runtime and package manager versions, lockfile hashes</li>
-                <li>installed Node and Python package versions</li>
-                <li>remote, commit, branch, <code>git diff HEAD</code></li>
-                <li>time zone and locale</li>
-                <li>values of <code>TZ</code>, <code>NODE_ENV</code>, <code>LANG</code>, <code>CI</code> and a few more</li>
-                <li>exit status, output tail, failure fingerprint</li>
-              </ul>
-            </div>
-            <div>
-              <h3 class="label">never recorded</h3>
-              <ul>
-                <li>other environment values: names only</li>
-                <li>tokens, keys, passwords: replaced by pattern and entropy rules</li>
-                <li>home directory paths: rewritten to <code>~</code></li>
-                <li>untracked file contents: names only</li>
-              </ul>
-              <p class="small">The reporter sees a summary, and the full JSON if they want, before anything is written. <a href={docs.privacy}>details</a></p>
+              </figure>
             </div>
           </div>
         </section>
 
-        <section aria-labelledby="see-also">
-          <h2 id="see-also">See also</h2>
-          <dl class="seealso">
-            {
-              seeAlso.map(([name, what]) => (
-                <div>
-                  <dt>{name}</dt>
-                  <dd>{what}</dd>
-                </div>
-              ))
-            }
-          </dl>
+        <section class="sec" aria-labelledby="files">
+          <p class="rail">Files</p>
+          <div class="body">
+            <h2 id="files">What a capsule holds</h2>
+            <p class="intro">
+              <code>twin-capsule.json</code> is a few kilobytes, attached to the issue by the reporter.
+              They see a summary, and the full JSON if they want, before anything is written.
+            </p>
+            <div class="cols">
+              <div>
+                <h3>Recorded</h3>
+                <ul>
+                  <li>OS, libc and architecture</li>
+                  <li>Runtime and package manager versions, lockfile hashes</li>
+                  <li>Installed Node and Python package versions</li>
+                  <li>Remote, commit, branch and <code>git diff HEAD</code></li>
+                  <li>Time zone and locale</li>
+                  <li>Values of <code>TZ</code>, <code>NODE_ENV</code>, <code>LANG</code>, <code>CI</code> and a few more</li>
+                  <li>Exit status, output tail and a failure fingerprint</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Never recorded</h3>
+                <ul>
+                  <li>Other environment values: names only</li>
+                  <li>Tokens, keys and passwords: replaced by pattern and entropy rules</li>
+                  <li>Home directory paths: rewritten to <code>~</code></li>
+                  <li>Contents of untracked files: names only</li>
+                </ul>
+                <p class="small"><a href={docs.privacy}>Privacy and redaction</a></p>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section aria-labelledby="bugs">
-          <h2 id="bugs">Bugs</h2>
-          <p>
-            Replay runs on Linux only; a macOS or Windows capsule is replayed with the same versions on
-            Linux, and if it passes there, that points at the OS. Bisect varies env values, time zone,
-            Node version, npm dependency versions and the working-tree diff.
-            <a href={docs.limits}>All limits</a>.
-          </p>
-          <p>
-            Each run gets its own Solari sandbox, streamed with a real timeout and released with a
-            confirmed kill; at about $0.125 per sandbox-hour the runs above cost a fraction of a cent.
-            Building twin turned up <a href={docs.solari}>platform bugs worth knowing</a>, such as
-            killed sandboxes that kept billing, and came back hours later.
-          </p>
+        <section class="sec" aria-labelledby="see-also">
+          <p class="rail">See also</p>
+          <div class="body">
+            <h2 id="see-also">Where it fits</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Tool</th><th>What it does</th><th>What twin adds</th></tr>
+                </thead>
+                <tbody>
+                  {
+                    seeAlso.map(([name, does, adds]) => (
+                      <tr>
+                        <td>{name}</td>
+                        <td>{does}</td>
+                        <td>{adds}</td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="limits">
+          <p class="rail">Bugs</p>
+          <div class="body">
+            <h2 id="limits">Limits</h2>
+            <p>
+              Replay runs on Linux only. A macOS or Windows capsule is replayed with the same versions on
+              Linux, and if it passes there, that points at the OS. Bisect varies env values, time zone,
+              Node version, npm dependency versions and the working-tree diff.
+              <a href={docs.limits}>All limits</a>
+            </p>
+            <p>
+              Each run gets its own Solari sandbox, streamed with a real timeout and released with a
+              confirmed kill. At about $0.125 per sandbox-hour, the runs above cost a fraction of a cent
+              each. Building twin also turned up <a href={docs.solari}>platform behavior worth knowing</a>.
+            </p>
+          </div>
         </section>
       </main>
 
-      <footer class="running">
-        <span>twin 0.1.0</span>
-        <span class="center">2026-09-28</span>
-        <span>TWIN(1)</span>
+      <footer>
+        <span class="logo small-logo">twin</span>
+        <span>MIT license</span>
+        <a href={REPO}>GitHub</a>
+        <a href={docs.intro}>Docs</a>
       </footer>
     </div>
 
@@ -350,7 +408,7 @@ jobs:
         root.dataset.theme === 'dark' ||
         (!root.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
       const label = () => {
-        toggle.textContent = isDark() ? '[ printout ]' : '[ terminal ]';
+        toggle.textContent = isDark() ? 'Light' : 'Dark';
         toggle.setAttribute('aria-label', isDark() ? 'Switch to light theme' : 'Switch to dark theme');
       };
       label();
@@ -367,13 +425,13 @@ jobs:
         button.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(button.dataset.copy ?? '');
-            button.textContent = 'copied';
+            button.textContent = 'Copied';
           } catch {
             const code = button.previousElementSibling;
             if (code) window.getSelection()?.selectAllChildren(code);
-            button.textContent = 'selected';
+            button.textContent = 'Selected';
           }
-          setTimeout(() => (button.textContent = 'copy'), 1500);
+          setTimeout(() => (button.textContent = 'Copy'), 1500);
         });
       }
     </script>
@@ -389,149 +447,101 @@ jobs:
 
   html {
     -webkit-text-size-adjust: 100%;
-    background: var(--twin-paper);
+    background: var(--twin-bg);
+    scrollbar-color: var(--twin-rule) transparent;
+  }
+
+  pre {
+    scrollbar-color: var(--twin-rule) transparent;
   }
 
   body {
     margin: 0;
-    background: var(--twin-paper);
-    color: var(--twin-ink);
-    font: 400 0.95rem/1.7 var(--twin-font-body);
+    background: var(--twin-bg);
+    color: var(--twin-text);
+    font: 400 1rem/1.65 var(--twin-font-body);
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* The CRT's scanlines; transparent on paper. */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      to bottom,
-      transparent 0 2px,
-      var(--twin-scanlines) 2px 3px
-    );
-    z-index: 10;
+  .page {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding-inline: clamp(1rem, 4vw, 3rem);
   }
 
   a {
     color: inherit;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.2em;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
   }
 
   a:hover {
-    color: var(--twin-fail);
+    text-decoration-color: currentColor;
   }
 
   :focus-visible {
-    outline: 2px dashed var(--twin-fail);
-    outline-offset: 3px;
-  }
-
-  .sheet {
-    max-width: 86rem;
-    margin: 0 auto;
-    padding-inline: clamp(1rem, 4vw, 3.5rem);
-    padding-block: 1.25rem 0;
-  }
-
-  .running {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    font: 400 0.7rem/1.6 var(--twin-font-label);
-    letter-spacing: 0.06em;
-    color: var(--twin-ink-dim);
-  }
-
-  .running .center {
-    text-align: center;
-  }
-
-  .nav {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    align-items: baseline;
-    gap: 0.4rem 1.25rem;
-    margin-top: 0.75rem;
-    font-size: 0.85rem;
-  }
-
-  .nav a {
-    text-decoration: none;
-  }
-
-  .nav a:hover {
-    text-decoration: underline;
+    outline: 2px solid var(--twin-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
   button {
-    font: 400 0.7rem var(--twin-font-label);
-    letter-spacing: 0.04em;
-    color: var(--twin-ink);
+    font: 500 0.875rem var(--twin-font-body);
+    color: var(--twin-text-muted);
     background: transparent;
-    border: 0;
-    padding: 0.2rem 0;
+    border: 1px solid var(--twin-rule);
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
     cursor: pointer;
   }
 
   button:hover {
-    color: var(--twin-fail);
+    color: var(--twin-text);
+    border-color: var(--twin-text-muted);
   }
 
-  main {
+  /* Header */
+  .nav {
     display: flex;
-    flex-direction: column;
-    gap: 3.5rem;
-    padding-block: 1.5rem 4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--twin-rule);
   }
 
-  /* Man-page layout: headings flush left, bodies indented. */
-  main > section:not(.hero) > :not(h2) {
-    margin-left: 3ch;
+  .nav nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 0.9rem;
   }
 
-  main p,
-  main ul {
-    max-width: 64ch;
+  .nav nav a {
+    text-decoration: none;
+    color: var(--twin-text-muted);
   }
 
-  p {
-    margin: 0 0 1rem;
+  .nav nav a:hover {
+    color: var(--twin-text);
   }
 
-  h2 {
-    margin: 0 0 1rem;
-    font: 900 1.9rem/1 var(--twin-font-display);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--twin-display);
-    text-shadow: 0 0 12px var(--twin-glow);
-  }
-
-  .hero {
-    padding-top: 1rem;
-  }
-
-  .wordmark {
-    margin: 0;
-    font: 900 clamp(5.5rem, 18vw, 13rem)/0.85 var(--twin-font-display);
-    white-space: nowrap;
+  /* The wordmark: dot-matrix letters and a prompt cursor, the only pixel type besides labels. */
+  .logo {
+    font: 900 1.9rem/1 var(--twin-font-mark);
     letter-spacing: -0.02em;
-    color: var(--twin-display);
-    text-shadow: 0 0 22px var(--twin-glow);
+    text-decoration: none;
+    white-space: nowrap;
   }
 
-  /* A block cursor after the name, as at a prompt waiting for input. */
   .cursor {
     display: inline-block;
-    width: 0.32em;
-    height: 0.48em;
-    margin-left: 0.1em;
-    vertical-align: baseline;
+    width: 0.3em;
+    height: 0.5em;
+    margin-left: 0.12em;
     background: var(--twin-fail);
-    animation: blink 1.1s steps(1, end) infinite;
+    animation: blink 1.2s steps(1, end) infinite;
   }
 
   @keyframes blink {
@@ -546,97 +556,270 @@ jobs:
     }
   }
 
-  .whatis {
-    margin: 1.25rem 0 1.5rem;
-    font: 400 0.95rem var(--twin-font-label);
-    letter-spacing: 0.02em;
+  /* Type */
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-weight: 600;
     text-wrap: balance;
   }
 
-  .whatis::before {
-    content: 'twin - ';
-    color: var(--twin-ink-dim);
+  h1 {
+    font-size: clamp(2.2rem, 4.2vw, 3.4rem);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
   }
 
-  .lede {
-    font-size: 1rem;
+  h2 {
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.075rem;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    margin: 0 0 1rem;
+  }
+
+  .lede,
+  .intro {
+    color: var(--twin-text-muted);
+    font-size: 1.075rem;
+    max-width: 38rem;
   }
 
   .small {
-    font-size: 0.82rem;
-    color: var(--twin-ink-dim);
+    font-size: 0.875rem;
+    color: var(--twin-text-muted);
+  }
+
+  .kicker,
+  .rail,
+  .step-no {
+    font: 500 0.72rem/1.4 var(--twin-font-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--twin-text-muted);
   }
 
   code {
     font-family: var(--twin-font-mono);
-    font-size: 0.92em;
+    font-size: 0.9em;
   }
 
-  pre {
-    margin: 0 0 1.25rem;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-
-  pre code {
-    font-size: inherit;
-  }
-
-  pre.plain,
-  .install pre {
-    padding: 0.8rem 1rem;
+  :not(pre) > code {
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    background: var(--twin-code);
     border: 1px solid var(--twin-rule);
-    font-size: 0.85rem;
-    line-height: 1.6;
   }
 
-  /* Printer output: VT323 on greenbar, three lines per band. */
-  pre.printout {
-    --line: 1.35rem;
-    padding: 0 1.25ch;
-    font-family: var(--twin-font-term);
-    font-size: 1.2rem;
-    line-height: var(--line);
-    background: repeating-linear-gradient(
-      to bottom,
-      var(--twin-greenbar) 0 calc(var(--line) * 3),
-      transparent calc(var(--line) * 3) calc(var(--line) * 6)
-    );
-    border-block: 1px solid var(--twin-rule);
+  figcaption code,
+  dt code {
+    padding: 0;
+    background: none;
+    border: 0;
   }
 
-  pre.printout code {
-    font-family: inherit;
+  /* Layout */
+  main {
+    padding-bottom: 4rem;
+  }
+
+  .hero {
+    display: grid;
+    gap: 3rem;
+    padding-block: 4.5rem 5rem;
+  }
+
+  .hero-text > * + * {
+    margin-top: 1.25rem;
+  }
+
+  .hero-text .lede {
+    margin-bottom: 0;
+  }
+
+  .kicker {
+    margin: 0;
   }
 
   .install {
     position: relative;
-    max-width: 44rem;
+    max-width: 36rem;
   }
 
   .install pre {
-    padding-right: 5rem;
+    margin: 0;
+    padding: 0.85rem 5.5rem 0.85rem 1rem;
+    background: var(--twin-surface);
+    border: 1px solid var(--twin-rule);
+    border-radius: 8px;
+    font-size: 0.875rem;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   .copy {
     position: absolute;
-    top: 0.75rem;
-    right: 0.9rem;
+    top: 50%;
+    right: 0.6rem;
+    transform: translateY(-50%);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+    margin-bottom: 0;
+    font-size: 0.95rem;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    background: var(--twin-text);
+    color: var(--twin-bg);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .button:hover {
+    opacity: 0.88;
+  }
+
+  .sec {
+    display: grid;
+    gap: 0.75rem 3rem;
+    padding-block: 4.5rem;
+    border-top: 1px solid var(--twin-rule);
+  }
+
+  .rail {
+    margin: 0;
+  }
+
+  .body > :last-child {
+    margin-bottom: 0;
+  }
+
+  .pair {
+    display: grid;
+    gap: 1.25rem 3rem;
+    align-items: start;
+  }
+
+  .pair + .pair {
+    margin-top: 3.5rem;
+  }
+
+  .pair > div > :last-child {
+    margin-bottom: 0;
+  }
+
+  .stack {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  @media (min-width: 64rem) {
+    .pair {
+      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    }
+
+    .hero {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 4rem;
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .sec {
+      grid-template-columns: 9rem minmax(0, 1fr);
+    }
+
+    .rail {
+      position: sticky;
+      top: 1.5rem;
+      align-self: start;
+      padding-top: 0.6rem;
+    }
+  }
+
+  /* Terminal output */
+  .term {
+    margin: 0;
+    min-width: 0;
+    background: var(--twin-code);
+    border: 1px solid var(--twin-rule);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .term figcaption {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.55rem 1rem;
+    background: var(--twin-code-head);
+    border-bottom: 1px solid var(--twin-rule);
+    font: 500 0.78rem/1.4 var(--twin-font-mono);
+    color: var(--twin-text-muted);
+  }
+
+  .term figcaption code {
+    color: var(--twin-text);
+    font-size: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .term .time {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .term pre {
+    margin: 0;
+    padding: 1rem;
+    overflow-x: auto;
+    font: 400 0.8rem/1.6 var(--twin-font-mono);
+    scrollbar-width: thin;
+  }
+
+  .term pre code {
+    font-size: inherit;
+  }
+
+  .hero-term pre {
+    font-size: 0.85rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
   }
 
   .t-cmd {
+    color: var(--twin-text);
     font-weight: 600;
   }
 
-  pre.printout .t-cmd {
-    font-weight: 400;
-    color: var(--twin-display);
-  }
-
   .t-dim {
-    color: var(--twin-ink-dim);
+    color: var(--twin-text-muted);
   }
 
   .t-bad {
@@ -647,151 +830,150 @@ jobs:
     color: var(--twin-pass);
   }
 
-  .t-verdict {
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
+  .t-strong {
+    font-weight: 600;
   }
 
-  .synopsis,
-  .seealso {
+  /* Sections */
+  .synopsis {
     display: grid;
-    gap: 0.35rem;
-    margin: 0 0 1rem;
+    margin: 1.5rem 0 1.25rem;
+    border-top: 1px solid var(--twin-rule);
   }
 
-  .synopsis div,
-  .seealso div {
+  .synopsis div {
     display: grid;
-    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
-    gap: 0 2ch;
+    gap: 0.25rem 2rem;
+    padding-block: 0.7rem;
+    border-bottom: 1px solid var(--twin-rule);
   }
 
-  .seealso div {
-    grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  @media (min-width: 48rem) {
+    .synopsis div {
+      grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+    }
   }
 
   dt {
-    font-weight: 600;
+    font-weight: 500;
+  }
+
+  dt code {
+    font-size: 0.875rem;
   }
 
   dd {
     margin: 0;
-    color: var(--twin-ink-dim);
-  }
-
-  .seealso dd {
-    color: var(--twin-ink);
-  }
-
-  /* Explanation beside its output on wide screens, stacked otherwise. */
-  .pair {
-    display: grid;
-    gap: 0 3rem;
-    align-items: start;
-  }
-
-  .pair + .pair {
-    margin-top: 1.5rem;
-  }
-
-  @media (min-width: 64rem) {
-    .pair {
-      grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
-    }
-  }
-
-  @media (min-width: 80rem) {
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 34rem);
-      gap: 1rem 4rem;
-      align-items: center;
-    }
-
-    .whatis {
-      margin-bottom: 0;
-    }
-
-    .wordmark {
-      font-size: clamp(5.5rem, 12.5vw, 13rem);
-    }
+    color: var(--twin-text-muted);
   }
 
   .steps {
     list-style: none;
-    margin: 1.5rem 0 0;
+    margin: 2.5rem 0 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2.25rem;
+    display: grid;
+    gap: 3.5rem;
   }
 
-  .steps h3 {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 1rem;
-    margin: 0 0 0.5rem;
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .steps .cmd {
-    font: 400 0.75rem var(--twin-font-label);
-    letter-spacing: 0.04em;
+  .step-no {
+    margin: 0 0 0.4rem;
     color: var(--twin-fail);
   }
 
-  .steps .time {
-    font: 400 1.1rem var(--twin-font-term);
-    color: var(--twin-ink-dim);
-  }
-
-  .label {
-    margin: 0 0 0.5rem;
-    font: 400 0.75rem var(--twin-font-label);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--twin-ink-dim);
-  }
-
-  ul {
-    margin: 0 0 1rem;
-    padding-left: 2ch;
-    list-style: '- ';
+  .steps p:not(.step-no) {
+    color: var(--twin-text-muted);
   }
 
   .cols {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: 1rem 3ch;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1.5rem 3rem;
+    margin-top: 2rem;
   }
 
-  footer.running {
-    padding-block: 1.25rem 2rem;
-    border-top: 1px dashed var(--twin-rule);
+  ul {
+    margin: 0 0 1rem;
+    padding-left: 1.1rem;
+  }
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+
+  li::marker {
+    color: var(--twin-text-muted);
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    margin-top: 1.5rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  th,
+  td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.75rem 1.5rem 0.75rem 0;
+    border-bottom: 1px solid var(--twin-rule);
+  }
+
+  th {
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--twin-text-muted);
+  }
+
+  td:first-child {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  td:nth-child(2) {
+    color: var(--twin-text-muted);
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+    padding-block: 2rem 3rem;
+    border-top: 1px solid var(--twin-rule);
+    font-size: 0.875rem;
+    color: var(--twin-text-muted);
+  }
+
+  .small-logo {
+    font-size: 1.2rem;
+    color: var(--twin-text);
+    margin-right: auto;
   }
 
   @media (max-width: 40rem) {
-    .running .center {
+    .nav nav {
+      gap: 1rem;
+    }
+
+    .nav nav a[href*='github'] {
       display: none;
     }
 
-    main > section:not(.hero) > :not(h2) {
-      margin-left: 0;
+    .hero {
+      padding-block: 3rem 3.5rem;
     }
 
-    .synopsis div,
-    .seealso div {
-      grid-template-columns: 1fr;
+    .sec {
+      padding-block: 3.5rem;
     }
 
-    pre.printout {
-      font-size: 1.05rem;
-    }
-
-    .wordmark {
-      font-size: 6rem;
+    td:first-child {
+      white-space: normal;
     }
   }
 </style>

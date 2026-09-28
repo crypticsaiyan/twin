@@ -1,7 +1,6 @@
 ---
-import '@fontsource/ibm-plex-sans/400.css';
-import '@fontsource/ibm-plex-sans/600.css';
-import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import '../styles/tokens.css';
 import { link } from '../site';
 ---
@@ -19,9 +18,7 @@ import { link } from '../site';
         try {
           stored = localStorage.getItem('starlight-theme');
         } catch {}
-        const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.dataset.theme =
-          stored === 'light' || stored === 'dark' ? stored : dark ? 'dark' : 'light';
+        if (stored === 'light' || stored === 'dark') document.documentElement.dataset.theme = stored;
       })();
     </script>
   </head>
@@ -50,8 +47,9 @@ import { link } from '../site';
   }
 
   .code {
-    font: 500 0.95rem var(--twin-font-mono);
-    color: var(--twin-accent);
+    font: 400 0.8rem var(--twin-font-label);
+    letter-spacing: 0.08em;
+    color: var(--twin-fail);
     margin: 0;
   }
 
