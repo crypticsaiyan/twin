@@ -565,23 +565,30 @@ jobs:
     text-wrap: balance;
   }
 
+  /* Headings share the logo's dot-matrix face; body text stays in Geist for reading. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--twin-font-mark);
+    font-weight: 900;
+    letter-spacing: -0.01em;
+  }
+
   h1 {
-    font-size: clamp(2.2rem, 4.2vw, 3.4rem);
-    line-height: 1.08;
-    letter-spacing: -0.035em;
+    font-size: clamp(2.1rem, 3.6vw, 3rem);
+    line-height: 1.12;
+    letter-spacing: -0.04em;
   }
 
   h2 {
-    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    font-size: clamp(1.5rem, 2.3vw, 1.95rem);
     line-height: 1.2;
-    letter-spacing: -0.025em;
     margin-bottom: 1rem;
   }
 
   h3 {
-    font-size: 1.075rem;
-    line-height: 1.35;
-    letter-spacing: -0.01em;
+    font-size: 1.2rem;
+    line-height: 1.3;
     margin-bottom: 0.5rem;
   }
 
@@ -741,9 +748,9 @@ jobs:
     }
 
     .hero {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
       align-items: center;
-      gap: 4rem;
+      gap: 3.5rem;
     }
   }
 
