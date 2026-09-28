@@ -79,6 +79,9 @@ export function fakeHost(overrides: Partial<Host> = {}): Host {
     readTextFile: async () => {
       throw new Error('no such file');
     },
+    fetch: async () => {
+      throw new Error('this test must not use the network');
+    },
     glibcVersion: () => '2.39',
     intlDefaults: () => ({ timeZone: 'Asia/Kolkata', locale: 'en-IN' }),
     ...overrides,

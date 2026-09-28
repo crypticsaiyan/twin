@@ -1,11 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { readCapsule } from '../capsule/file.ts';
+import { loadCapsule } from '../capsule/source.ts';
 import { TwinError } from '../errors.ts';
 import { replay } from '../replay/replay.ts';
 import { renderReplay } from '../report/replay.ts';
-import { type Command, type CommandContext, stderrStyle, stdoutStyle } from './context.ts';
+import {
+  type Command,
+  type CommandContext,
+  capsuleSource,
+  stderrStyle,
+  stdoutStyle,
+} from './context.ts';
 import { parseEnvAssignments, positiveInt } from './options.ts';
 import { replayProgress } from './replay.ts';
 
@@ -14,6 +20,7 @@ const USAGE = `Usage: twin verify <capsule> (--patch <file> | --ref <sha>) [opti
 Checks a candidate fix in the reporter's environment: rebuilds it on a Solari
 sandbox like replay, applies the fix, reruns the command and reports whether
 the captured failure is gone. With --patch nothing has to be pushed first.
+Capsules can be file paths or https URLs, such as GitHub issue attachments.
 
 Needs SOLARI_API_KEY in the environment.
 
@@ -60,7 +67,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   const attempts = positiveInt(values.attempts, '--attempts', 3);
   const timeoutMinutes = positiveInt(values.timeout, '--timeout', 15);
   const env = parseEnvAssignments(values.env);
-  const capsule = await readCapsule(resolve(context.cwd, positionals[0] as string));
+  const capsule = await loadCapsule(positionals[0] as string, capsuleSource(context));
   if (capsule.command.outcome !== 'fail') {
     throw new TwinError(
       'the capsule recorded a passing run; there is no failure to verify a fix for',

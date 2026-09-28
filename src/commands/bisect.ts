@@ -1,10 +1,15 @@
-import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { bisect } from '../bisect/bisect.ts';
-import { readCapsule } from '../capsule/file.ts';
+import { loadCapsule } from '../capsule/source.ts';
 import { TwinError } from '../errors.ts';
 import { renderBisect } from '../report/bisect.ts';
-import { type Command, type CommandContext, stderrStyle, stdoutStyle } from './context.ts';
+import {
+  type Command,
+  type CommandContext,
+  capsuleSource,
+  stderrStyle,
+  stdoutStyle,
+} from './context.ts';
 import { parseEnvAssignments, positiveInt } from './options.ts';
 
 const USAGE = `Usage: twin bisect <failing-capsule> --good <passing-capsule> [options]
@@ -14,6 +19,7 @@ node version, npm dependency versions, working tree diff) that turns the
 passing environment into the failing one. Both capsules must come from the
 same commit. Runs on one Solari sandbox: the passing environment is built
 once, and each trial applies a subset of differences on that machine.
+Capsules can be file paths or https URLs, such as GitHub issue attachments.
 
 Needs SOLARI_API_KEY in the environment.
 
@@ -56,8 +62,8 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   const attempts = positiveInt(values.attempts, '--attempts', 1);
   const timeoutMinutes = positiveInt(values.timeout, '--timeout', 15);
   const env = parseEnvAssignments(values.env);
-  const bad = await readCapsule(resolve(context.cwd, positionals[0] as string));
-  const good = await readCapsule(resolve(context.cwd, values.good));
+  const bad = await loadCapsule(positionals[0] as string, capsuleSource(context));
+  const good = await loadCapsule(values.good, capsuleSource(context));
   const backend = await context.getBackend();
   const style = stderrStyle(context);
   const progress = (text: string) => io.stderr.write(style.dim(`twin: ${text}\n`));

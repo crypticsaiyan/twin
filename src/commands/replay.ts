@@ -1,12 +1,17 @@
-import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { readCapsule } from '../capsule/file.ts';
+import { loadCapsule } from '../capsule/source.ts';
 import { TwinError } from '../errors.ts';
 import type { Io } from '../io.ts';
 import { type ReplayEvent, replay } from '../replay/replay.ts';
 import { renderReplay, shortId } from '../report/replay.ts';
 import type { Style } from '../report/style.ts';
-import { type Command, type CommandContext, stderrStyle, stdoutStyle } from './context.ts';
+import {
+  type Command,
+  type CommandContext,
+  capsuleSource,
+  stderrStyle,
+  stdoutStyle,
+} from './context.ts';
 import { parseEnvAssignments, positiveInt } from './options.ts';
 
 const USAGE = `Usage: twin replay <capsule> [options]
@@ -14,6 +19,7 @@ const USAGE = `Usage: twin replay <capsule> [options]
 Rebuilds the capsule's environment on a fresh Solari sandbox (same runtime,
 package manager and lockfile, same commit and diff, same env values and time
 zone), runs the command and reports whether the failure reproduces.
+Capsules can be file paths or https URLs, such as GitHub issue attachments.
 
 Needs SOLARI_API_KEY in the environment.
 
@@ -72,7 +78,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   const attempts = positiveInt(values.attempts, '--attempts', 3);
   const timeoutMinutes = positiveInt(values.timeout, '--timeout', 15);
   const env = parseEnvAssignments(values.env);
-  const capsule = await readCapsule(resolve(context.cwd, positionals[0] as string));
+  const capsule = await loadCapsule(positionals[0] as string, capsuleSource(context));
   const backend = await context.getBackend();
   const style = stderrStyle(context);
   const report = await replay(capsule, backend, {

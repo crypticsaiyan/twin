@@ -1,4 +1,5 @@
 import type { Backend } from '../backend/types.ts';
+import type { CapsuleSourceOptions } from '../capsule/source.ts';
 import type { Host } from '../host.ts';
 import type { Io } from '../io.ts';
 import { createStyle, type Style, shouldColor } from '../report/style.ts';
@@ -17,6 +18,11 @@ export interface Command {
   summary: string;
   usage: string;
   run(args: string[], context: CommandContext): Promise<number>;
+}
+
+/** Capsule arguments are paths relative to the working directory, or https URLs. */
+export function capsuleSource(context: CommandContext): CapsuleSourceOptions {
+  return { cwd: context.cwd, fetch: context.host.fetch };
 }
 
 /** Style for human-facing messages, which twin writes to stderr. */

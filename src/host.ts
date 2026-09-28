@@ -15,6 +15,8 @@ export interface Host {
   homeDir: string;
   now: () => Date;
   readTextFile: (path: string) => Promise<string>;
+  /** Downloads capsules given as URLs. */
+  fetch: typeof globalThis.fetch;
   /** glibc version of the running Node binary, or null on non-glibc systems. */
   glibcVersion: () => string | null;
   /** The time zone and locale the command's process would resolve (Intl defaults). */
@@ -31,6 +33,7 @@ export function realHost(): Host {
     homeDir: homedir(),
     now: () => new Date(),
     readTextFile: (path) => readFile(path, 'utf8'),
+    fetch: globalThis.fetch,
     glibcVersion: () => {
       const report = process.report.getReport() as { header?: { glibcVersionRuntime?: string } };
       return report.header?.glibcVersionRuntime ?? null;
