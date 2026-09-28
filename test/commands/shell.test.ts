@@ -51,6 +51,7 @@ describe('twin shell', () => {
     expect(stderr.text).toContain('connected to sbx_fake0. Ctrl-] detaches.');
     expect(stderr.text).toContain('shell exited. sbx_fake0 keeps running');
     expect(machine.killed).toBe(false);
+    expect(machine.detached).toBe(true);
   });
 
   it('picks a machine by id prefix', async () => {
@@ -92,6 +93,7 @@ describe('twin shell', () => {
     expect(stdout.text).toBe('https://sbx_fake0-7681.preview.test/?pt_token=secret\n');
     expect(stderr.text).toMatch(/user {6}twin\n {2}password {2}[A-Za-z0-9_-]{16}\n/);
     expect(stderr.text).toContain('root shell on this machine');
+    expect(backend.machines[0]?.detached).toBe(true);
     const started = backend.machines[0]?.runs.find((r) => r.argv.join(' ').includes('ttyd'));
     expect(started?.argv.join(' ')).toContain('--credential');
   });

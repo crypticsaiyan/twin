@@ -79,6 +79,10 @@ function fakeSandbox(
     reconnect: vi.fn(async () => {
       calls.push('reconnect');
     }),
+    close: vi.fn(() => {
+      console.warn('[solari] close() on session sbx_1 closed the local channel only');
+      calls.push('close');
+    }),
     kill: vi.fn(async () => {
       calls.push('kill');
     }),
@@ -197,6 +201,17 @@ describe('SolariMachine', () => {
       new SolariMachine(sandbox, Date.now, 0).run({ argv: ['x'], timeoutMs: 1 }),
     ).rejects.toThrow('ENOENT');
     expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('detaches by closing the channel without the SDK warning, and restores console.warn', async () => {
+    const { sandbox, calls } = fakeSandbox();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const original = console.warn;
+    await new SolariMachine(sandbox).detach();
+    expect(calls).toEqual(['close']);
+    expect(warn).not.toHaveBeenCalled();
+    expect(console.warn).toBe(original);
+    warn.mockRestore();
   });
 
   it('rejects an empty argv', async () => {

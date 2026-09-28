@@ -172,7 +172,9 @@ export async function replay(
     }
     return report;
   } finally {
-    if (!report.kept) {
+    if (report.kept) {
+      await machine.detach();
+    } else {
       await machine.kill().catch((error: unknown) => {
         report.notes.push(`Could not release ${machine.id} (${String(error)}); run \`twin gc\`.`);
       });

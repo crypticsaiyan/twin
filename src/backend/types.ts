@@ -34,6 +34,8 @@ export interface Machine {
   revert(snapshotId: string): Promise<void>;
   /** Releases the machine. Idempotent. */
   kill(): Promise<void>;
+  /** Drops the local connection but leaves the machine running (kept machines). */
+  detach(): Promise<void>;
   /** Opens an interactive terminal running `command` (a script path in the guest). */
   openTerminal(options: { cols: number; rows: number; command: string }): Promise<Terminal>;
   /** Public URL for an in-guest port. It carries its own access token: treat it as a secret. */

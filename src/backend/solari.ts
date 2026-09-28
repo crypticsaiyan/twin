@@ -26,6 +26,7 @@ export type SandboxHandle = Pick<
   | 'snapshot'
   | 'revert'
   | 'kill'
+  | 'close'
   | 'pty'
   | 'previewUrl'
 >;
@@ -204,6 +205,21 @@ export class SolariMachine implements Machine {
 
   kill(): Promise<void> {
     return this.#release();
+  }
+
+  /**
+   * The open control channel would otherwise keep the process alive. The SDK warns on close()
+   * that the machine keeps running and billing; twin has already said exactly that, with how to
+   * release it, so the duplicate warning is suppressed for this one call.
+   */
+  async detach(): Promise<void> {
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      this.#sandbox.close();
+    } finally {
+      console.warn = warn;
+    }
   }
 
   async openTerminal(options: { cols: number; rows: number; command: string }): Promise<Terminal> {

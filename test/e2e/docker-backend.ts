@@ -88,6 +88,8 @@ class DockerMachine implements Machine {
     await docker(['rm', '-f', this.id]);
   }
 
+  async detach(): Promise<void> {}
+
   async openTerminal(): Promise<Terminal> {
     throw new Error('the Docker harness has no terminal; use `docker exec -it` instead');
   }

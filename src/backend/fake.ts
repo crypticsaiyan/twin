@@ -68,6 +68,7 @@ export class FakeMachine implements Machine {
   /** Called with each new terminal so tests can drive it. */
   onTerminal?: (terminal: FakeTerminal) => void;
   killed = false;
+  detached = false;
   readonly #respond: FakeResponder;
   readonly #registry: SnapshotRegistry;
 
@@ -115,6 +116,10 @@ export class FakeMachine implements Machine {
 
   async kill(): Promise<void> {
     this.killed = true;
+  }
+
+  async detach(): Promise<void> {
+    this.detached = true;
   }
 
   async openTerminal(options: { cols: number; rows: number; command: string }): Promise<Terminal> {
