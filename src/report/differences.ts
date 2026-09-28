@@ -33,7 +33,7 @@ export function renderDifferences(
   }
 
   const blocks = [
-    `${style.bold(String(differences.length))} differences: ${style.red(`- ${labels.a}`)}  ${style.green(`+ ${labels.b}`)}`,
+    `${style.bold(String(differences.length))} ${differences.length === 1 ? 'difference' : 'differences'}: ${style.red(`- ${labels.a}`)}  ${style.green(`+ ${labels.b}`)}`,
   ];
   for (const [category, diffs] of byCategory) {
     const width = Math.max(...diffs.map((diff) => diff.key.length));

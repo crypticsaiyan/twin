@@ -111,6 +111,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
 
 export const captureCommand: Command = {
   name: 'capture',
+  group: 'report',
   summary: 'run a command and record the environment it ran in',
   usage: USAGE,
   run,

@@ -149,7 +149,7 @@ describe('replay', () => {
       return machine;
     };
     const report = await replay(capsuleFailingWith(REPORTER_OUTPUT), backend, { attempts: 1 });
-    expect(report.notes.at(-1)).toMatch(/Could not release sbx_fake0 .*twin gc/);
+    expect(report.notes.at(-1)).toMatch(/Could not release sbx_fake0 .*twin stop/);
   });
 });
 

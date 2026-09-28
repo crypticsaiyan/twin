@@ -156,16 +156,16 @@ describe('twin inspect', () => {
     expect(decodeCapsule(JSON.parse(stdout.text))).toEqual(makeCapsule());
   });
 
-  it('diffs two capsules', async () => {
+  it.each(['diff', 'inspect'])('diffs two capsules with %s', async (command) => {
     const { io, stdout } = fakeIo();
-    expect(await main(['inspect', 'good.json', 'bad.json'], context(await files(), io))).toBe(0);
-    expect(stdout.text).toContain('1 differences: - good.json  + bad.json');
+    expect(await main([command, 'good.json', 'bad.json'], context(await files(), io))).toBe(0);
+    expect(stdout.text).toContain('1 difference: - good.json  + bad.json');
     expect(stdout.text).toMatch(/node\s+- 20\.17\.0\s+\+ 22\.3\.0/);
   });
 
   it('diffs two capsules as JSON', async () => {
     const { io, stdout } = fakeIo();
-    await main(['inspect', 'good.json', 'bad.json', '--json'], context(await files(), io));
+    await main(['diff', 'good.json', 'bad.json', '--json'], context(await files(), io));
     expect(JSON.parse(stdout.text)).toEqual([
       { category: 'runtime', key: 'node', a: '20.17.0', b: '22.3.0' },
     ]);
@@ -181,6 +181,8 @@ describe('twin inspect', () => {
     const { io, stderr } = fakeIo();
     expect(await main(['inspect'], context(await files(), io))).toBe(2);
     expect(await main(['inspect', 'a', 'b', 'c'], context(await files(), io))).toBe(2);
-    expect(stderr.text).toContain('expected one or two capsule paths');
+    expect(stderr.text).toContain('expected one capsule');
+    expect(await main(['diff', 'a'], context(await files(), io))).toBe(2);
+    expect(stderr.text).toContain('expected two capsules');
   });
 });

@@ -91,7 +91,8 @@ async function run(args: string[], context: CommandContext): Promise<number> {
 
 export const bisectCommand: Command = {
   name: 'bisect',
-  summary: 'find the minimal environment difference that causes a failure',
+  group: 'reproduce',
+  summary: 'find which environment difference causes a failure',
   usage: USAGE,
   run,
 };

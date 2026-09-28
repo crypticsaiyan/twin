@@ -20,7 +20,7 @@ describe('main', () => {
   it.each(['--help', '-h', 'help'])('prints usage for %s', async (flag) => {
     const { io, stdout } = fakeIo();
     expect(await main([flag], context(io))).toBe(0);
-    expect(stdout.text).toContain('Commands:');
+    expect(stdout.text).toContain('Report a bug');
   });
 
   it.each(['--version', '-v'])('prints the version for %s', async (flag) => {
@@ -33,6 +33,39 @@ describe('main', () => {
     const { io, stderr } = fakeIo();
     expect(await main(['frobnicate'], context(io))).toBe(2);
     expect(stderr.text).toContain('unknown command "frobnicate"');
+  });
+
+  it('suggests the closest command for a typo', async () => {
+    const { io, stderr } = fakeIo();
+    expect(await main(['repaly'], context(io))).toBe(2);
+    expect(stderr.text).toBe('twin: unknown command "repaly". Did you mean: twin replay?\n');
+    expect(await main(['sotp'], context(io))).toBe(2);
+    expect(stderr.text).toContain('Did you mean: twin stop?');
+    expect(await main(['zzz'], context(io))).toBe(2);
+    expect(stderr.text).toContain('unknown command "zzz". See: twin --help');
+  });
+
+  it('prints command help for twin help <command>', async () => {
+    const { io, stdout } = fakeIo();
+    expect(await main(['help', 'replay'], context(io))).toBe(0);
+    expect(stdout.text).toContain('Usage: twin replay');
+  });
+
+  it('groups commands and hides aliases', async () => {
+    const { io, stdout } = fakeIo();
+    await main(['--help'], context(io));
+    expect(stdout.text).toMatch(/Machines[^\n]*\n {2}list +show machines/);
+    expect(stdout.text).toContain('  stop ');
+    expect(stdout.text).not.toContain('  gc ');
+    expect(stdout.text).not.toContain('●');
+  });
+
+  it('draws the wordmark on a terminal', async () => {
+    const { io, stdout } = fakeIo();
+    Object.defineProperty(io.stdout, 'isTTY', { value: true });
+    await main(['--help'], context(io));
+    expect(stdout.text).toContain('●');
+    expect(stdout.text).toContain('twin 1.2.3');
   });
 
   it('turns unknown options into a usage error', async () => {

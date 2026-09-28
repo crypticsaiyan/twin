@@ -119,6 +119,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
 
 export const verifyCommand: Command = {
   name: 'verify',
+  group: 'reproduce',
   summary: "check a candidate fix in the reporter's environment",
   usage: USAGE,
   run,

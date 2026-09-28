@@ -18,7 +18,7 @@ const short = (id: string) => id.slice(0, 12);
  * Wraps the backend so that Ctrl-C (or a stop signal) while machines are live releases them,
  * confirmed, before exiting 130. The handler is installed only while a machine is live, so
  * commands that manage interrupts themselves (capture forwards Ctrl-C to the child) are untouched.
- * A second signal exits at once and names the machines for `twin gc`.
+ * A second signal exits at once and names the machines for `twin stop`.
  */
 export function interruptible(
   getInner: () => Promise<Backend>,
@@ -33,7 +33,7 @@ export function interruptible(
     const live = tracked.live;
     if (interrupted) {
       stderr.write(
-        `twin: not waiting; release ${live.map(short).join(', ') || 'leftovers'} with: twin gc\n`,
+        `twin: not waiting; stop ${live.map(short).join(', ') || 'leftovers'} with: twin stop\n`,
       );
       signals.exit(130);
       return;
@@ -45,7 +45,7 @@ export function interruptible(
     void tracked.releaseAll().then(({ released, failed }) => {
       if (failed.length > 0) {
         stderr.write(
-          `twin: could not confirm ${failed.map(short).join(', ')} is gone; run: twin gc\n`,
+          `twin: could not confirm ${failed.map(short).join(', ')} is gone; run: twin stop\n`,
         );
       } else {
         stderr.write(`twin: released ${released.map(short).join(', ')}\n`);

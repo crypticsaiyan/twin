@@ -98,7 +98,8 @@ async function run(args: string[], context: CommandContext): Promise<number> {
 
 export const replayCommand: Command = {
   name: 'replay',
-  summary: 'rebuild a capsule on a Solari sandbox and rerun the command',
+  group: 'reproduce',
+  summary: 'rebuild a capsule on a clean Solari machine and rerun it',
   usage: USAGE,
   run,
 };

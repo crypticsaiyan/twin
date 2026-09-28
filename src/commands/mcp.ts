@@ -54,7 +54,13 @@ export function mcpCommandWith(openTransport: () => Transport): Command {
     await close();
     return 0;
   }
-  return { name: 'mcp', summary: 'serve twin to AI coding agents over MCP', usage: USAGE, run };
+  return {
+    name: 'mcp',
+    group: 'agents',
+    summary: 'serve twin to AI coding agents over MCP',
+    usage: USAGE,
+    run,
+  };
 }
 
 export const mcpCommand = mcpCommandWith(stdioTransport);

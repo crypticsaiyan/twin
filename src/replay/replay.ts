@@ -181,7 +181,7 @@ export async function replay(
       await machine.detach();
     } else {
       await machine.kill().catch((error: unknown) => {
-        report.notes.push(`Could not release ${machine.id} (${String(error)}); run \`twin gc\`.`);
+        report.notes.push(`Could not release ${machine.id} (${String(error)}); run \`twin stop\`.`);
       });
     }
   }

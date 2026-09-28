@@ -72,10 +72,10 @@ describe('interruptible', () => {
     send('SIGTERM');
     send('SIGINT');
     expect(exits).toEqual([130]);
-    expect(stderr.text).toContain('twin: not waiting; release sbx_fake0 with: twin gc');
+    expect(stderr.text).toContain('twin: not waiting; stop sbx_fake0 with: twin stop');
     finish();
     await done;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(stderr.text).toContain('could not confirm sbx_fake0 is gone; run: twin gc');
+    expect(stderr.text).toContain('could not confirm sbx_fake0 is gone; run: twin stop');
   });
 });

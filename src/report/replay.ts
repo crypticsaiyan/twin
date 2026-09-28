@@ -122,7 +122,7 @@ export function renderReplay(
       `  twin shell ${id}         open a terminal on it`,
       `  twin shell ${id} --web   get a browser terminal link to share`,
       style.dim(
-        'It is billed while running and released after 15 minutes idle, or now with: twin gc',
+        'It is billed while running and released after 15 minutes idle, or now with: twin stop',
       ),
     );
   }

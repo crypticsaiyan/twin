@@ -105,10 +105,11 @@ describe('twin replay', () => {
   });
 });
 
-describe('twin gc', () => {
-  it('releases leftover twin machines', async () => {
+describe('twin stop and twin list', () => {
+  async function machines() {
     const backend = new FakeBackend();
-    await backend.create({ labels: { app: 'twin', run: 'x' }, idleTimeoutMs: 1 });
+    await backend.create({ labels: { app: 'twin', run: 'aaa' }, idleTimeoutMs: 1 });
+    await backend.create({ labels: { app: 'twin', run: 'bbb' }, idleTimeoutMs: 1 });
     await backend.create({ labels: { app: 'other' }, idleTimeoutMs: 1 });
     const { io, stdout } = fakeIo();
     const context = {
@@ -118,13 +119,54 @@ describe('twin gc', () => {
       version: 't',
       getBackend: async () => backend,
     };
-    expect(await main(['gc'], context)).toBe(0);
-    expect(stdout.text).toBe('Released 1 machines: sbx_fake0\n');
-    expect(backend.machines[1]?.killed).toBe(false);
+    return { backend, context, stdout };
+  }
+
+  it('stops every twin machine, and nothing else', async () => {
+    const { backend, context, stdout } = await machines();
+    expect(await main(['stop'], context)).toBe(0);
+    expect(stdout.text).toBe('Stopped 2 machines\n  sbx_fake0\n  sbx_fake1\n');
+    expect(backend.machines[2]?.killed).toBe(false);
     stdout.text = '';
-    expect(await main(['gc'], context)).toBe(0);
+    expect(await main(['stop'], context)).toBe(0);
     expect(stdout.text).toBe('No twin machines running.\n');
-    expect(await main(['gc', '-h'], context)).toBe(0);
+  });
+
+  it('stops one machine by id prefix', async () => {
+    const { backend, context, stdout } = await machines();
+    expect(await main(['stop', 'sbx_fake1'], context)).toBe(0);
+    expect(stdout.text).toBe('Stopped 1 machine\n  sbx_fake1\n');
+    expect(backend.machines.map((m) => m.killed)).toEqual([false, true, false]);
+  });
+
+  it('keeps gc as an alias', async () => {
+    const { context, stdout } = await machines();
+    expect(await main(['gc'], context)).toBe(0);
+    expect(stdout.text).toContain('Stopped 2 machines');
+  });
+
+  it('lists running twin machines', async () => {
+    const { context, stdout } = await machines();
+    expect(await main(['list'], context)).toBe(0);
+    expect(stdout.text).toContain(
+      'MACHINE    RUN  STATE\nsbx_fake0  aaa  running\nsbx_fake1  bbb  running\n',
+    );
+    expect(stdout.text).toContain('twin shell <machine>');
+    stdout.text = '';
+    expect(await main(['ls', '--json'], context)).toBe(0);
+    expect(JSON.parse(stdout.text)).toHaveLength(2);
+    await main(['stop'], context);
+    stdout.text = '';
+    expect(await main(['list'], context)).toBe(0);
+    expect(stdout.text).toBe('No twin machines running.\n');
+  });
+
+  it('prints help', async () => {
+    const { context, stdout } = await machines();
+    expect(await main(['stop', '-h'], context)).toBe(0);
+    expect(await main(['list', '-h'], context)).toBe(0);
+    expect(stdout.text).toContain('Usage: twin stop');
+    expect(stdout.text).toContain('Usage: twin list');
   });
 });
 

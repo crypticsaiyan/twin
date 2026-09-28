@@ -22,7 +22,7 @@ Options:
   -h, --help   show this help
 
 Ctrl-] detaches without stopping the machine. It keeps running (and billing)
-until 15 minutes idle, or until \`twin gc\`.`;
+until 15 minutes idle, or until \`twin stop\`.`;
 
 export const WEB_USER = 'twin';
 
@@ -45,7 +45,9 @@ async function shareWeb(machine: Machine, short: string, context: CommandContext
       `  user      ${WEB_USER}`,
       `  password  ${password}`,
       style.dim('The link and password together give a root shell on this machine. Share them'),
-      style.dim('only with the reporter. The machine stops after 15 minutes idle or with: twin gc'),
+      style.dim(
+        'only with the reporter. The machine stops after 15 minutes idle or with: twin stop',
+      ),
       '',
     ].join('\n'),
   );
@@ -66,7 +68,7 @@ async function attachLocal(
   const end = await attach(terminal, local);
   io.stderr.write(
     style.dim(
-      `\ntwin: ${end === 'exited' ? 'shell exited' : 'detached'}. ${short} keeps running until 15 minutes idle or twin gc.\n`,
+      `\ntwin: ${end === 'exited' ? 'shell exited' : 'detached'}. ${short} keeps running until 15 minutes idle or twin stop.\n`,
     ),
   );
   return 0;
@@ -113,7 +115,8 @@ async function run(args: string[], context: CommandContext): Promise<number> {
 
 export const shellCommand: Command = {
   name: 'shell',
-  summary: 'open a terminal on a machine kept by replay --keep',
+  group: 'machines',
+  summary: 'open a terminal on a kept machine',
   usage: USAGE,
   run,
 };

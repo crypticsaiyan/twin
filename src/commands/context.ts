@@ -13,9 +13,15 @@ export interface CommandContext {
   getBackend: () => Promise<Backend>;
 }
 
+/** Sections of `twin --help`, in the order a bug moves through them. */
+export type CommandGroup = 'report' | 'reproduce' | 'machines' | 'agents';
+
 export interface Command {
   name: string;
   summary: string;
+  group?: CommandGroup;
+  /** Other names that run this command; not listed in help (old names keep working). */
+  aliases?: readonly string[];
   usage: string;
   run(args: string[], context: CommandContext): Promise<number>;
 }
