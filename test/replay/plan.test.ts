@@ -167,6 +167,33 @@ describe('planReplay', () => {
     expect(plan.command.cwd).toBe('/tmp/twin/repo/packages/api');
   });
 
+  it('installs node only when the project or command uses it', () => {
+    const base = makeCapsule();
+    const python = makeCapsule({
+      runtimes: { node: '26.7.0', python: '3.13.12' },
+      packageManagers: [
+        {
+          name: 'uv',
+          ecosystem: 'python',
+          version: '0.11.3',
+          declared: null,
+          lockfile: 'uv.lock',
+          lockfileSha256: 'x',
+        },
+      ],
+      resolved: { python: { click: '8.3.0' } },
+      command: { ...base.command, argv: ['uv', 'run', 'pytest'] },
+    });
+    expect(ids(planReplay(python).setup)).not.toContain('node');
+    const script = makeCapsule({
+      runtimes: { node: '22.3.0' },
+      packageManagers: [],
+      resolved: {},
+      command: { ...base.command, argv: ['/usr/local/bin/node', 'check.js'] },
+    });
+    expect(ids(planReplay(script).setup)).toContain('node');
+  });
+
   it('sets up python through uv for python projects', () => {
     const plan = planReplay(
       makeCapsule({

@@ -96,6 +96,21 @@ function envFor(
   return { env, unknown: unknown.filter((name) => options.env?.[name] === undefined) };
 }
 
+const NODE_COMMANDS = new Set(['node', 'npm', 'npx', 'pnpm', 'yarn', 'bun', 'corepack']);
+
+/**
+ * Node is installed only when the project or the command needs it: a reporter's machine usually
+ * has node for unrelated reasons, and installing it for a Python project wastes ~15 s per run.
+ */
+function usesNode(capsule: Capsule): boolean {
+  const program = capsule.command.argv[0]?.split('/').at(-1) ?? '';
+  return (
+    NODE_COMMANDS.has(program) ||
+    capsule.resolved.node !== undefined ||
+    capsule.packageManagers.some((m) => m.ecosystem === 'node')
+  );
+}
+
 /**
  * Turns a capsule into the exact steps that rebuild the reporter's environment on a fresh Linux
  * machine. Pure: no I/O, so every decision here is unit tested.
@@ -122,7 +137,7 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
   ];
   const paths: string[] = [];
 
-  const node = capsule.runtimes.node;
+  const node = usesNode(capsule) ? capsule.runtimes.node : undefined;
   if (node) {
     setup.push({
       kind: 'run',
