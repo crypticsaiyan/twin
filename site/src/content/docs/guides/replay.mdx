@@ -124,13 +124,13 @@ When the verdict is `REPRODUCED`, the machine stays up and the report ends with:
 The machine is still running at the failure, in the reporter's environment:
   twin shell <id>         open a terminal on it
   twin shell <id> --web   get a browser terminal link to share
-It is billed while running and released after 15 minutes idle, or now with: twin gc
+It is billed while running and released after 15 minutes idle, or now with: twin stop
 ```
 
 For any other verdict the machine is released as usual. See [Shell](../shell/).
 
 <Aside type="caution">
-A kept machine is billed until it has been idle for 15 minutes, or until `twin gc`. Release it when you are done.
+A kept machine is billed until it has been idle for 15 minutes, or until `twin stop`. Release it when you are done.
 </Aside>
 
 ## JSON output

@@ -56,7 +56,7 @@ Browser terminal on <id>
   user      twin
   password  <random>
 The link and password together give a root shell on this machine. Share them
-only with the reporter. The machine stops after 15 minutes idle or with: twin gc
+only with the reporter. The machine stops after 15 minutes idle or with: twin stop
 ```
 
 Send the link and password to the reporter, and you can both look at the same failing machine. Running `--web` again restarts the browser terminal with a new password.
@@ -80,19 +80,15 @@ A kept machine carries two files that make `twin shell` work without the capsule
 
 ## Releasing it
 
-A kept machine is billed until it has been idle for 15 minutes or until you release it:
+A kept machine is billed until it has been idle for 15 minutes or until you stop it. See what is running, then stop one machine or all of them:
 
 ```sh
-twin gc
+twin list              # MACHINE  RUN  STATE
+twin stop 7f3c2a91     # just this one (start of its id)
+twin stop              # everything twin started
 ```
 
-`twin gc` releases every machine twin started that is still running, and confirms each kill with the Solari gateway:
-
-```text
-No twin machines running.
-```
-
-or `Released N machines: <ids>`.
+Each stop is confirmed with the Solari gateway before it counts. `twin stop` prints `Stopped N machines` and their ids, or `No twin machines running.`
 
 ## Options
 

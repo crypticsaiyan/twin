@@ -11,11 +11,11 @@ twin prints expected problems as one line starting with `twin:` and no stack tra
 
 **`twin: SOLARI_API_KEY is not set. Get a key at https://console.getsolari.com, then export SOLARI_API_KEY=... or add SOLARI_API_KEY=... to a .env file in this project.`** (exit 2)
 
-replay, bisect, verify, shell, gc and the MCP server's sandbox tools need the key. Export it in the shell you run twin from, or add `SOLARI_API_KEY=...` to a `.env` file in the directory you run twin from (or any parent). For the MCP server, pass it with `-e` / `env` in the client configuration, or keep a `.env` in the directory the client starts the server in.
+replay, bisect, verify, list, shell, stop and the MCP server's sandbox tools need the key. Export it in the shell you run twin from, or add `SOLARI_API_KEY=...` to a `.env` file in the directory you run twin from (or any parent). For the MCP server, pass it with `-e` / `env` in the client configuration, or keep a `.env` in the directory the client starts the server in.
 
 **`twin: Solari refused the request: <message>`** (exit 1)
 
-The Solari gateway rejected the request for an account reason: an invalid key, the plan, credit, a concurrency limit, or no capacity. twin prints the gateway's message. Check the key and balance in the [Solari console](https://console.getsolari.com). For a concurrency limit, release kept machines (`twin gc`) or wait for running ones to finish. Bisect always uses a single machine.
+The Solari gateway rejected the request for an account reason: an invalid key, the plan, credit, a concurrency limit, or no capacity. twin prints the gateway's message. Check the key and balance in the [Solari console](https://console.getsolari.com). For a concurrency limit, release kept machines (`twin stop`) or wait for running ones to finish. Bisect always uses a single machine.
 
 ## Capsule problems
 
@@ -73,18 +73,19 @@ Before starting, bisect refuses capsules from different commits, a bad capsule t
 | `no twin machine is running; keep one with: twin replay <capsule> --keep` | Replay with `--keep`. It keeps the machine only for `REPRODUCED`. |
 | `no running twin machine starts with "<prefix>". Running: …` | Use one of the listed ids. |
 | `several twin machines match; pass more of the id: …` | Pass a longer prefix. |
-| `` machine <id> was not kept by `twin replay --keep` (no /tmp/twin/shell.sh) `` | The machine is a leftover from another run, not a kept replay. Release it with `twin gc`. |
+| `` machine <id> was not kept by `twin replay --keep` (no /tmp/twin/shell.sh) `` | The machine is a leftover from another run, not a kept replay. Release it with `twin stop`. |
 | `twin shell needs an interactive terminal; use --web for a browser terminal` | Run from a real terminal, or use `--web`. |
 
 ## Leftover and zombie machines
 
-List-and-release everything twin started:
+See what is still running, then stop everything twin started:
 
 ```sh
-twin gc
+twin list
+twin stop
 ```
 
-It prints `Released N machines: <ids>` or `No twin machines running.` Each kill is confirmed with the gateway before it counts.
+`twin stop` prints `Stopped N machines` and their ids, or `No twin machines running.` Each kill is confirmed with the gateway before it counts.
 
 Solari has been observed to report a successful kill while the sandbox kept running and billing (see [Solari](../solari/)). twin re-kills until `get()` stops reporting the machine as live. If it never goes, twin says so:
 
@@ -92,7 +93,7 @@ Solari has been observed to report a successful kill while the sandbox kept runn
 sandbox <id>… still reports running after 9 kills; it is billed until it stops, check the Solari console
 ```
 
-Stop it from the [Solari console](https://console.getsolari.com) and check the ledger. If a replay itself could not release its machine, the report's notes say `` Could not release <id> (…); run `twin gc`. ``
+Stop it from the [Solari console](https://console.getsolari.com) and check the ledger. If a replay itself could not release its machine, the report's notes say `` Could not release <id> (…); run `twin stop`. ``
 
 ## Capture
 
@@ -102,4 +103,4 @@ Stop it from the [Solari console](https://console.getsolari.com) and check the l
 | `missing command to run` | Put the command after `--`: `twin capture -- npm test`. |
 | `command not found: <name>` (exit 127) | The command is not on `PATH` in that shell. |
 | `interrupted; no capsule written` (exit 130) | Ctrl-C during the run. |
-| `twin: interrupted, releasing …` (exit 130) | Ctrl-C during `replay`, `bisect` or `verify`. twin kills the machine and waits for Solari to confirm it is gone. Press Ctrl-C again to skip the wait, then run `twin gc`. |
+| `twin: interrupted, releasing …` (exit 130) | Ctrl-C during `replay`, `bisect` or `verify`. twin kills the machine and waits for Solari to confirm it is gone. Press Ctrl-C again to skip the wait, then run `twin stop`. |

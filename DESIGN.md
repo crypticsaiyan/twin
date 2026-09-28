@@ -27,7 +27,7 @@ The core requirement is that two different people share one exact machine. That 
 | Get the reporter's exact commit and diff | `git fetch` of one SHA in the guest + `files.write` of the diff |
 | Hand the maintainer a live shell at the failure point | `pty.create` (`twin shell`) and `previewUrl` in front of a guest web terminal (`twin shell --web`) |
 | Re-attach later, from any computer | `sandboxes.connect(id)`, then `close()` to detach without releasing |
-| Never leak billing VMs | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C or a stop signal releases every live machine (`src/interrupt.ts`) before exiting 130; `listAll({ metadata })` reaper in `twin gc` |
+| Never leak billing VMs | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C or a stop signal releases every live machine (`src/interrupt.ts`) before exiting 130; `listAll({ metadata })` reaper in `twin stop` |
 | Web-app bugs (later) | `previewUrl` + recorded Solari browser session |
 | GUI/Electron bugs (later) | Solari desktop |
 
@@ -169,7 +169,7 @@ run command N times (default 3) → fingerprint each failure → verdict
 
 Notes:
 - Commands are not shell-interpreted by the sandbox. twin passes argv explicitly and uses `sh -c` only where it builds a script itself; the captured command runs as `sh -c 'exec "$@"'` so PATH resolves to the installed runtime without re-parsing arguments.
-- Everything runs inside `try/finally`. Every VM carries `metadata.run`; `twin gc` reaps leftovers with `listAll({ metadata })`, checking each with `get()` because the listing lags.
+- Everything runs inside `try/finally`. Every VM carries `metadata.run`; `twin stop` reaps leftovers with `listAll({ metadata })`, checking each with `get()` because the listing lags.
 - `idleTimeoutMs` is a rolling idle window, not a deadline (cookbook gotcha); long installs keep it alive.
 
 ## 7. Bisect
@@ -200,12 +200,14 @@ Notes:
 | Command | Needs Solari key | What it does | State |
 |---|---|---|---|
 | `twin capture -- <cmd>` | no | record a capsule | done |
-| `twin inspect <capsule> [<other>]` | no | summarize, or diff two capsules | done |
+| `twin inspect <capsule>` | no | summarize a capsule | done |
+| `twin diff <capsule> <other>` | no | list differences between two capsules | done |
 | `twin replay <capsule> [--keep]` | yes | reproduce on a sandbox | done |
 | `twin bisect <bad> --good <good>` | yes | minimal failing difference | done |
 | `twin verify <capsule> --patch <file> \| --ref <sha>` | yes | check a fix in the reporter's environment | done |
 | `twin shell [id] [--web]` | yes | terminal or browser terminal on a kept machine | done |
-| `twin gc` | yes | kill leftover twin machines, confirmed | done |
+| `twin list` | yes | running twin machines | done |
+| `twin stop [id]` | yes | stop one or all twin machines, confirmed (`gc` is an alias) | done |
 | `twin mcp` | yes (for machine tools) | MCP server for coding agents | done |
 | `uses: crypticsaiyan/twin@main` | yes | verify pull requests against the issue's capsule | done |
 | `twin ci <job-url>` | yes | capsule from a GitHub Actions job | not built |
@@ -221,7 +223,7 @@ src/
   bin.ts            entry (process glue only)
   cli.ts            dispatch, exit codes
   host.ts  io.ts    injected machine and terminal access
-  commands/         capture, inspect, replay, bisect, verify, shell, gc, mcp
+  commands/         capture, inspect (+ diff), replay, bisect, verify, list, shell, stop, mcp
   capsule/          schema + decoder, file io, https source, diff
   capture/          orchestrator, run-command, tail buffer
     facts/          os, probes, package managers, node/python deps, repo, env, project root
@@ -292,8 +294,8 @@ Platform behavior found, candidates for cookbook issues:
 3. Snapshot and revert take tens of seconds, not about one second.
 4. `revert()` consumes the snapshot: `getSnapshot` returns 404 immediately after the first revert, and a second revert fails with `Snapshot not found`. In one run even the first revert failed with `Snapshot not found` while `listSnapshots` still listed the snapshot.
 5. Each snapshot with `node_modules` is about 4 GB of storage, billed from 2026-10-01 above 10 GB, and nothing deletes it automatically.
-7. `kill()` is not always effective. Two sandboxes from replays at about 06:15 UTC stayed `running` and kept billing (ledger: about 0.5 cents every few minutes each, 06:20 to 08:19, until the balance ran out) after twin's `kill()` and two later `DELETE`s from `twin gc` all returned success. Their 15-minute idle timeout did not stop them either (`expiresAt` kept moving forward). At 08:36 a plain `DELETE` removed both within 16 s. twin now confirms every kill with `get()` and re-kills until the sandbox is gone, and reports loudly if it never goes. About 7.5 hours after that `DELETE`, at about 16:10 UTC, `twin gc` found the same two sandboxes again (run `fd0c959a`, the recorded `replay.txt`, is one of them): `listAll` returned them and `get()` reported them live, although `get()` had returned 404 at 08:36. gc killed both with confirmation. Whether they billed in between needs the ledger.
-6. `listSnapshots` returns stale entries: snapshots consumed by a revert or already deleted keep appearing, `getSnapshot`/`deleteSnapshot` on them return 404, and the listed set differs between consecutive calls. `listAll` for sandboxes shows the same pattern for killed machines. `twin gc` treats a 404 on delete as already gone.
+7. `kill()` is not always effective. Two sandboxes from replays at about 06:15 UTC stayed `running` and kept billing (ledger: about 0.5 cents every few minutes each, 06:20 to 08:19, until the balance ran out) after twin's `kill()` and two later `DELETE`s from `twin stop` all returned success. Their 15-minute idle timeout did not stop them either (`expiresAt` kept moving forward). At 08:36 a plain `DELETE` removed both within 16 s. twin now confirms every kill with `get()` and re-kills until the sandbox is gone, and reports loudly if it never goes. About 7.5 hours after that `DELETE`, at about 16:10 UTC, `twin stop` found the same two sandboxes again (run `fd0c959a`, the recorded `replay.txt`, is one of them): `listAll` returned them and `get()` reported them live, although `get()` had returned 404 at 08:36. gc killed both with confirmation. Whether they billed in between needs the ledger.
+6. `listSnapshots` returns stale entries: snapshots consumed by a revert or already deleted keep appearing, `getSnapshot`/`deleteSnapshot` on them return 404, and the listed set differs between consecutive calls. `listAll` for sandboxes shows the same pattern for killed machines. `twin stop` treats a 404 on delete as already gone.
 
 Because of 3 to 5, bisect uses no snapshots. Env, time zone and runtime trials need no reset (both runtimes are installed up front and switched through PATH); working-tree trials are undone with an idempotent `git apply -R`; dependency trials are undone by rerunning the good world's install.
 

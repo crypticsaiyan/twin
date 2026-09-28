@@ -20,7 +20,7 @@ Every Solari call goes through a small `Backend` interface in [`src/backend/sola
 | A local shell at the failure point | `pty.create` | `twin shell`; the PTY has no exit event, so the guest script prints an invisible marker when the shell ends. |
 | A browser shell to share | `previewUrl(7681)` in front of ttyd in the guest, behind basic auth | `twin shell --web`. |
 | Re-attach later from any computer, then let go | `sandboxes.connect(id)`, then `close()` | `close()` detaches without releasing the machine. |
-| Never leak billing machines | `kill()` confirmed with `sandboxes.get()`, repeated until gone; `sandboxes.listAll({ metadata })` | `twin gc` and MCP `release` reap by metadata. |
+| Never leak billing machines | `kill()` confirmed with `sandboxes.get()`, repeated until gone; `sandboxes.listAll({ metadata })` | `twin stop` and MCP `release` reap by metadata. |
 
 Commands are not shell-interpreted by the sandbox: twin passes argv explicitly and uses `sh -c` only for scripts it builds itself.
 

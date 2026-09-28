@@ -132,4 +132,4 @@ Returns `released <ids>` or `no twin machines running`.
 
 ## Session end and billing
 
-Kept machines are billed until they are released or have been idle for 15 minutes. When the MCP session ends (the client disconnects or stops the server), the server **releases the machines that session kept** with `replay`. Machines kept by someone else (a `twin replay --keep` from a terminal, or another session) that the agent used are only disconnected, and keep running until their own idle timeout or `twin gc`.
+Kept machines are billed until they are released or have been idle for 15 minutes. When the MCP session ends (the client disconnects or stops the server), the server **releases the machines that session kept** with `replay`. Machines kept by someone else (a `twin replay --keep` from a terminal, or another session) that the agent used are only disconnected, and keep running until their own idle timeout or `twin stop`.

@@ -41,6 +41,6 @@ sidebar:
 
 ## Cost and exposure
 
-- **A kept machine is billed** until it has been idle for 15 minutes, or until `twin gc` (or MCP `release`).
+- **A kept machine is billed** until it has been idle for 15 minutes, or until `twin stop` (or MCP `release`).
 - **The browser terminal is a root shell.** `twin shell --web` prints a link and a password; together they give a root shell on that machine until it is released. Share them only with the reporter.
 - **Redaction is pattern based.** Review a capsule before posting it publicly.

@@ -106,17 +106,19 @@ and attach the file it writes (it records versions and variable names, never sec
 | Command | What it does |
 |---|---|
 | `twin capture -- <cmd>` | Run `<cmd>`, record its environment, write a capsule after review |
-| `twin inspect <capsule> [<other>]` | Summarize a capsule, or list every difference between two |
+| `twin inspect <capsule>` | Summarize what a capsule recorded |
+| `twin diff <capsule> <other>` | List every environment difference between two capsules |
 | `twin replay <capsule>` | Rebuild the environment on a Solari sandbox, run the command 3 times, report `REPRODUCED`, `DIFFERENT FAILURE`, `NOT REPRODUCED`, `FLAKY` or `INCONCLUSIVE` |
 | `twin replay <capsule> --keep` | Same, and leave a reproduced failure running for `twin shell` |
 | `twin bisect <bad> --good <good>` | Smallest set of differences (env values, time zone, node version, npm dependency versions, working tree diff) that turns the passing environment into the failing one |
 | `twin verify <capsule> --patch <file>` | Apply a candidate fix in the reporter's environment: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE`. `--ref <sha> --repo <url>` checks a pushed branch instead |
 | `twin shell [id]` | Terminal on a kept machine, in the reporter's environment. Ctrl-] detaches |
 | `twin shell [id] --web` | Browser terminal link plus a password, to share with the reporter |
-| `twin gc` | Kill every machine twin left running, each kill confirmed |
+| `twin list` | Show machines twin has running (kept replays, leftovers) |
+| `twin stop [id]` | Stop one machine, or all twin left running; each stop confirmed |
 | `twin mcp` | Serve these commands to AI coding agents over MCP (stdio) |
 
-Every command has `--help`. Capsules can be paths or https URLs (such as issue attachments). `replay`, `bisect` and `verify` take `--json` for machine-readable reports and `-v` to stream the sandbox's output; `verify --comment <file>` also writes a pull request comment.
+Every command has `--help` (or `twin help <command>`); `twin --help` lists them by task. Capsules can be paths or https URLs (such as issue attachments). `replay`, `bisect` and `verify` take `--json` for machine-readable reports and `-v` to stream the sandbox's output; `verify --comment <file>` also writes a pull request comment.
 
 ## What a capsule contains, and what it never does
 
@@ -137,7 +139,7 @@ Redaction is pattern based; review the capsule before posting it publicly.
 | A shell at the failure point | `pty.create` (`twin shell`), and `previewUrl` in front of a guest web terminal behind a password (`twin shell --web`) |
 | Re-attach from any computer, then let go | `sandboxes.connect(id)`, `close()` to detach without releasing |
 | An agent working inside the reporter's machine | `connect` once per session, then `commands.start` and `files.write` on the kept sandbox (`twin mcp`) |
-| No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C mid-run releases live machines before exiting; `listAll({ metadata })` reaper in `twin gc` |
+| No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C mid-run releases live machines before exiting; `listAll({ metadata })` reaper in `twin stop` |
 
 Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent. Bisect runs every trial on one machine, so it fits a single concurrent slot.
 
@@ -149,7 +151,7 @@ Building this turned up platform behavior worth knowing, all measured and writte
 - **Node and Python projects.** Verified end to end: npm projects on Solari, and uv projects (`uv.lock`) in the Docker harness. pnpm, Yarn and Bun, and Python `requirements.txt` / `pyproject.toml` projects go through the same code path but have only unit tests so far. Bisect varies npm dependency versions only.
 - **Environmental causes only.** Logic bugs, network and data problems are out of scope; replay then reports `NOT REPRODUCED` or `DIFFERENT FAILURE`.
 - **Values replay cannot know.** Variables recorded by name only are left unset unless provided with `--env NAME=value`.
-- **A kept machine is billed** until it idles out (15 minutes) or `twin gc`. The browser terminal link and password together give a root shell on that machine; share them only with the reporter.
+- **A kept machine is billed** until it idles out (15 minutes) or `twin stop`. The browser terminal link and password together give a root shell on that machine; share them only with the reporter.
 
 ## How it compares
 

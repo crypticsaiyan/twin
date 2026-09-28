@@ -136,4 +136,4 @@ Bisect originally forked trials from a snapshot. Measured on Solari, snapshot an
 
 ## 6. Kept machines
 
-A kept machine is an ordinary Solari sandbox tagged `app=twin`. It keeps running, and billing, until 15 minutes pass with no activity, or until you release it with `twin gc` (or the MCP `release` tool). Machines an MCP session kept are released when that session ends. Anyone with your key can re-attach from any computer with `twin shell <id prefix>`; the machine carries everything the shell needs, so the capsule is not required again.
+A kept machine is an ordinary Solari sandbox tagged `app=twin`. It keeps running, and billing, until 15 minutes pass with no activity, or until you release it with `twin stop` (or the MCP `release` tool). Machines an MCP session kept are released when that session ends. Anyone with your key can re-attach from any computer with `twin shell <id prefix>`; the machine carries everything the shell needs, so the capsule is not required again.

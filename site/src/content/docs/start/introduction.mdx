@@ -34,7 +34,7 @@ The reporter needs no Solari account and nothing is uploaded. Only the maintaine
 | Step | Who | Command | Needs a Solari key |
 |---|---|---|---|
 | Capture the failing environment | reporter | `twin capture -- npm test` | no |
-| Summarize or compare capsules | anyone | `twin inspect a.json b.json` | no |
+| Summarize or compare capsules | anyone | `twin inspect a.json`, `twin diff a.json b.json` | no |
 | Rebuild it and rerun | maintainer | `twin replay twin-capsule.json` | yes |
 | Find the difference that breaks it | maintainer | `twin bisect bad.json --good good.json` | yes |
 | Check a fix in the reporter's environment | maintainer | `twin verify bad.json --patch fix.patch` | yes |

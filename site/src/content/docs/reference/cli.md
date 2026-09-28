@@ -9,17 +9,19 @@ sidebar:
 Usage: twin <command> [options]
 ```
 
-Run `twin <command> --help` for the same details in the terminal. `twin --version` (or `-v` as the first argument) prints the version. Run from the repository with `npx github:crypticsaiyan/twin <command>`; Node 22 or newer.
+Run `twin <command> --help` (or `twin help <command>`) for the same details in the terminal; `twin --help` lists the commands grouped by task. A mistyped command gets a suggestion. `twin --version` (or `-v` as the first argument) prints the version. Run from the repository with `npx github:crypticsaiyan/twin <command>`; Node 22 or newer.
 
 | Command | Needs `SOLARI_API_KEY` | What it does |
 |---|---|---|
 | [`capture`](#twin-capture) | no | Run a command and record the environment it ran in. |
-| [`inspect`](#twin-inspect) | no | Summarize a capsule, or diff two. |
+| [`inspect`](#twin-inspect) | no | Summarize what a capsule recorded. |
+| [`diff`](#twin-diff) | no | List environment differences between two capsules. |
 | [`replay`](#twin-replay) | yes | Rebuild a capsule on a Solari sandbox and rerun the command. |
 | [`bisect`](#twin-bisect) | yes | Find the minimal environment difference that causes a failure. |
 | [`verify`](#twin-verify) | yes | Check a candidate fix in the reporter's environment. |
 | [`shell`](#twin-shell) | yes | Open a terminal on a machine kept by `replay --keep`. |
-| [`gc`](#twin-gc) | yes | Release machines twin left running. |
+| [`list`](#twin-list) | yes | Show machines twin has running. |
+| [`stop`](#twin-stop) | yes | Stop machines twin left running (`gc` still works as an alias). |
 | [`mcp`](#twin-mcp) | yes, except `inspect` | Serve twin's tools to AI coding agents over MCP (stdio). |
 
 ## Conventions
@@ -45,7 +47,7 @@ Run `twin <command> --help` for the same details in the terminal. `twin --versio
 
 | Variable | Used by | Meaning |
 |---|---|---|
-| `SOLARI_API_KEY` | replay, bisect, verify, shell, gc, mcp | Solari API key from [console.getsolari.com](https://console.getsolari.com). Export it, or put `SOLARI_API_KEY=...` in a `.env` file: twin reads it (and `SOLARI_BASE_URL`, nothing else) from the nearest `.env` above the working directory. An exported value wins. |
+| `SOLARI_API_KEY` | replay, bisect, verify, list, shell, stop, mcp | Solari API key from [console.getsolari.com](https://console.getsolari.com). Export it, or put `SOLARI_API_KEY=...` in a `.env` file: twin reads it (and `SOLARI_BASE_URL`, nothing else) from the nearest `.env` above the working directory. An exported value wins. |
 | `SOLARI_BASE_URL` | same | Optional gateway override. Defaults to the SDK's gateway, `https://api.getsolari.com`. |
 | `NO_COLOR` | all | Any value disables colored output. |
 
@@ -78,17 +80,32 @@ See [Capture](../../guides/capture/).
 ## twin inspect
 
 ```text
-Usage: twin inspect <capsule> [<other-capsule>] [options]
+Usage: twin inspect <capsule> [options]
 ```
 
-With one capsule, prints a summary. With two, lists every environment fact that differs between them. Capsules can be file paths or https URLs.
+Prints a summary of what a capsule recorded: system, runtimes, package manager, commit and diff, environment and the failing command. Capsules can be file paths or https URLs. `twin show` is an alias. Given two capsules, it behaves like `twin diff`.
 
 | Option | Description |
 |---|---|
-| `--json` | Machine-readable output: the capsule itself, or the list of differences (`category`, `key`, `a`, `b`). |
+| `--json` | Machine-readable output: the capsule itself. |
 | `-h, --help` | Show help. |
 
 Exit `0` on success; `2` for the wrong number of paths; `1` when a file cannot be read or is not a valid capsule. Offline; no key needed.
+
+## twin diff
+
+```text
+Usage: twin diff <capsule> <other-capsule> [options]
+```
+
+Lists every environment fact that differs between two capsules, such as a failing and a passing run. To find which differences cause the failure, use [`twin bisect`](#twin-bisect).
+
+| Option | Description |
+|---|---|
+| `--json` | Machine-readable list of differences (`category`, `key`, `a`, `b`). |
+| `-h, --help` | Show help. |
+
+Exit `0` on success; `2` unless given exactly two paths; `1` when a file cannot be read or is not a valid capsule. Offline; no key needed.
 
 ## twin replay
 
@@ -184,19 +201,27 @@ Opens a terminal on a machine kept by `twin replay --keep`, in the reporter's en
 | `--web` | Start a browser terminal and print a link plus a password, to share with the reporter. Anyone with both gets a root shell on that machine until it is released. |
 | `-h, --help` | Show help. |
 
-Ctrl-] detaches without stopping the machine. It keeps running (and billing) until 15 minutes idle, or until `twin gc`.
+Ctrl-] detaches without stopping the machine. It keeps running (and billing) until 15 minutes idle, or until `twin stop`.
 
 Exit `0` after detaching, exiting the shell, or printing the web link. `2` without an interactive terminal (and no `--web`), with more than one machine argument, or when several machines match. `1` when no running twin machine matches or the machine was not kept.
 
 See [Shell](../../guides/shell/).
 
-## twin gc
+## twin list
 
 ```text
-Usage: twin gc
+Usage: twin list [--json]
 ```
 
-Releases every machine twin started that is still running (kept replays, or leftovers from an interrupted run). Each kill is confirmed with the gateway. Prints `Released N machines: <ids>` or `No twin machines running.` Exit `0`.
+Lists machines twin started that are still running (and billing): machines kept with `twin replay --keep`, or leftovers from an interrupted run. Prints a `MACHINE  RUN  STATE` table or `No twin machines running.` `twin ls` is an alias; `--json` prints the list (`id`, `state`, `labels`). Exit `0`.
+
+## twin stop
+
+```text
+Usage: twin stop [machine]
+```
+
+Stops machines twin started that are still running. Without `[machine]`, stops all of them; with it (the start of an id from `twin list`), only that one. Each stop is confirmed with the gateway, so nothing keeps billing. Prints `Stopped N machines` and their ids, or `No twin machines running.` `twin stop`, the old name, still works. Exit `0`; `1` when no running machine matches; `2` when several do.
 
 ## twin mcp
 
