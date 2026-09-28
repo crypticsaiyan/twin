@@ -6,6 +6,7 @@ import {
   ENV_SCRIPT,
   EXIT_MARKER,
   envScript,
+  runScript,
   shellScript,
   webTerminalScript,
 } from '../../src/shell/guest.ts';
@@ -46,6 +47,17 @@ describe('guest scripts', () => {
     expect(output).toContain("twin: you are in the reporter's environment");
     expect(output).toContain('commit abc123def456');
     expect(output).toContain("rerun the failing command with: npm test -- 'a b'");
+  });
+
+  it('runs one command line in the environment and directory of the failing command', async () => {
+    const dir = await tempDir();
+    const text = runScript({ cwd: dir });
+    expect(text).toContain(`. ${ENV_SCRIPT}`);
+    const file = join(dir, 'run.sh');
+    await writeFile(file, text);
+    sh('-n', file);
+    expect(sh(file, 'pwd && echo "$((1 + 1))" && exit 0')).toBe(`${dir}\n2\n`);
+    expect(() => sh(file, 'exit 3')).toThrow();
   });
 
   it('starts the web terminal with credentials, a pidfile and a readiness wait', async () => {

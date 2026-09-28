@@ -63,7 +63,7 @@ describe('replay', () => {
     );
   });
 
-  it('keeps a reproduced failure with a snapshot when asked', async () => {
+  it('keeps a reproduced failure running when asked', async () => {
     const backend = backendWhere(() => ({ exitCode: 1, output: FAILURE_OUTPUT }));
     const report = await replay(capsuleFailingWith(REPORTER_OUTPUT), backend, {
       keep: true,
@@ -73,10 +73,16 @@ describe('replay', () => {
     const [machine] = backend.machines;
     expect(machine?.killed).toBe(false);
     expect(machine?.detached).toBe(true);
-    // The kept machine carries the reporter's env and a shell entry point for `twin shell`.
+    // The kept machine carries the reporter's env and entry points for `twin shell` and agents.
     expect(machine?.files.get('/tmp/twin/env.sh')).toContain('export NODE_ENV=test');
     expect(machine?.files.get('/tmp/twin/shell.sh')).toContain('. /tmp/twin/env.sh');
-    expect(machine?.runs.at(-1)?.argv).toEqual(['chmod', '+x', '/tmp/twin/shell.sh']);
+    expect(machine?.files.get('/tmp/twin/run.sh')).toContain('cd /tmp/twin/repo');
+    expect(machine?.runs.at(-1)?.argv).toEqual([
+      'chmod',
+      '+x',
+      '/tmp/twin/shell.sh',
+      '/tmp/twin/run.sh',
+    ]);
   });
 
   it('does not keep machines that did not reproduce', async () => {

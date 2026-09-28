@@ -7,6 +7,8 @@ import { shellQuote } from '../replay/shell.ts';
  */
 export const ENV_SCRIPT = `${WORK_DIR}/env.sh`;
 export const SHELL_SCRIPT = `${WORK_DIR}/shell.sh`;
+/** Runs one command line in the reporter's environment: `run.sh '<command>'`. Used by agents. */
+export const RUN_SCRIPT = `${WORK_DIR}/run.sh`;
 
 /**
  * Printed by the shell script when the interactive shell ends. The SDK's PTY has no exit event,
@@ -47,6 +49,18 @@ export function shellScript(options: ShellScriptOptions): string {
     `printf '%s\\n' ${shellQuote(banner)}`,
     'if command -v bash >/dev/null 2>&1; then bash -i; else sh -i; fi',
     `printf ${shellQuote(EXIT_MARKER.replace('\u001b', '\\033').replace('\u0007', '\\007'))}`,
+    '',
+  ].join('\n');
+}
+
+/** Entry point for one-off commands, in the same environment and directory as the shell. */
+export function runScript(options: { cwd: string }): string {
+  return [
+    '#!/bin/sh',
+    `[ -f ${ENV_SCRIPT} ] && . ${ENV_SCRIPT}`,
+    `cd ${shellQuote(options.cwd)} 2>/dev/null || cd ${REPO_DIR}`,
+    'if command -v bash >/dev/null 2>&1; then exec bash -c "$1"; fi',
+    'exec sh -c "$1"',
     '',
   ].join('\n');
 }

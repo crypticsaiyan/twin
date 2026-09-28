@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { type Backend, type Machine, TWIN_LABELS } from '../backend/types.ts';
 import type { Capsule } from '../capsule/schema.ts';
-import { ENV_SCRIPT, envScript, SHELL_SCRIPT, shellScript } from '../shell/guest.ts';
+import {
+  ENV_SCRIPT,
+  envScript,
+  RUN_SCRIPT,
+  runScript,
+  SHELL_SCRIPT,
+  shellScript,
+} from '../shell/guest.ts';
 import { type PlanOptions, planReplay, type ReplayPlan, type Step } from './plan.ts';
 import { REPO_DIR } from './runtimes.ts';
 import { type AttemptResult, classify, describeAttempt, type Verdict } from './verdict.ts';
@@ -90,18 +97,16 @@ export async function runStep(
   return result;
 }
 
-/** Writes the reporter's environment and a shell entry point into a machine that is being kept. */
+/** Writes the reporter's environment and shell and command entry points into a kept machine. */
 async function prepareShell(machine: Machine, plan: ReplayPlan, capsule: Capsule): Promise<void> {
+  const cwd = plan.command.cwd ?? REPO_DIR;
   await machine.writeFile(ENV_SCRIPT, envScript(plan.env));
   await machine.writeFile(
     SHELL_SCRIPT,
-    shellScript({
-      cwd: plan.command.cwd ?? REPO_DIR,
-      argv: capsule.command.argv,
-      commit: capsule.repo?.commit ?? null,
-    }),
+    shellScript({ cwd, argv: capsule.command.argv, commit: capsule.repo?.commit ?? null }),
   );
-  await machine.run({ argv: ['chmod', '+x', SHELL_SCRIPT], timeoutMs: 30_000 });
+  await machine.writeFile(RUN_SCRIPT, runScript({ cwd }));
+  await machine.run({ argv: ['chmod', '+x', SHELL_SCRIPT, RUN_SCRIPT], timeoutMs: 30_000 });
 }
 
 /**
