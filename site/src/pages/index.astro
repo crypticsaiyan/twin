@@ -1,7 +1,7 @@
 ---
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
-import '@fontsource/doto/900.css';
+import '@fontsource-variable/bricolage-grotesque';
 import '../styles/tokens.css';
 import bisectLog from '../../../examples/echarts-21538/bisect.txt?raw';
 import mcpLog from '../../../examples/echarts-21538/mcp.txt?raw';
@@ -169,7 +169,7 @@ const seeAlso = [
   <body>
     <div class="page">
       <header class="nav">
-        <a class="logo" href={link('')} aria-label="twin home">twin<span class="cursor" aria-hidden="true"></span></a>
+        <a class="logo" href={link('')} aria-label="twin home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="mark-back" x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25"></rect><rect class="mark-front" x="10" y="10" width="20" height="20" rx="6"></rect><path class="mark-prompt" d="M15 17l3.25 3.25L15 23.5M20.5 24h4"></path></svg><span>twin</span></a>
         <nav aria-label="Site">
           <a href={docs.intro}>Docs</a>
           <a href={docs.caseStudy}>Case study</a>
@@ -394,7 +394,7 @@ jobs:
       </main>
 
       <footer>
-        <span class="logo small-logo">twin</span>
+        <span class="logo small-logo"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="mark-back" x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25"></rect><rect class="mark-front" x="10" y="10" width="20" height="20" rx="6"></rect><path class="mark-prompt" d="M15 17l3.25 3.25L15 23.5M20.5 24h4"></path></svg><span>twin</span></span>
         <span>MIT license</span>
         <a href={REPO}>GitHub</a>
         <a href={docs.intro}>Docs</a>
@@ -527,33 +527,39 @@ jobs:
     color: var(--twin-text);
   }
 
-  /* The wordmark: dot-matrix letters and a prompt cursor, the only pixel type besides labels. */
+  /* The logo: two machines, the reporter's (with the prompt) in front of the maintainer's. */
   .logo {
-    font: 900 1.9rem/1 var(--twin-font-mark);
-    letter-spacing: -0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font: 700 1.35rem/1 var(--twin-font-mark);
+    letter-spacing: -0.03em;
     text-decoration: none;
     white-space: nowrap;
   }
 
-  .cursor {
-    display: inline-block;
-    width: 0.3em;
-    height: 0.5em;
-    margin-left: 0.12em;
-    background: var(--twin-fail);
-    animation: blink 1.2s steps(1, end) infinite;
+  .mark {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
   }
 
-  @keyframes blink {
-    50% {
-      opacity: 0;
-    }
+  .mark-back {
+    fill: none;
+    stroke: var(--twin-logo-back);
+    stroke-width: 2.5;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .cursor {
-      animation: none;
-    }
+  .mark-front {
+    fill: var(--twin-logo-front);
+  }
+
+  .mark-prompt {
+    fill: none;
+    stroke: var(--twin-logo-prompt);
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   /* Type */
@@ -951,8 +957,13 @@ jobs:
     color: var(--twin-text-muted);
   }
 
+  .small-logo .mark {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
   .small-logo {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: var(--twin-text);
     margin-right: auto;
   }
