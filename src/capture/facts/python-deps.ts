@@ -62,14 +62,28 @@ export interface PythonDepsOptions {
   platform: NodeJS.Platform;
 }
 
-/** Lists installed distributions of the project's Python environment, or null if not a Python project. */
-export async function collectPythonDeps(
+export interface PythonEnv {
+  /** Version of the interpreter the project runs with (its venv), which can differ from python3. */
+  version: string | null;
+  packages: Record<string, string> | null;
+}
+
+/**
+ * Describes the project's Python environment: the interpreter version and installed
+ * distributions. Null when the directory is not a Python project.
+ */
+export async function collectPythonEnv(
   exec: Exec,
   options: PythonDepsOptions,
-): Promise<Record<string, string> | null> {
+): Promise<PythonEnv | null> {
   const { cwd, root, env, platform } = options;
   if (!(await isPythonProject(cwd, root))) return null;
   const python = await pickInterpreter(cwd, root, env, platform);
+
+  const probe = await exec([python, '--version'], { cwd, env, timeoutMs: 10_000 });
+  const version = probe.ok
+    ? (`${probe.stdout} ${probe.stderr}`.match(/\d+\.\d+\.\d+/)?.[0] ?? null)
+    : null;
 
   const attempts = [
     [python, '-m', 'pip', 'list', '--format=json', '--disable-pip-version-check'],
@@ -79,7 +93,7 @@ export async function collectPythonDeps(
   for (const argv of attempts) {
     const result = await exec(argv, { cwd, env, timeoutMs: 30_000 });
     const parsed = result.ok ? parsePipList(result.stdout) : null;
-    if (parsed) return parsed;
+    if (parsed) return { version, packages: parsed };
   }
-  return null;
+  return { version, packages: null };
 }

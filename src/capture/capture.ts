@@ -12,7 +12,7 @@ import { collectOs } from './facts/os.ts';
 import { detectPackageManagers } from './facts/package-managers.ts';
 import { runProbes } from './facts/probes.ts';
 import { findProjectRoot } from './facts/project-root.ts';
-import { collectPythonDeps } from './facts/python-deps.ts';
+import { collectPythonEnv } from './facts/python-deps.ts';
 import { collectRepo } from './facts/repo.ts';
 import { type RunResult, runCommand } from './run-command.ts';
 
@@ -54,11 +54,11 @@ export async function capture(
 
   const repo = await collectRepo(host.exec, cwd, redactor);
   const root = repo?.root ?? (await findProjectRoot(cwd));
-  const [os, probes, nodeDeps, pythonDeps] = await Promise.all([
+  const [os, probes, nodeDeps, pythonEnv] = await Promise.all([
     collectOs(host),
     runProbes(host.exec, { cwd, env: host.env }),
     collectNodeDeps(cwd, root),
-    collectPythonDeps(host.exec, { cwd, root, env: host.env, platform: host.platform }),
+    collectPythonEnv(host.exec, { cwd, root, env: host.env, platform: host.platform }),
   ]);
   const packageManagers = await detectPackageManagers({
     cwd,
@@ -68,7 +68,9 @@ export async function capture(
   const env = collectEnv(host.env, { include: request.includeEnv, salt: request.salt }, redactor);
   const resolved: ResolvedDeps = {};
   if (nodeDeps) resolved.node = nodeDeps;
-  if (pythonDeps) resolved.python = pythonDeps;
+  if (pythonEnv?.packages) resolved.python = pythonEnv.packages;
+  // The project's own interpreter (its venv) is what runs the code, not whatever python3 is on PATH.
+  if (pythonEnv?.version) probes.runtimes.python = pythonEnv.version;
 
   hooks.onProgress?.(`running: ${request.argv.join(' ')}`);
   const run = await (hooks.run ?? runCommand)(request.argv, {

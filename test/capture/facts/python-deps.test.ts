@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  collectPythonDeps,
+  collectPythonEnv,
   normalizeDistName,
   parsePipList,
 } from '../../../src/capture/facts/python-deps.ts';
@@ -29,7 +29,7 @@ describe('pip list parsing', () => {
   });
 });
 
-describe('collectPythonDeps', () => {
+describe('collectPythonEnv', () => {
   const tempDir = useTempDirs();
   const options = (root: string, env: NodeJS.ProcessEnv = {}) => ({
     cwd: root,
@@ -41,36 +41,48 @@ describe('collectPythonDeps', () => {
   it('returns null outside Python projects without running anything', async () => {
     const root = await tempDir();
     const { exec, calls } = fakeExec();
-    expect(await collectPythonDeps(exec, options(root))).toBeNull();
+    expect(await collectPythonEnv(exec, options(root))).toBeNull();
     expect(calls).toEqual([]);
   });
 
-  it('prefers the project .venv interpreter', async () => {
+  it('reports the project .venv interpreter version, not python3 on PATH', async () => {
     const root = await tempDir();
     await writeTree(root, { 'pyproject.toml': '', '.venv/bin/python': '' });
     const python = join(root, '.venv/bin/python');
     const { exec } = fakeExec({
+      [`${python} --version`]: ok('Python 3.13.12\n'),
+      'python3 --version': ok('Python 3.14.7\n'),
       [`${python} -m pip list --format=json --disable-pip-version-check`]: ok(PIP_JSON),
     });
-    expect(await collectPythonDeps(exec, options(root))).toMatchObject({ requests: '2.32.3' });
+    expect(await collectPythonEnv(exec, options(root))).toEqual({
+      version: '3.13.12',
+      packages: { requests: '2.32.3', 'typing-extensions': '4.12.2' },
+    });
   });
 
   it('falls back to uv when the venv has no pip', async () => {
     const root = await tempDir();
     await writeTree(root, { 'requirements.txt': '' });
     const { exec } = fakeExec({
+      'python3 --version': ok('', 'Python 3.11.9\n'),
       'python3 -m pip list --format=json --disable-pip-version-check':
         failed('No module named pip'),
       'uv pip list --format json --python python3': ok(PIP_JSON),
     });
-    expect(await collectPythonDeps(exec, options(root))).toMatchObject({ requests: '2.32.3' });
+    expect(await collectPythonEnv(exec, options(root))).toMatchObject({
+      version: '3.11.9',
+      packages: { requests: '2.32.3' },
+    });
   });
 
-  it('uses the active virtualenv', async () => {
+  it('uses the active virtualenv and tolerates a missing interpreter', async () => {
     const root = await tempDir();
     await writeTree(root, { 'setup.py': '' });
     const { exec, calls } = fakeExec();
-    expect(await collectPythonDeps(exec, options(root, { VIRTUAL_ENV: '/venvs/app' }))).toBeNull();
-    expect(calls[0]?.[0]).toBe('/venvs/app/bin/python');
+    expect(await collectPythonEnv(exec, options(root, { VIRTUAL_ENV: '/venvs/app' }))).toEqual({
+      version: null,
+      packages: null,
+    });
+    expect(calls[0]).toEqual(['/venvs/app/bin/python', '--version']);
   });
 });
