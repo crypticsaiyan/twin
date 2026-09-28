@@ -46,7 +46,6 @@ function fakeSandbox(
         calls.push(`write ${path}`);
       }),
     },
-    snapshot: vi.fn(async (name?: string) => `snap_${name}`),
     pty: {
       create: vi.fn(async (opts: { cols: number; rows: number; cmd?: string }) => {
         calls.push(`pty ${opts.cmd} ${opts.cols}x${opts.rows}`);
@@ -73,9 +72,6 @@ function fakeSandbox(
       url: `https://x-${port}.preview.getsolari.com/?pt_token=t`,
       token: 't',
     })),
-    revert: vi.fn(async (id: string) => {
-      calls.push(`revert ${id}`);
-    }),
     reconnect: vi.fn(async () => {
       calls.push('reconnect');
     }),
@@ -126,23 +122,13 @@ describe('SolariMachine', () => {
     expect(handle.kill).toHaveBeenCalledWith(9);
   });
 
-  it('delegates files, snapshots and kill to the sandbox', async () => {
+  it('delegates files and kill to the sandbox', async () => {
     const { sandbox, calls } = fakeSandbox();
     const machine = new SolariMachine(sandbox);
     expect(machine.id).toBe('sbx_1');
     await machine.writeFile('/tmp/x', 'data');
-    expect(await machine.snapshot('fail')).toBe('snap_fail');
-    await machine.revert('snap_fail');
     await machine.kill();
-    expect(calls).toEqual([
-      'write /tmp/x',
-      'revert snap_fail',
-      'reconnect',
-      'start true {"args":[]}',
-      'reconnect',
-      'start true {"args":[]}',
-      'kill',
-    ]);
+    expect(calls).toEqual(['write /tmp/x', 'kill']);
   });
 
   it('reconnects and retries when the channel dropped before the command started', async () => {
@@ -161,29 +147,6 @@ describe('SolariMachine', () => {
     });
     expect(outcome.exitCode).toBe(0);
     expect(calls).toEqual(['start dropped', 'reconnect', 'start true {"args":[]}']);
-  });
-
-  it('keeps probing after a revert until the channel stays up', async () => {
-    const { sandbox, handle, calls } = fakeSandbox({ exitCode: 0 });
-    const closed = Object.assign(new Error('Control channel closed (1005)'), {
-      name: 'ConnectionError',
-    });
-    const wait = vi.spyOn(handle, 'wait');
-    wait.mockRejectedValueOnce(closed);
-    await new SolariMachine(sandbox, Date.now, 0).revert('snap_1');
-    expect(calls.filter((c) => c === 'reconnect')).toHaveLength(3);
-    expect(wait).toHaveBeenCalledTimes(3);
-  });
-
-  it('fails a revert whose channel never settles, and passes other errors through', async () => {
-    const { sandbox, handle } = fakeSandbox({ exitCode: 0 });
-    const wait = vi.spyOn(handle, 'wait');
-    wait.mockRejectedValue(Object.assign(new Error('closed'), { name: 'ConnectionError' }));
-    await expect(new SolariMachine(sandbox, Date.now, 0).revert('snap_1')).rejects.toThrow(
-      'did not settle',
-    );
-    wait.mockRejectedValue(new Error('boom'));
-    await expect(new SolariMachine(sandbox, Date.now, 0).revert('snap_1')).rejects.toThrow('boom');
   });
 
   it('gives up after repeated connection errors and never retries other errors', async () => {
@@ -253,14 +216,6 @@ describe('SolariBackend', () => {
     const listAll = vi.fn(async function* (_opts: object) {
       yield* views;
     });
-    const listSnapshots = vi.fn(async (_opts: object) => ({
-      snapshots: [
-        { id: 'snap_a', name: 'twin-r1-base' },
-        { id: 'snap_b', name: 'mine' },
-        { id: 'snap_c', name: null },
-      ],
-    }));
-    const deleteSnapshot = vi.fn(async (_id: string) => {});
     return {
       sandboxes: {
         create,
@@ -268,36 +223,13 @@ describe('SolariBackend', () => {
         get,
         kill,
         listAll,
-        listSnapshots,
-        deleteSnapshot,
       } as unknown as SandboxApi,
       create,
       get,
       kill,
       listAll,
-      listSnapshots,
-      deleteSnapshot,
     };
   }
-
-  it('skips listed snapshots that are already gone, but not other errors', async () => {
-    const { sandbox } = fakeSandbox();
-    const { sandboxes, deleteSnapshot } = api(sandbox);
-    deleteSnapshot.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
-    expect(await new SolariBackend(sandboxes).reapSnapshots('twin-')).toEqual([]);
-    deleteSnapshot.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
-    await expect(new SolariBackend(sandboxes).reapSnapshots('twin-')).rejects.toThrow('boom');
-  });
-
-  it('deletes only snapshots with the twin prefix', async () => {
-    const { sandbox } = fakeSandbox();
-    const { sandboxes, deleteSnapshot, listSnapshots } = api(sandbox);
-    const backend = new SolariBackend(sandboxes);
-    expect(await backend.reapSnapshots('twin-')).toEqual(['snap_a']);
-    expect(listSnapshots).toHaveBeenCalledWith({ limit: 200 });
-    await backend.deleteSnapshot('snap_z');
-    expect(deleteSnapshot.mock.calls).toEqual([['snap_a'], ['snap_z']]);
-  });
 
   it('creates a labeled base sandbox with an idle timeout and opens its control channel', async () => {
     const { sandbox, calls } = fakeSandbox();
@@ -313,17 +245,6 @@ describe('SolariBackend', () => {
     });
     expect(calls).toEqual(['connect']);
     expect(machine.id).toBe('sbx_1');
-  });
-
-  it('boots from a snapshot when given one', async () => {
-    const { sandbox } = fakeSandbox();
-    const { sandboxes, create } = api(sandbox);
-    await new SolariBackend(sandboxes).create({
-      labels: {},
-      idleTimeoutMs: 1,
-      fromSnapshot: 'snap_x',
-    });
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ fromSnapshot: 'snap_x' }));
   });
 
   it('kills the sandbox if the control channel cannot be opened', async () => {

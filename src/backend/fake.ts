@@ -53,35 +53,22 @@ export interface FakeRunResult {
 /** Decides what a command "does" on a fake machine. Unmatched commands succeed silently. */
 export type FakeResponder = (spec: RunSpec, machine: FakeMachine) => FakeRunResult | undefined;
 
-/** Snapshot ids to names, shared by a backend's machines. Reverting consumes one, like Solari. */
-type SnapshotRegistry = Map<string, string>;
-
 export class FakeMachine implements Machine {
   readonly id: string;
   readonly options: CreateMachineOptions;
   readonly runs: RunSpec[] = [];
   readonly files = new Map<string, string>();
-  /** Ids of every snapshot this machine took. */
-  readonly snapshots: string[] = [];
-  readonly reverts: string[] = [];
   readonly terminals: FakeTerminal[] = [];
   /** Called with each new terminal so tests can drive it. */
   onTerminal?: (terminal: FakeTerminal) => void;
   killed = false;
   detached = false;
   readonly #respond: FakeResponder;
-  readonly #registry: SnapshotRegistry;
 
-  constructor(
-    id: string,
-    options: CreateMachineOptions,
-    respond: FakeResponder,
-    registry: SnapshotRegistry = new Map(),
-  ) {
+  constructor(id: string, options: CreateMachineOptions, respond: FakeResponder) {
     this.id = id;
     this.options = options;
     this.#respond = respond;
-    this.#registry = registry;
   }
 
   async run(spec: RunSpec): Promise<RunOutcome> {
@@ -100,18 +87,6 @@ export class FakeMachine implements Machine {
 
   async writeFile(path: string, content: string): Promise<void> {
     this.files.set(path, content);
-  }
-
-  async snapshot(name: string): Promise<string> {
-    const id = `snap_${this.id}_${this.snapshots.length}`;
-    this.snapshots.push(id);
-    this.#registry.set(id, name);
-    return id;
-  }
-
-  async revert(snapshotId: string): Promise<void> {
-    if (!this.#registry.delete(snapshotId)) throw new Error('Snapshot not found');
-    this.reverts.push(snapshotId);
   }
 
   async kill(): Promise<void> {
@@ -139,8 +114,6 @@ export class FakeMachine implements Machine {
 export class FakeBackend implements Backend {
   readonly name = 'fake';
   readonly machines: FakeMachine[] = [];
-  /** Live snapshots (not yet consumed by a revert or deleted), id to name. */
-  readonly snapshots: SnapshotRegistry = new Map();
   readonly #respond: FakeResponder;
 
   constructor(respond: FakeResponder = () => undefined) {
@@ -148,12 +121,7 @@ export class FakeBackend implements Backend {
   }
 
   async create(options: CreateMachineOptions): Promise<Machine> {
-    const machine = new FakeMachine(
-      `sbx_fake${this.machines.length}`,
-      options,
-      this.#respond,
-      this.snapshots,
-    );
+    const machine = new FakeMachine(`sbx_fake${this.machines.length}`, options, this.#respond);
     this.machines.push(machine);
     return machine;
   }
@@ -182,15 +150,5 @@ export class FakeBackend implements Backend {
     const machine = this.machines.find((candidate) => candidate.id === id && !candidate.killed);
     if (!machine) throw new Error(`no running machine ${id}`);
     return machine;
-  }
-
-  async deleteSnapshot(snapshotId: string): Promise<void> {
-    if (!this.snapshots.delete(snapshotId)) throw new Error('Snapshot not found');
-  }
-
-  async reapSnapshots(prefix: string): Promise<string[]> {
-    const ids = [...this.snapshots].filter(([, name]) => name.startsWith(prefix)).map(([id]) => id);
-    for (const id of ids) this.snapshots.delete(id);
-    return ids;
   }
 }

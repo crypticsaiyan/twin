@@ -12,23 +12,10 @@ import type {
 } from './types.ts';
 
 /** The SDK surface twin uses, narrowed so tests can pass a structural fake. */
-export type SandboxApi = Pick<
-  SandboxClient,
-  'create' | 'connect' | 'get' | 'listAll' | 'kill' | 'listSnapshots' | 'deleteSnapshot'
->;
+export type SandboxApi = Pick<SandboxClient, 'create' | 'connect' | 'get' | 'listAll' | 'kill'>;
 export type SandboxHandle = Pick<
   Sandbox,
-  | 'id'
-  | 'connect'
-  | 'reconnect'
-  | 'commands'
-  | 'files'
-  | 'snapshot'
-  | 'revert'
-  | 'kill'
-  | 'close'
-  | 'pty'
-  | 'previewUrl'
+  'id' | 'connect' | 'reconnect' | 'commands' | 'files' | 'kill' | 'close' | 'pty' | 'previewUrl'
 >;
 
 const TEMPLATE = 'base';
@@ -36,9 +23,6 @@ const OUTPUT_TAIL_CHARS = 64_000;
 const SIGKILL = 9;
 const START_ATTEMPTS = 4;
 const RETRY_BASE_MS = 500;
-/** Measured live: after revert the guest drops even a freshly reopened channel once or twice. */
-const SETTLE_ATTEMPTS = 20;
-const SETTLE_PROBES = 2;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -177,32 +161,6 @@ export class SolariMachine implements Machine {
     await this.#sandbox.files.write(path, content);
   }
 
-  snapshot(name: string): Promise<string> {
-    return this.#sandbox.snapshot(name);
-  }
-
-  /**
-   * Measured on SDK 0.1.4: revert returns with the channel closed, and the guest drops the next
-   * reopened channel too while it finishes restoring. Keep reconnecting and running a no-op until
-   * it succeeds twice in a row. Retrying is safe only because `true` has no effect.
-   */
-  async revert(snapshotId: string): Promise<void> {
-    await this.#sandbox.revert(snapshotId);
-    let streak = 0;
-    for (let attempt = 1; attempt <= SETTLE_ATTEMPTS; attempt++) {
-      try {
-        await this.#sandbox.reconnect();
-        const probe = await this.run({ argv: ['true'], timeoutMs: 30_000 });
-        if (probe.exitCode === 0 && ++streak >= SETTLE_PROBES) return;
-      } catch (error) {
-        if (!isConnectionError(error)) throw error;
-        streak = 0;
-        await sleep(this.#retryBaseMs * 2);
-      }
-    }
-    throw new Error(`control channel did not settle after reverting to ${snapshotId}`);
-  }
-
   kill(): Promise<void> {
     return this.#release();
   }
@@ -256,7 +214,6 @@ export class SolariBackend implements Backend {
       template: TEMPLATE,
       metadata: options.labels,
       idleTimeoutMs: options.idleTimeoutMs,
-      ...(options.fromSnapshot ? { fromSnapshot: options.fromSnapshot } : {}),
     });
     try {
       // The control channel is not opened by create(); streaming commands need it.
@@ -303,26 +260,6 @@ export class SolariBackend implements Backend {
       killed.push(view.sandboxId);
     }
     return killed;
-  }
-  deleteSnapshot(snapshotId: string): Promise<void> {
-    return this.#sandboxes.deleteSnapshot(snapshotId);
-  }
-
-  /** Snapshots are billed storage (about 4 GB each with node_modules), so leftovers matter. */
-  async reapSnapshots(prefix: string): Promise<string[]> {
-    const { snapshots } = await this.#sandboxes.listSnapshots({ limit: 200 });
-    const deleted: string[] = [];
-    for (const { id, name } of snapshots) {
-      if (!name?.startsWith(prefix)) continue;
-      try {
-        await this.#sandboxes.deleteSnapshot(id);
-        deleted.push(id);
-      } catch (error) {
-        // Measured: listSnapshots also returns stale entries that 404 on get and delete.
-        if ((error as { status?: unknown }).status !== 404) throw error;
-      }
-    }
-    return deleted;
   }
 }
 

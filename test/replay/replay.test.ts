@@ -73,7 +73,6 @@ describe('replay', () => {
     const [machine] = backend.machines;
     expect(machine?.killed).toBe(false);
     expect(machine?.detached).toBe(true);
-    expect(machine?.snapshots).toEqual([]);
     // The kept machine carries the reporter's env and a shell entry point for `twin shell`.
     expect(machine?.files.get('/tmp/twin/env.sh')).toContain('export NODE_ENV=test');
     expect(machine?.files.get('/tmp/twin/shell.sh')).toContain('. /tmp/twin/env.sh');

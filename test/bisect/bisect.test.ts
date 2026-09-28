@@ -96,9 +96,6 @@ describe('bisect', () => {
     expect(report.trials[1]).toMatchObject({ result: 'fail' });
     const [machine] = backend.machines;
     expect(machine?.killed).toBe(true);
-    // Measured on Solari, snapshots are slow and revert is unreliable; bisect uses neither.
-    expect(machine?.snapshots).toEqual([]);
-    expect(machine?.reverts).toEqual([]);
     expect(events).toContain('trial-end');
   });
 
@@ -109,7 +106,11 @@ describe('bisect', () => {
     const backend = simulatedBackend((w) => w.tz === 'Asia/Kolkata' && w.node22);
     const report = await bisect(good, bad, backend);
     expect(report.minimal.sort()).toEqual(['TZ=Asia/Kolkata', 'node 22.3.0']);
-    expect(backend.machines[0]?.reverts).toEqual([]);
+    // Only process settings changed, so no trial ran a setup or undo step.
+    const setupSteps = (backend.machines[0]?.runs ?? []).filter((r) =>
+      r.argv.join(' ').includes('failing.diff'),
+    );
+    expect(setupSteps).toEqual([]);
   });
 
   it('pre-installs the failing node version during setup', async () => {

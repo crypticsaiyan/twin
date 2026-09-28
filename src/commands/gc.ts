@@ -1,12 +1,12 @@
 import { parseArgs } from 'node:util';
-import { SNAPSHOT_PREFIX, TWIN_LABELS } from '../backend/types.ts';
+import { TWIN_LABELS } from '../backend/types.ts';
 import type { Command, CommandContext } from './context.ts';
 
 const USAGE = `Usage: twin gc
 
 Releases every machine twin started that is still running (kept replays,
-or leftovers from an interrupted run) and deletes twin's snapshots, which are
-billed storage. Needs SOLARI_API_KEY.`;
+or leftovers from an interrupted run). Each kill is confirmed with the gateway.
+Needs SOLARI_API_KEY.`;
 
 async function run(args: string[], context: CommandContext): Promise<number> {
   const { values } = parseArgs({
@@ -19,17 +19,11 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   }
   const backend = await context.getBackend();
   const killed = await backend.reap({ ...TWIN_LABELS });
-  const deleted = await backend.reapSnapshots(SNAPSHOT_PREFIX);
   const { stdout } = context.io;
   stdout.write(
     killed.length
       ? `Released ${killed.length} machines: ${killed.join(', ')}\n`
       : 'No twin machines running.\n',
-  );
-  stdout.write(
-    deleted.length
-      ? `Deleted ${deleted.length} snapshots: ${deleted.join(', ')}\n`
-      : 'No twin snapshots.\n',
   );
   return 0;
 }

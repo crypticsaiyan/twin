@@ -36,8 +36,7 @@ function docker(
 }
 
 class DockerMachine implements Machine {
-  // Docker cannot restore a container in place, so revert swaps in a new container.
-  id: string;
+  readonly id: string;
 
   constructor(id: string) {
     this.id = id;
@@ -69,19 +68,6 @@ class DockerMachine implements Machine {
       child.stdin?.end(content);
     });
     if (code !== 0) throw new Error(`docker write ${path} failed: ${out}`);
-  }
-
-  async snapshot(name: string): Promise<string> {
-    const { out } = await docker(['commit', this.id, `twin-e2e:${name}`]);
-    return out.trim();
-  }
-
-  async revert(snapshotId: string): Promise<void> {
-    const run = ['run', '-d', '--network', 'host', snapshotId, 'sleep', 'infinity'];
-    const { code, out, stdout } = await docker(run);
-    if (code !== 0) throw new Error(`docker revert failed: ${out}`);
-    await docker(['rm', '-f', this.id]);
-    this.id = stdout.trim();
   }
 
   async kill(): Promise<void> {
@@ -137,16 +123,5 @@ export class DockerBackend implements Backend {
 
   async connect(id: string): Promise<Machine> {
     return new DockerMachine(id);
-  }
-
-  async deleteSnapshot(snapshotId: string): Promise<void> {
-    await docker(['rmi', '-f', snapshotId]);
-  }
-
-  async reapSnapshots(prefix: string): Promise<string[]> {
-    const { out } = await docker(['images', '--format', '{{.Repository}}:{{.Tag}}', 'twin-e2e']);
-    const ids = out.split('\n').filter((ref) => ref.split(':')[1]?.startsWith(prefix));
-    if (ids.length > 0) await docker(['rmi', '-f', ...ids]);
-    return ids;
   }
 }
