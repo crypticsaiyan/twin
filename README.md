@@ -174,4 +174,6 @@ pnpm e2e:docker <capsule.json>                  # replay in a local Docker conta
 pnpm e2e:docker:bisect <bad.json> <good.json>   # bisect in a local Docker container
 ```
 
+The website and documentation live in [`site/`](site) (Astro Starlight): `cd site && pnpm install && pnpm dev`.
+
 Every Solari call goes through a small `Backend` interface, so the unit tests run against an in-memory fake and the Docker harness runs the real guest scripts without a key. Layout and design decisions are in [DESIGN.md](DESIGN.md).
