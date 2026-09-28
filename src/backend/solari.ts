@@ -1,6 +1,7 @@
 import type { Sandbox, SandboxClient } from '@solarisdk/sdk';
 import { TailBuffer } from '../capture/tail-buffer.ts';
 import { TwinError } from '../errors.ts';
+import type { SolariEnv } from './credentials.ts';
 import type {
   Backend,
   CreateMachineOptions,
@@ -264,11 +265,11 @@ export class SolariBackend implements Backend {
 }
 
 /** Builds the real backend. The SDK is imported lazily so offline commands never load it. */
-export async function solariBackendFromEnv(env: NodeJS.ProcessEnv): Promise<SolariBackend> {
+export async function solariBackendFromEnv(env: SolariEnv): Promise<SolariBackend> {
   const apiKey = env.SOLARI_API_KEY;
   if (!apiKey) {
     throw new TwinError(
-      'SOLARI_API_KEY is not set. Get a key at https://getsolari.com, then: export SOLARI_API_KEY=...',
+      'SOLARI_API_KEY is not set. Get a key at https://console.getsolari.com, then export SOLARI_API_KEY=... or add SOLARI_API_KEY=... to a .env file in this project.',
       {
         exitCode: 2,
       },

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { solariEnv } from './backend/credentials.ts';
 import { solariBackendFromEnv } from './backend/solari.ts';
 import { main } from './cli.ts';
 import { realHost } from './host.ts';
@@ -14,7 +15,8 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
 const host = realHost();
 const io = processIo();
 const argv = process.argv.slice(2);
-const solari = () => solariBackendFromEnv(host.env);
+const solari = async () =>
+  solariBackendFromEnv(await solariEnv(host.env, process.cwd(), host.readTextFile));
 process.exitCode = await main(argv, {
   io,
   host,
