@@ -60,6 +60,13 @@ describe('error mapping', () => {
     expect(stderr.text).toBe('twin: nice message\n');
   });
 
+  it('prints Solari account errors as one line', async () => {
+    const { io, stderr } = fakeIo();
+    const credit = Object.assign(new Error('Insufficient credit balance.'), { name: 'PlanError' });
+    expect(await main(['boom'], context(io), [failing(credit)])).toBe(1);
+    expect(stderr.text).toBe('twin: Solari refused the request: Insufficient credit balance.\n');
+  });
+
   it('prints the stack for unexpected errors', async () => {
     const { io, stderr } = fakeIo();
     expect(await main(['boom'], context(io), [failing(new Error('kaboom'))])).toBe(1);

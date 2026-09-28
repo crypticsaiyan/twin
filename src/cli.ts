@@ -37,6 +37,21 @@ function isArgParseError(error: unknown): error is Error {
   return typeof code === 'string' && code.startsWith('ERR_PARSE_ARGS');
 }
 
+/**
+ * Gateway errors about the account (key, plan, credit, capacity) are the user's to fix, not bugs,
+ * so they get one line instead of a stack. Matched by name to avoid loading the SDK eagerly.
+ */
+const ACCOUNT_ERRORS = new Set([
+  'AuthError',
+  'PlanError',
+  'ConcurrencyLimitError',
+  'NoCapacityError',
+]);
+
+function isAccountError(error: unknown): error is Error {
+  return error instanceof Error && ACCOUNT_ERRORS.has(error.name);
+}
+
 /** Dispatches argv to a command and maps failures to exit codes. Never throws. */
 export async function main(
   argv: readonly string[],
@@ -70,6 +85,10 @@ export async function main(
     if (isArgParseError(error)) {
       stderr.write(`twin ${command.name}: ${error.message}\n\n${command.usage}\n`);
       return 2;
+    }
+    if (isAccountError(error)) {
+      stderr.write(`twin: Solari refused the request: ${error.message}\n`);
+      return 1;
     }
     stderr.write(`twin: unexpected error\n${(error as Error)?.stack ?? String(error)}\n`);
     return 1;
