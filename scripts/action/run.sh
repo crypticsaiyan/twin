@@ -12,6 +12,13 @@ if [ -z "${PR:-}" ]; then
   exit 1
 fi
 
+# pull_request runs from forks get no secrets; that is not the pull request's fault.
+if [ -z "${SOLARI_API_KEY:-}" ]; then
+  echo "::notice::No Solari API key (secrets are not passed to pull requests from forks); nothing to verify."
+  echo "verdict=skipped" >>"$output"
+  exit 0
+fi
+
 capsule=${CAPSULE:-}
 if [ -z "$capsule" ]; then
   capsule=$(bash "$here/find-capsule.sh" "$REPO" "$PR")

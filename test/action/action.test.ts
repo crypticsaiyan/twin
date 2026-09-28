@@ -67,6 +67,7 @@ describe('GitHub Action script', () => {
       PR: '7',
       HEAD_SHA: '0123456789abcdef',
       HEAD_REPO: 'https://github.com/agent/r.git',
+      SOLARI_API_KEY: 'slr_test',
       ...options.env,
     };
     let code = 0;
@@ -113,6 +114,11 @@ describe('GitHub Action script', () => {
     expect(skipped.code).toBe(0);
     expect(skipped.output).toBe('verdict=skipped\n');
     expect(skipped.log).not.toContain('twin verify');
+
+    const fork = await action({ env: { CAPSULE: 'bug.json', SOLARI_API_KEY: '' } });
+    expect(fork.code).toBe(0);
+    expect(fork.output).toBe('verdict=skipped\n');
+    expect(fork.stdout).toContain('secrets are not passed to pull requests from forks');
 
     const quiet = await action({ env: { CAPSULE: 'bug.json', COMMENT: 'false' } });
     expect(quiet.code).toBe(0);
