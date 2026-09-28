@@ -85,6 +85,15 @@ npx twin verify ./twin-capsule.json --ref <sha> --repo <fork-url>
 
 Rebuilds the reporter's environment, applies the fix and reports `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE`. A GitHub Action that reruns stored capsules nightly as regression guards is not built yet.
 
+### 3.7 Coding agents
+
+Agents are the new source of both fixes and false "fixed" claims: they run the tests in their own sandbox, which is exactly where the bug does not happen. twin serves them in two places.
+
+- **`twin mcp`** (MCP over stdio, official SDK) exposes the CLI as tools (`inspect`, `replay`, `verify`, `bisect`, `release`) plus two that only make sense for agents: `run` and `write_file` on a kept machine. `replay --keep` writes `/tmp/twin/run.sh`, which sources the reporter's env and enters the failing command's directory, so each agent command runs exactly where the failure lives. Connections are opened once per session; machines the session kept are released when the client disconnects, so a forgotten `release` costs at most the session. Long calls send MCP progress notifications. Stdin closing ends the session only after every received request is answered (`src/mcp/transport.ts`), otherwise a running replay would be cut off.
+- **The GitHub Action** (`action.yml`, logic in `scripts/action/`) checks pull requests: it follows `closingIssuesReferences` to the issue, takes the first capsule attachment, runs `twin verify --ref <head sha> --repo <head repo> --comment`, and keeps one comment up to date through a marker. It fails the check unless the verdict is `FIXED`. Pull request code runs only in the sandbox; the runner only runs twin, which is why the key can live there.
+
+No LLM is built in: twin is the environment and the judge, the agent brings its own model. That keeps a second vendor key out of the headline path.
+
 ### 3.6 Linux-only, stated plainly
 
 Solari sandboxes are Linux microVMs. A macOS or Windows capsule is replayed with the same runtime and dependency versions on Linux. If it passes there, that is reported as a finding, not a failure: "same versions pass on Linux, the difference is likely OS-specific". That alone rules out half the search space for the maintainer.
@@ -197,12 +206,14 @@ Notes:
 | `twin verify <capsule> --patch <file> \| --ref <sha>` | yes | check a fix in the reporter's environment | done |
 | `twin shell [id] [--web]` | yes | terminal or browser terminal on a kept machine | done |
 | `twin gc` | yes | kill leftover twin machines, confirmed | done |
+| `twin mcp` | yes (for machine tools) | MCP server for coding agents | done |
+| `uses: crypticsaiyan/twin@main` | yes | verify pull requests against the issue's capsule | done |
 | `twin ci <job-url>` | yes | capsule from a GitHub Actions job | not built |
 
 ## 9. Implementation
 
 - TypeScript, Node ≥ 22, ESM. Runnable via `npx` from the repository (npm publish once the name is final).
-- One runtime dependency: `@solarisdk/sdk` (added with replay). Argument parsing with `node:util` `parseArgs`. No framework. Dev: TypeScript, Vitest, Biome.
+- Runtime dependencies: `@solarisdk/sdk` (added with replay), `@modelcontextprotocol/sdk` and its schema library `zod` (added with `twin mcp`). Argument parsing with `node:util` `parseArgs`. No framework. Dev: TypeScript, Vitest, Biome.
 - A `Backend` / `Machine` interface (`create`, `connect`, `list`, `reap`; `run`, `writeFile`, `openTerminal`, `previewUrl`, `detach`, `kill`) with `SolariBackend`, an in-memory `FakeBackend` for unit tests, and a development-only Docker backend (`test/e2e/`) that runs the real guest scripts without a key.
 
 ```
@@ -210,13 +221,17 @@ src/
   bin.ts            entry (process glue only)
   cli.ts            dispatch, exit codes
   host.ts  io.ts    injected machine and terminal access
-  commands/         capture, inspect (later replay, bisect, ...)
-  capsule/          schema + decoder, file io, diff
+  commands/         capture, inspect, replay, bisect, verify, shell, gc, mcp
+  capsule/          schema + decoder, file io, https source, diff
   capture/          orchestrator, run-command, tail buffer
     facts/          os, probes, package managers, node/python deps, repo, env, project root
   redact/           secret rules, entropy heuristic, Redactor
   signature/        output normalization, failure identity
-  report/           terminal rendering
+  replay/  bisect/  plans, runs, verdicts; ddmin over environment atoms
+  shell/            guest scripts, PTY session, kept-machine lookup
+  mcp/              MCP tools, kept machines per session, transport
+  report/           terminal and pull request (Markdown) rendering
+  backend/          Backend interface, Solari and in-memory fake
   util/             exec, fs, hash
 test/               mirrors src/, fakes in test/helpers
 ```

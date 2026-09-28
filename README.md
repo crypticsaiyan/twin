@@ -2,7 +2,7 @@
 
 > Working name.
 
-**Turns "cannot reproduce" into a machine you can open.** A reporter captures the environment their command failed in. A maintainer rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, checks a fix there, and can open a shell in it.
+**Turns "cannot reproduce" into a verified fix.** A reporter captures the environment their command failed in, as a small scrubbed file attached to the issue. twin rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, and checks a fix there, whether a maintainer or a coding agent wrote it.
 
 Most "works on my machine" bugs are not in the code. The commit is the same; what differs is a runtime version, a dependency the lockfile resolved differently, an environment variable, the time zone. Today the maintainer gets, at best, a pasted `envinfo` block that nobody can run, and the issue sits at "cannot reproduce".
 
@@ -13,6 +13,8 @@ Most "works on my machine" bugs are not in the code. The commit is the same; wha
 | Find the difference that breaks it | maintainer | `twin bisect bad.json --good good.json` | yes |
 | Check a fix in the reporter's environment | maintainer | `twin verify bad.json --patch fix.patch` | yes |
 | Open a shell in it, or share one | maintainer | `twin replay … --keep`, then `twin shell --web` | yes |
+| Let a coding agent debug in it | agent | `twin mcp` (MCP server) | yes |
+| Check that a pull request really fixes it | CI | `uses: crypticsaiyan/twin@main` | yes |
 
 ## Proof on a real issue
 
@@ -25,6 +27,49 @@ Most "works on my machine" bugs are not in the code. The commit is the same; wha
 | `twin verify new-york.json --patch fix.patch` | `FIXED` in the reporter's environment, nothing pushed | 71 s |
 
 Opening the kept machine with `twin shell --web` gave a browser terminal in `/tmp/twin/repo` with `TZ=America/New_York` and Node 22.23.3, where the test fails with the issue's exact numbers.
+
+## For AI coding agents
+
+Coding agents can't fix bugs they can't reproduce, and they report "fixed" after tests pass in their own sandbox, which is not where the bug happens. twin closes both gaps.
+
+**`twin mcp`** gives an agent the reporter's machine. Add it to Claude Code (or any MCP client):
+
+```sh
+claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp
+```
+
+| Tool | What the agent gets |
+|---|---|
+| `inspect` | the reporter's runtimes, dependencies, env and failure, or every difference between two capsules (offline) |
+| `replay` | the failure rebuilt on a fresh machine, kept running when it reproduces |
+| `run` | a command run in that machine, with the reporter's env, PATH, time zone and working directory |
+| `write_file` | a file written there, to try a change |
+| `verify` | a unified diff checked on a fresh machine: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE` |
+| `bisect` | the minimal environment difference between a failing and a passing capsule |
+| `release` | the machine stopped (machines kept in a session are also released when it ends) |
+
+A capsule argument can be a path or the issue attachment's URL, so "fix #21538" is enough for the agent to start.
+
+**The GitHub Action** checks a pull request (from an agent or a person) where the bug happens. When a pull request says `Fixes #123` and #123 has a capsule attached, it runs `twin verify` with the pull request's head commit and comments the verdict; the check fails unless it is `FIXED`.
+
+```yaml
+# .github/workflows/twin.yml
+name: twin
+on: pull_request
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crypticsaiyan/twin@main
+        with:
+          solari-api-key: ${{ secrets.SOLARI_API_KEY }}
+```
+
+The pull request's code runs only inside the Solari sandbox, never on the runner, and the key stays on the runner. Fork pull requests get no secrets under `pull_request`, so the check runs for branches in the repository, which is how agents usually open them. The sandbox clones the repository without credentials, so this needs a public repository.
 
 ## Quickstart
 
@@ -69,8 +114,9 @@ and attach the file it writes (it records versions and variable names, never sec
 | `twin shell [id]` | Terminal on a kept machine, in the reporter's environment. Ctrl-] detaches |
 | `twin shell [id] --web` | Browser terminal link plus a password, to share with the reporter |
 | `twin gc` | Kill every machine twin left running, each kill confirmed |
+| `twin mcp` | Serve these commands to AI coding agents over MCP (stdio) |
 
-Every command has `--help`. `replay`, `bisect` and `verify` take `--json` for machine-readable reports and `-v` to stream the sandbox's output.
+Every command has `--help`. Capsules can be paths or https URLs (such as issue attachments). `replay`, `bisect` and `verify` take `--json` for machine-readable reports and `-v` to stream the sandbox's output; `verify --comment <file>` also writes a pull request comment.
 
 ## What a capsule contains, and what it never does
 
@@ -90,6 +136,7 @@ Redaction is pattern based; review the capsule before posting it publicly.
 | Setup and the command, streamed, with a real timeout | `commands.start` + `onData`, twin's own timer and `kill(9)` |
 | A shell at the failure point | `pty.create` (`twin shell`), and `previewUrl` in front of a guest web terminal behind a password (`twin shell --web`) |
 | Re-attach from any computer, then let go | `sandboxes.connect(id)`, `close()` to detach without releasing |
+| An agent working inside the reporter's machine | `connect` once per session, then `commands.start` and `files.write` on the kept sandbox (`twin mcp`) |
 | No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; `listAll({ metadata })` reaper in `twin gc` |
 
 Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent. Bisect runs every trial on one machine, so it fits a single concurrent slot.
@@ -113,6 +160,7 @@ Building this turned up platform behavior worth knowing, all measured and writte
 | StackBlitz, CodeSandbox | browser repros of a minimal example | twin uses the reporter's actual commit, lockfile, env and time zone, for Node and Python, on a real Linux VM |
 | `git bisect` | finds the commit that broke something | twin finds the environment difference, at a fixed commit |
 | worldbisect, crux | delta debugging over environment factors on one machine | twin runs across machines and runtimes, starting from a reporter's capture |
+| wsp | clones *your own* setup, sign-ins included, into cloud workspaces for your agents | twin rebuilds a *stranger's* failing environment from a scrubbed capsule, finds the difference and verifies fixes. They compose: a capsule could seed a workspace |
 
 ## Development
 
