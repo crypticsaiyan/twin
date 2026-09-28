@@ -1,0 +1,138 @@
+---
+title: Capture a failing environment
+description: For reporters. Record the environment your command failed in, review it, and attach it to an issue.
+sidebar:
+  order: 1
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+`twin capture` runs your failing command and records the environment it ran in. Nothing is uploaded, no account is needed, and you review the result before it is written.
+
+## Run it
+
+<Steps>
+
+1. Open a terminal in the project where the command fails (anywhere inside the git repository works; twin records the working directory relative to the repo root).
+
+2. Put `twin capture --` in front of the failing command:
+
+   ```sh
+   npx github:crypticsaiyan/twin capture -- npm test
+   ```
+
+   Anything after `--` is run exactly as given, with your environment and your terminal. You see its output live.
+
+3. Review. twin prints a summary to your terminal. For the echarts capsule in the [case study](../../examples/echarts-21538/) it looked like this:
+
+   ```text
+   Command
+     argv       npx jest --config test/ut/jest.config.cjs --coverage=false test/ut/spec/util/time.test.ts
+     cwd        .
+     result     FAIL (exit 1) in 0.8s
+     signature  exit1:0aee0834ac9c4d2d
+     key lines  FAIL test/ut/spec/util/time.test.ts
+                ✕ roundTime_locale
+                expect(received).toEqual(expected) // deep equality
+                Expected: 528526800000
+                Received: 528523200000
+                Test Suites: 1 failed, 1 total
+                Tests: 1 failed, 14 passed, 15 total
+
+   System
+     os         linux x64 (garuda)
+     libc       glibc 2.44
+     time zone  America/New_York
+     locale     en-US
+   ```
+
+   followed by Toolchain, Repository, Environment and Redaction sections. Then:
+
+   ```text
+   Write twin-capsule.json? [y]es / [n]o / [v]iew full JSON:
+   ```
+
+   `v` prints the complete JSON and asks again. `y` writes the file. Anything else aborts and writes nothing.
+
+4. Attach `twin-capsule.json` to the issue. On GitHub, drag the file into the issue or a comment; it becomes a `https://github.com/user-attachments/files/…` link that maintainers, the [MCP server](../ai-agents/) and the [GitHub Action](../github-action/) can use.
+
+</Steps>
+
+If the command passes, twin says so and still offers to write the capsule: "The command passed. This capsule records a working environment, useful as a known-good baseline." Maintainers use such capsules as the `--good` side of [bisect](../bisect/).
+
+## Options
+
+| Option | Default | What it does |
+|---|---|---|
+| `-o, --out <file>` | `twin-capsule.json` | Where to write the capsule. |
+| `--include-env <name>` | none | Also record this variable's value. Repeatable. |
+| `--salt <text>` | none | Record salted hashes of other variables' values, so a maintainer can compare them without seeing them. |
+| `-y, --yes` | off | Write without the review prompt. Required when not running in a terminal. |
+
+## Sharing a value that matters: `--include-env`
+
+By default twin records every environment variable's **name and state** (`set`, `empty` or `absent`) but only a short allowlist of **values** (`NODE_ENV`, `TZ`, `LANG`, `LC_*`, `CI`, `NODE_OPTIONS`, and a few more; see [Privacy](../../reference/privacy/)).
+
+If you know a variable matters and its value is not secret, include it:
+
+```sh
+npx github:crypticsaiyan/twin capture --include-env API_URL --include-env FEATURE_FLAGS -- npm test
+```
+
+Included values still pass through the secret rules. On replay, the maintainer's sandbox gets exactly these values.
+
+## Comparing values without revealing them: `--salt`
+
+Some bugs are "same variable, different value" and the value is private. If the maintainer gives you a salt (for example, a random string posted in the issue), capture with it:
+
+```sh
+npx github:crypticsaiyan/twin capture --salt 3f9c2a7e-issue-1234 -- npm test
+```
+
+Every set variable that is not allowlisted or included gets an HMAC-SHA-256 of its value under that salt (first 32 hex characters). When the maintainer captures with the same salt, `twin inspect` can tell whether the two values are equal without either side seeing the other's. Plain unsalted hashes are never written, because hashes of short values are guessable.
+
+## Capture without a terminal
+
+In CI or scripts there is no one to answer the prompt. Without `--yes`, twin refuses:
+
+```text
+twin: not running in a terminal; pass --yes to write the capsule without review
+```
+
+With `--yes` it writes directly:
+
+```sh
+npx github:crypticsaiyan/twin capture --yes -o capsule.json -- npm test
+```
+
+## Tips for a useful capsule
+
+- **Capture the smallest failing command.** A single test file (`npx jest path/to/test.ts`) replays faster and gives a sharper signature than the whole suite.
+- **Capture from a state you could push.** twin records the commit and your uncommitted diff (`git diff HEAD`). The maintainer's sandbox fetches that commit from your `origin` remote, so it must exist there.
+- **Install dependencies first.** twin reads the installed versions from `node_modules` and your Python environment; that is what the failing command actually ran against.
+- **Untracked files are names only.** If the failure depends on an untracked file, mention it in the issue or commit it.
+
+## What happens next
+
+twin prints where it wrote the file, its size, and how to look at it again:
+
+```text
+Wrote twin-capsule.json (<size>). Attach it to the issue.
+Review it any time with: twin inspect twin-capsule.json
+```
+
+The echarts capsules, with 617 installed Node packages listed, are 36 to 38 KB.
+
+<Aside type="caution" title="Review before posting">
+Redaction is pattern based. It catches common token formats, credentials in URLs, `password=`-style assignments and random-looking strings, and rewrites home directory paths to `~`. It cannot know every secret format. Read the output tail and the diff in the capsule before attaching it to a public issue.
+</Aside>
+
+## Exit status
+
+| Code | Meaning |
+|---|---|
+| 0 | Capsule written (whether the command passed or failed). |
+| 1 | You declined at the review prompt; nothing written. |
+| 2 | Usage error: no command after `--`, or not a terminal without `--yes`. |
+| 127 | The command was not found. |
+| 130 | Interrupted with Ctrl-C; nothing written. |

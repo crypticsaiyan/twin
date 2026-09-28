@@ -1,0 +1,113 @@
+---
+title: Verify a fix
+description: Check a candidate fix in the reporter's environment before pushing, or check a pushed branch.
+sidebar:
+  order: 4
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`twin verify` rebuilds the reporter's environment like [replay](../replay/), applies your fix, reruns the command and reports whether the captured failure is gone. With `--patch`, nothing has to be pushed first.
+
+## Two ways to supply the fix
+
+<Tabs>
+<TabItem label="A local patch">
+
+Write the fix in your clone, export it as a unified diff, verify:
+
+```sh
+git diff > fix.patch
+twin verify twin-capsule.json --patch fix.patch
+```
+
+The sandbox checks out the capsule's commit, applies the reporter's working-tree diff, then applies your patch with `git apply`. Make the patch against the capsule's commit.
+
+</TabItem>
+<TabItem label="A pushed commit">
+
+Check a fix branch or a PR head instead. `--ref` takes a full commit SHA; `--repo` points at a fork:
+
+```sh
+twin verify twin-capsule.json --ref <full-commit-sha>
+twin verify twin-capsule.json --ref "$(git rev-parse HEAD)" --repo https://github.com/you/project
+```
+
+With `--ref`, the capsule's working-tree diff is not applied: the commit is taken as the whole tree.
+
+</TabItem>
+</Tabs>
+
+The capsule can be a file path or an `https://` URL, such as the issue attachment itself. Pass exactly one of `--patch` and `--ref`; twin exits with status 2 otherwise. The capsule must record a failure (`the capsule recorded a passing run; there is no failure to verify a fix for`).
+
+## The echarts fix, verified before pushing
+
+The recorded run from the [case study](../../examples/echarts-21538/):
+
+```text
+Replay on solari (machine AkhV_ntXHJrec7VZ…, run e179d260)
+  ✓ prepare workspace  0.3s
+  ✓ install node 22.23.3  2.1s
+  ✓ check out 984bf46b2f90  4.2s
+  ✓ upload candidate fix  0.0s
+  ✓ apply candidate fix  0.3s
+  ✓ install npm 10.9.9  4.7s
+  ✓ install dependencies (npm ci)  46.8s
+
+Attempts
+  1  PASS  8.1s
+  2  PASS  1.7s
+  expected  FAIL exit1:0aee0834ac9c4d2d
+
+FIXED: the command passes in the reporter's environment with the fix applied.
+```
+
+The recorded transcript's header reads `Replay on solari`; the current code prints `Verify on solari` for verify runs.
+
+## Verdicts
+
+| Verdict | Meaning | Exit |
+|---|---|---|
+| `FIXED` | The command passes in the reporter's environment with the fix applied. | 0 |
+| `STILL FAILING` | The fix does not change the captured failure. | 1 |
+| `DIFFERENT FAILURE` | With the fix it still fails, but differently. | 1 |
+| `FLAKY` | Attempts disagreed with each other. | 1 |
+| `INCONCLUSIVE` | Setup failed (does the fix apply?) or an attempt timed out. | 1 |
+
+A patch that does not apply fails the `apply candidate fix` step, which makes the run `INCONCLUSIVE` and prints `git apply`'s error.
+
+## Options
+
+| Option | Default | What it does |
+|---|---|---|
+| `--patch <file>` | | Unified diff applied on top of the capsule's tree. |
+| `--ref <sha>` | | Check out this commit instead (for example a fix branch). |
+| `--repo <url>` | the capsule's remote | Clone from here (forks); use with `--ref`. |
+| `--attempts <n>` | `3` | Runs of the command. |
+| `--env <NAME=value>` | none | Value for a variable the capsule recorded by name only. Repeatable. |
+| `--timeout <minutes>` | `15` | Per-attempt limit. |
+| `-v, --verbose` | off | Stream the sandbox's output. |
+| `--json` | off | Machine-readable report on stdout. The `verdict` field uses replay's names, so `FIXED` is `not-reproduced`. |
+| `--comment <file>` | | Also write a Markdown pull request comment to `<file>`. |
+
+Exit status: `0` fixed, `1` otherwise, `2` usage error.
+
+<Aside>
+`FIXED` means the captured command passes in the captured environment. It says nothing about other tests or other environments. For the echarts fix, the patch was also run locally under seven time zones before verifying.
+</Aside>
+
+## A comment for the pull request
+
+`--comment <file>` also writes the verdict as Markdown, ready to post on a PR:
+
+```sh
+twin verify https://github.com/user-attachments/files/<id>/twin-capsule.json \
+  --ref "$(git rev-parse HEAD)" --comment verdict.md
+gh pr comment --body-file verdict.md
+```
+
+The comment has a headline (for example `✅ FIXED in the reporter's environment` or `❌ STILL FAILING in the reporter's environment`), a table with the command, the reporter's environment, the checked commit, how many attempts passed and a link to the capsule, and the full log in a collapsed section. It starts with a hidden `<!-- twin-verify verdict=… -->` marker so a CI job can find and update its own comment.
+
+## In CI
+
+The [GitHub Action](../github-action/) runs `twin verify <capsule> --ref <PR head sha> --repo <PR head repo>` on pull requests that close an issue with a capsule attached, and comments the verdict on the PR.

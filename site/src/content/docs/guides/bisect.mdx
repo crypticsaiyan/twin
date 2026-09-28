@@ -1,0 +1,137 @@
+---
+title: Bisect the environment
+description: Find the smallest set of environment differences that turns a passing environment into the failing one.
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`twin bisect` answers "which difference breaks it?". Given a capsule where the command fails and one where it passes, it finds the smallest set of differences (environment values, time zone, Node version, npm dependency versions, working-tree diff) that turns the passing environment into the failing one.
+
+## You need two capsules
+
+- **bad**: the reporter's capsule, where the command failed.
+- **good**: a capsule where the same command passed, **at the same commit**. Usually your own:
+
+  ```sh
+  git checkout <the capsule's commit>
+  npm ci
+  twin capture -- <the same command>
+  ```
+
+  The reporter's `argv` and commit are in `twin inspect bad.json`.
+
+Either capsule can be a file path or an `https://` URL (such as the issue attachment). Look at what differs before spending sandbox time:
+
+```sh
+twin inspect good.json bad.json
+```
+
+For the echarts capsules:
+
+```text
+2 differences: - kolkata.json  + new-york.json
+
+Environment variables (1)
+  TZ  - Asia/Kolkata  + America/New_York
+
+Locale (1)
+  timeZone  - Asia/Calcutta  + America/New_York
+```
+
+## Run it
+
+```sh
+twin bisect bad.json --good good.json
+```
+
+Bisect creates one sandbox, builds the good environment on it (the same steps as a replay of the good capsule), pre-installs any other Node version it may need, and then runs trials. The echarts bisect, recorded on Solari:
+
+```text
+Bisect on solari (machine AvubsvqLazIY9m-5…, run 98e18221)
+  good environment built in 56.3s (5 steps)
+
+Candidates (1)
+  TZ=America/New_York
+
+Trials (2)
+   1  pass  (good environment)  8.0s
+   2  FAIL  TZ=America/New_York  1.7s
+
+Minimal failing difference:
+  TZ=America/New_York
+Applying it to the good environment fails the captured way; without it, it passes.
+```
+
+Trial 1 is the good environment alone; it must pass. Trial 2 applies every candidate; it must fail the captured way. With one candidate, that is already the answer. With more, ddmin keeps shrinking the set until removing any single remaining difference makes the command pass.
+
+## What gets varied
+
+| Difference | Varied as |
+|---|---|
+| An environment variable with a known value on the failing side | `NAME=value`, `NAME=""` (empty), or `unset NAME` |
+| The time zone | `TZ=<zone>` |
+| The Node version | `node <version>`: both versions are installed; trials switch `PATH` |
+| An npm dependency's installed version | `name@version`, installed with `npm install --no-save` |
+| The working-tree diff | `working tree diff`: the good diff is swapped for the failing one with `git apply` |
+
+Everything else is reported under **Not varied** with the reason, so nothing is silently ignored:
+
+| Not varied | Reason shown |
+|---|---|
+| OS | a Linux sandbox cannot vary the operating system |
+| Build tools (gcc, make, …) | build tools are not varied |
+| Package manager versions | package manager versions are not varied yet |
+| Python dependencies | python dependencies are not varied yet |
+| Runtimes other than Node | `<runtime>` versions are not varied yet |
+| A variable set on the failing machine with no recorded value | value not captured on the failing machine (capture with --include-env) |
+| Dependencies in non-npm projects | dependency versions are varied only for npm projects so far |
+| A dependency with several installed versions | several versions installed on the failing machine |
+| A variable unset on the failing machine whose good value is unknown | unset in the failing environment and not set in replay |
+
+<Aside>
+If the variable you suspect shows up as "value not captured", ask the reporter to capture again with `--include-env NAME`, or compare it without disclosure using `--salt` (both sides need the same salt).
+</Aside>
+
+## Options
+
+| Option | Default | What it does |
+|---|---|---|
+| `--good <capsule>` | required | Capsule of an environment where the command passes. |
+| `--attempts <n>` | `1` | Runs per trial. Raise it for flaky commands: a trial counts as failing only if every run fails the captured way. |
+| `--env <NAME=value>` | none | Value for a variable the **good** capsule recorded by name only. Repeatable. |
+| `--timeout <minutes>` | `15` | Per-run limit. |
+| `-v, --verbose` | off | Stream the sandbox's output. |
+| `--json` | off | Machine-readable report on stdout. |
+
+Exit status: `0` minimal difference found, `1` otherwise, `2` usage error.
+
+## Reading the result
+
+| Result | Meaning |
+|---|---|
+| **Minimal failing difference** | One or more differences. With several: "Together they fail the captured way; removing any one of them makes it pass." |
+| `NO CANDIDATES` | None of the differences can be varied on a sandbox (see "Not varied"). |
+| `SETUP FAILED` | The good environment could not be built. The failed step and its output are shown. |
+| `BASELINE FAILS` | The good environment fails here on its own, so no difference can be blamed. |
+| `NOT REPRODUCED` | Applying every captured difference does not fail the captured way. The cause is outside what the capsules record (OS, unset values, local files). |
+| `RESET FAILED` | A trial could not be undone, so the search stopped rather than trust later trials. |
+
+### "Also failing, but not the captured way"
+
+Some trials fail consistently with a *different* signature. They do not count as the bug, but bisect lists the smallest of them, because they often point at the right cause with a cosmetic difference. In one live run the time-zone bug also failed on Node 22, but the assertion message was formatted differently there, so the exact captured failure needed Node 26 and the time zone together; the Node 22 trial showed up in this section.
+
+## Errors before any sandbox starts
+
+Bisect checks the capsules first and exits with status 2 when:
+
+- the bad capsule did not fail: `the bad capsule did not fail; nothing to bisect`
+- the good capsule did not pass: `the good capsule did not pass; pick a capsule whose command passed`
+- the commits differ: `the capsules are from different commits (…); bisect compares environments, use git bisect for code changes`
+
+## Cost and scope
+
+Everything runs on **one** sandbox, so bisect fits a single concurrent slot. Environment, time zone and Node trials need no reset (0.3 to 0.7 s each in the live measurements, for a fast command); dependency trials cost a reinstall to undo. The echarts bisect took 69 s end to end.
+
+The result is scoped to the captured differences and the captured command. It is the smallest set of *recorded* differences that flips the outcome, not a proof of root cause.

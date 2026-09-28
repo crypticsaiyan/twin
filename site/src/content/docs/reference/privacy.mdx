@@ -1,0 +1,105 @@
+---
+title: Privacy and redaction
+description: What a capsule records, what it never records, the environment allowlist, and every secret rule.
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A capsule is meant to be attached to a public issue, so capture is strict by default. This page lists exactly what it does, from [`src/redact/`](https://github.com/crypticsaiyan/twin/tree/main/src/redact) and [`src/capture/facts/env.ts`](https://github.com/crypticsaiyan/twin/blob/main/src/capture/facts/env.ts).
+
+<Aside type="caution" title="Review before posting">
+Redaction is pattern based. It cannot know every secret format. twin shows you a summary and, on request, the full JSON before writing anything. Read the output tail and the diff before attaching a capsule to a public issue.
+</Aside>
+
+## What is recorded
+
+- **The command**: argv (scrubbed), working directory relative to the repo root, exit code or signal, duration, a failure signature and key lines, and the last 200 lines of output (scrubbed).
+- **The system**: OS, architecture, kernel release, distro and version, libc and version, time zone, locale.
+- **Toolchain**: versions of installed runtimes and tools, package managers, lockfile paths and SHA-256 hashes.
+- **Installed packages**: names and versions from `node_modules` and the project's Python environment.
+- **Repository**: `origin` remote (with credentials stripped), commit, branch, `git diff HEAD` (scrubbed, up to 200 KB), and untracked file **names**.
+- **Environment variables**: names and states; values only as described below.
+
+## What is never recorded
+
+- Values of environment variables outside the allowlist, unless you name them with `--include-env`.
+- Contents of untracked files.
+- File contents, other than the `git diff HEAD` of tracked files. twin does not read `.env` files, your config files or your home directory into the capsule. (If a tracked file with secrets has uncommitted changes, those changes are in the diff, scrubbed by the rules below.)
+- Credentials in the git remote URL.
+- Your home directory path: occurrences become `~`.
+
+Capture makes no network calls and uploads nothing.
+
+## Environment variables
+
+Every variable is recorded by **name** and **state**: `set`, `empty` or `absent`. Session and launcher noise that differs on every machine is left out entirely: `SSH_*`, `XDG_*`, `DBUS_*`, `GPG_*`, desktop and terminal emulator variables (`GNOME_*`, `KDE_*`, `VSCODE_*`, `ITERM_*`, `KITTY_*`, `TMUX`, …), `npm_*`, and `HOME`, `USER`, `LOGNAME`, `PWD`, `OLDPWD`, `SHLVL`, `HOSTNAME`, `DISPLAY`, `EDITOR`, `PAGER` and similar.
+
+### The value allowlist
+
+Values are kept for these variables, which commonly change program behavior and are safe to share. They are also recorded as `absent` when unset.
+
+| Group | Variables |
+|---|---|
+| General | `CI`, `TERM`, `FORCE_COLOR`, `NO_COLOR` |
+| Node | `NODE_ENV`, `NODE_OPTIONS` |
+| Time zone and locale | `TZ`, `LANG`, `LANGUAGE`, `LC_ALL`, `LC_CTYPE`, `LC_COLLATE`, `LC_MESSAGES`, `LC_NUMERIC`, `LC_TIME`, and any other `LC_*` |
+| Python | `PYTHONHASHSEED`, `PYTHONDONTWRITEBYTECODE`, `PYTHONIOENCODING`, `PYTHONUTF8` |
+| Go | `GOFLAGS`, `CGO_ENABLED` |
+| Rust | `RUST_BACKTRACE` |
+
+Allowlisted values still go through the secret rules (for example, a token inside `NODE_OPTIONS` is replaced).
+
+### Opting in: `--include-env NAME`
+
+Records that variable's value too, scrubbed. Repeatable. Use it for values that matter and are not secret: an API base URL, a feature flag.
+
+### Comparing without disclosure: `--salt TEXT`
+
+Every other set variable gets `hash`: the first 32 hex characters of HMAC-SHA-256 of its value, keyed by the salt. Two capsules captured with the same salt can be compared (`twin inspect a.json b.json` reports whether the values differ) without revealing them. twin never writes unsalted hashes, because hashes of short or common values can be reversed by guessing.
+
+## Secret rules (rules version 1)
+
+Every piece of captured text (the output tail, the diff, argv, recorded values and untracked file names) passes through these rules in order, most specific first. A match is replaced by `<redacted:RULE-ID>` and counted in `redaction.scrubbed`.
+
+| Rule id | What it matches |
+|---|---|
+| `private-key` | `-----BEGIN … PRIVATE KEY-----` blocks through the matching `END` line |
+| `url-credentials` | `user:password@` in any `scheme://` URL (the scheme and host are kept) |
+| `aws-access-key` | AWS access key ids: `AKIA`, `ASIA`, `AGPA`, `AIDA`, `AROA` followed by 16 characters |
+| `github-token` | `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` tokens and `github_pat_` fine-grained tokens |
+| `gitlab-token` | `glpat-` tokens |
+| `slack-token` | `xoxa-`, `xoxb-`, `xoxp-`, `xoxr-`, `xoxs-` tokens |
+| `stripe-key` | `sk_live_`, `sk_test_`, `rk_live_`, `rk_test_` keys |
+| `google-api-key` | `AIza` keys |
+| `npm-token` | `npm_` tokens |
+| `solari-key` | `slr_live_` and `slr_test_` keys |
+| `llm-api-key` | `sk-…`, `sk-ant-…`, `sk-proj-…` keys (OpenAI, Anthropic and compatible) |
+| `jwt` | three-part `eyJ…` JSON Web Tokens |
+| `bearer-token` | the token after `Bearer`, `Basic` or `Token` (the scheme word is kept) |
+| `assignment` | the value in `NAME=value`, `"name": "value"` or `name: value` when the name contains `secret`, `token`, `password`, `passwd`, `pwd`, `api_key`, `access_key`, `private_key`, `credential` or `auth` (the name is kept) |
+| `high-entropy` | random-looking strings no other rule caught (below) |
+
+### The entropy heuristic
+
+A run of 32 or more characters from `A-Z a-z 0-9 + _ = -` is replaced when it
+
+- contains a lowercase letter, an uppercase letter and a digit, and
+- has a Shannon entropy of at least 4.3 bits per character.
+
+Requiring mixed case and digits excludes hex digests: git SHAs and checksums stay readable. Integrity hashes in lockfile diffs (`sha1-`, `sha256-`, `sha384-`, `sha512-`) are left alone, because they are public and the diff needs them to apply.
+
+### Home directory paths
+
+After the secret rules, your home directory (when it is longer than `/`) is rewritten to `~` wherever it appears. Paths under anyone's home, `/home/<name>`, `/Users/<name>` and `C:\Users\<name>`, are collapsed to `~` too, since user names identify people. These are counted as `home-path`.
+
+## What the reporter sees
+
+The summary printed before writing has a **Redaction** section with the rules version and a count per rule, for example `github-token  1 replaced`, or `nothing matched`. The **Environment** section lists every recorded value and the number of variables recorded by name only. Press `v` at the prompt to read the full JSON.
+
+## On the maintainer's side
+
+Replay never makes a secret appear in the sandbox. Variables recorded by name only are left unset, and the report lists them. The maintainer can supply values with `--env NAME=value`; those come from the maintainer, not from the capsule.
+
+If scrubbing changed the diff (`diffRedacted: true`), replay notes that it may not apply cleanly. The diff step is optional, so the replay continues either way.

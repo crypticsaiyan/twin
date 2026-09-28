@@ -1,0 +1,237 @@
+---
+title: AI coding agents (MCP)
+description: Give a coding agent the reporter's machine through twin's MCP server, so it reproduces a bug before it fixes it.
+sidebar:
+  order: 6
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Coding agents can't fix bugs they can't reproduce. twin gives them the reporter's machine.
+
+`twin mcp` is an [MCP](https://modelcontextprotocol.io) server over stdio, built on the official `@modelcontextprotocol/sdk`. It lets an agent replay a capsule, keep the reproduced failure running, run commands and write files in the reporter's environment, verify its final diff there, and release the machine when it is done.
+
+## Setup
+
+The server needs `SOLARI_API_KEY` in its own environment (get one at [console.getsolari.com](https://console.getsolari.com)). Only `inspect` works without it.
+
+<Tabs>
+<TabItem label="Claude Code">
+
+```sh
+claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp
+```
+
+</TabItem>
+<TabItem label="Cursor and others">
+
+Add to the client's MCP configuration (for Cursor, `.cursor/mcp.json` or the global settings):
+
+```json
+{
+  "mcpServers": {
+    "twin": {
+      "command": "npx",
+      "args": ["-y", "github:crypticsaiyan/twin", "mcp"],
+      "env": { "SOLARI_API_KEY": "slr_live_..." }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Node 22 or newer must be on the `PATH` the client uses to start the server.
+
+## Tools
+
+A `capsule` argument is a local path or an https URL, such as a GitHub issue attachment (`https://github.com/user-attachments/files/…/twin-capsule.json`), so the agent can start from the issue link alone.
+
+| Tool | What it does |
+|---|---|
+| `inspect` | Summary of a capsule, or every difference between two. Offline, no key. |
+| `replay` | Rebuild and rerun. Returns the verdict, the failure signature and, when the failure reproduced and `keep` is true (the default), the machine id. |
+| `run` | Run a shell command line (bash) on a kept machine in the reporter's environment. Returns exit code and the last 200 lines of output. |
+| `write_file` | Write a file on a kept machine. Relative paths resolve against the failing command's working directory. |
+| `verify` | Fresh machine, apply the fix (a diff, or a pushed commit), report `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE`. |
+| `bisect` | Minimal environment difference between a failing and a passing capsule. |
+| `release` | Kill one kept machine, or every twin machine when no id is given. |
+
+Arguments and defaults are in the [MCP reference](../../reference/mcp/). Tool results are the same text reports the CLI prints. Failures come back as tool errors starting with `twin:`, so the agent can read them and adjust. `replay`, `verify` and `bisect` send progress notifications while they run.
+
+## Long tool calls and client timeouts
+
+`replay` and `verify` take about 70 seconds or more (most of it installing dependencies), and `bisect` longer. Some MCP clients give up on a tool call before that. twin sends progress notifications during these calls, which lets clients that reset their timeout on progress keep waiting. In Claude Code, raise the limit with the `MCP_TOOL_TIMEOUT` environment variable, in milliseconds:
+
+```sh
+MCP_TOOL_TIMEOUT=600000 claude
+```
+
+## The agent loop
+
+<Steps>
+
+1. **`replay`** the capsule with `keep` (the default). A `REPRODUCED` verdict comes back with a machine id.
+2. **`run`** commands on that machine to explore: read the failing test, print versions, rerun the command with extra logging.
+3. **`write_file`** to try a fix directly in the reporter's environment.
+4. **`run`** the failing command again. Iterate on 2 to 4 until it passes.
+5. **`verify`** the capsule with the final diff as `patch`. This uses a fresh machine, so leftover state from exploration cannot make it pass.
+6. **`release`** the kept machine.
+
+</Steps>
+
+<Aside type="caution">
+Kept machines bill until 15 minutes idle or until `release`. Tell the agent to release when it is done. As a backstop, when the MCP session ends the server releases the machines that session kept. `release` with no arguments kills every twin machine on the account, including ones kept from a terminal, each kill confirmed.
+</Aside>
+
+A prompt that sets this up:
+
+```text
+Issue: https://github.com/apache/echarts/issues/21538
+Capsule: https://github.com/user-attachments/files/<id>/new-york.json
+
+Use the twin tools. Reproduce the failure with replay before changing anything,
+work on the kept machine with run and write_file, verify your final diff with
+verify, then release the machine. Report the verdicts you got.
+```
+
+## Example: apache/echarts#21538, a recorded session
+
+[`examples/echarts-21538/mcp.txt`](https://github.com/crypticsaiyan/twin/blob/main/examples/echarts-21538/mcp.txt) is a real session against `twin mcp` on Solari, on the [echarts case study](../../examples/echarts-21538/). It was driven by a scripted MCP client over stdio ([`test/e2e/mcp-session.ts`](https://github.com/crypticsaiyan/twin/blob/main/test/e2e/mcp-session.ts), run with `pnpm e2e:mcp`), not by an LLM, so it shows exactly what an agent sends and gets back. The excerpts below are verbatim, except that the 191-character machine id is shortened and some lines (the rest of the inspect summary, most passing tests) are left out; both are marked with `…`. `>>>` is a tool call (string arguments over 60 characters are shown by length), `...` a progress notification, `<<<` the result and its wall time. The whole session took 162 s.
+
+**1. Inspect the capsule** (offline). The result is the same summary `twin inspect` prints:
+
+```text
+>>> inspect {"capsule":"examples/echarts-21538/new-york.json"}
+<<< 0 s
+Command
+  argv       npx jest --config test/ut/jest.config.cjs --coverage=false test/ut/spec/util/time.test.ts
+  cwd        .
+  result     FAIL (exit 1) in 0.8s
+  signature  exit1:0aee0834ac9c4d2d
+  key lines  FAIL test/ut/spec/util/time.test.ts
+             ✕ roundTime_locale
+             expect(received).toEqual(expected) // deep equality
+             Expected: 528526800000
+             Received: 528523200000
+             Test Suites: 1 failed, 1 total
+             Tests: 1 failed, 14 passed, 15 total
+…
+```
+
+**2. Replay and keep the machine.** Progress notifications arrive while it runs:
+
+```text
+>>> replay {"capsule":"examples/echarts-21538/new-york.json","attempts":1}
+  ... machine AoEvhTKPBPoYV9rR… ready
+  ... prepare workspace
+  ... install node 22.23.3
+  ... check out 984bf46b2f90
+  ... install npm 10.9.9
+  ... install dependencies (npm ci)
+  ... attempt 1/1
+<<< 71 s
+Replay on solari (machine AoEvhTKPBPoYV9rR…, run e7c8ca03)
+  ✓ prepare workspace  0.3s
+  ✓ install node 22.23.3  2.2s
+  ✓ check out 984bf46b2f90  4.4s
+  ✓ install npm 10.9.9  4.2s
+  ✓ install dependencies (npm ci)  48.9s
+
+Attempts
+  1  FAIL exit 1  exit1:0aee0834ac9c4d2d  8.0s
+  expected  FAIL exit1:0aee0834ac9c4d2d
+
+REPRODUCED: every attempt failed exactly as the capsule recorded.
+
+The machine is still running at the failure, in the reporter's environment:
+  machine AoEvhTKPBPoYV9rRAs5jOamx…
+Explore and try fixes with run and write_file on this machine, check the final diff with
+verify, then release it. It is billed while running and released after 15 minutes idle.
+```
+
+**3. Run the failing test on the kept machine.** The command was `echo "TZ=$TZ node $(node --version)"; pwd;` followed by the captured Jest command piped through `grep -E "✓|✕|Tests:|Expected|Received"` to keep the output short (so `exit 0` is grep's status). It runs in the reporter's environment, in the command's directory:
+
+```text
+>>> run {"machine":"<191 chars>","command":"<178 chars>"}
+<<< 4 s
+exit 0 (1.7s)
+TZ=America/New_York node v22.23.3
+/tmp/twin/repo
+      ✓ should format year (2 ms)
+      …
+      ✓ roundTime_UTC
+      ✕ roundTime_locale (2 ms)
+    Expected: 528526800000
+    Received: 528523200000
+Tests:       1 failed, 14 passed, 15 total
+```
+
+**4. Write the fix** to the machine. The relative path resolved against the command's directory:
+
+```text
+>>> write_file {"machine":"<191 chars>","path":"fix.patch","content":"<2874 chars>"}
+<<< 1 s
+wrote 2874 bytes to /tmp/twin/repo/fix.patch
+```
+
+**5. Apply it and rerun** (`git apply fix.patch &&` the same filtered Jest command):
+
+```text
+>>> run {"machine":"<191 chars>","command":"<158 chars>"}
+<<< 5 s
+exit 0 (4.5s)
+      ✓ should format year (3 ms)
+      …
+      ✓ roundTime_UTC (1 ms)
+      ✓ roundTime_locale
+Tests:       15 passed, 15 total
+```
+
+**6. Verify the diff on a fresh machine**, so nothing left over from exploring can make it pass:
+
+```text
+>>> verify {"capsule":"examples/echarts-21538/new-york.json","patch":"<2874 chars>","attempts":1}
+  ... machine AmugPTdqTVMUGSec… ready
+  ... prepare workspace
+  ... install node 22.23.3
+  ... check out 984bf46b2f90
+  ... upload candidate fix
+  ... apply candidate fix
+  ... install npm 10.9.9
+  ... install dependencies (npm ci)
+  ... attempt 1/1
+<<< 74 s
+Verify on solari (machine AmugPTdqTVMUGSec…, run 63a31c05)
+  ✓ prepare workspace  0.3s
+  ✓ install node 22.23.3  2.2s
+  ✓ check out 984bf46b2f90  4.4s
+  ✓ upload candidate fix  0.0s
+  ✓ apply candidate fix  0.3s
+  ✓ install npm 10.9.9  4.2s
+  ✓ install dependencies (npm ci)  45.6s
+
+Attempts
+  1  PASS  8.2s
+  expected  FAIL exit1:0aee0834ac9c4d2d
+
+FIXED: the command passes in the reporter's environment with the fix applied.
+```
+
+**7. Release the kept machine:**
+
+```text
+>>> release {"machine":"<191 chars>"}
+<<< 7 s
+released AoEvhTKPBPoYV9rRAs5jOamx…
+```
+
+The `write_file` content was the repository's [`fix.patch`](https://github.com/crypticsaiyan/twin/blob/main/examples/echarts-21538/fix.patch). An agent can now open a PR with that diff and say, truthfully, that it reproduced the failure and verified the fix in the reporter's environment. The [GitHub Action](../github-action/) checks that claim again on the PR.
+
+## What the agent can and cannot touch
+
+- Commands and files run inside the Solari sandbox, never on the machine running the MCP server.
+- The sandbox receives the capsule's recorded values and any `env` the agent passes to `replay`, nothing from the server's own environment. `SOLARI_API_KEY` stays with the server.
+- Kept machines are root shells on your Solari bill. Treat the `run` tool like giving the agent a terminal on a disposable VM.
+- When only one twin machine is running, `run` and `write_file` can omit `machine`. With several, any unique prefix of the id works.

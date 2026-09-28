@@ -1,0 +1,78 @@
+---
+title: Introduction
+description: What twin is, the "works on my machine" problem it solves, and who runs which command.
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+twin turns "cannot reproduce" into a machine you can open. A reporter captures the environment their command failed in. A maintainer rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, checks a fix there, and can open a shell in it.
+
+## The problem
+
+Most "works on my machine" bugs are not in the code. The commit is the same; what differs is the environment:
+
+- a runtime version (Node 22.3 on one machine, 20.17 on the other)
+- a dependency the lockfile resolved differently
+- an environment variable
+- the time zone or locale
+
+Today the maintainer gets, at best, a pasted `envinfo` block. Nobody can run that, so the issue sits at "cannot reproduce" until someone gives up.
+
+## What twin does
+
+twin turns the reporter's environment into something runnable.
+
+1. The reporter runs one command. It records the environment facts that matter, with secrets stripped, into a small JSON file called a **capsule**.
+2. The maintainer replays the capsule on a Solari sandbox and gets a machine where the failure actually happens, plus a terminal on it.
+3. twin compares the failing capsule with a known-good one and reports the smallest set of differences that turns pass into fail.
+4. The maintainer checks a candidate fix in the reporter's environment before pushing anything.
+
+The reporter needs no Solari account and nothing is uploaded. Only the maintainer (or a CI job, or a coding agent) needs a Solari key.
+
+## Who does what
+
+| Step | Who | Command | Needs a Solari key |
+|---|---|---|---|
+| Capture the failing environment | reporter | `twin capture -- npm test` | no |
+| Summarize or compare capsules | anyone | `twin inspect a.json b.json` | no |
+| Rebuild it and rerun | maintainer | `twin replay twin-capsule.json` | yes |
+| Find the difference that breaks it | maintainer | `twin bisect bad.json --good good.json` | yes |
+| Check a fix in the reporter's environment | maintainer | `twin verify bad.json --patch fix.patch` | yes |
+| Open a shell in it, or share one | maintainer | `twin replay … --keep`, then `twin shell --web` | yes |
+| Let a coding agent work in it | maintainer's agent | `twin mcp` | yes |
+| Check a fix PR in CI | GitHub Action | `crypticsaiyan/twin@main` | yes |
+
+## Proof on a real issue
+
+[apache/echarts#21538](https://github.com/apache/echarts/issues/21538) reports that a unit test fails in any time zone with daylight saving time. A maintainer in a zone without DST runs the same test and it passes. With a capsule from New York (fails) and one from Kolkata (passes), recorded on Solari:
+
+| Run on Solari | Result | Time |
+|---|---|---|
+| `twin replay new-york.json` | `REPRODUCED`, identical failure signature | 72 s |
+| `twin bisect new-york.json --good kolkata.json` | minimal difference `TZ=America/New_York` | 69 s |
+| `twin verify new-york.json --patch fix.patch` | `FIXED` in the reporter's environment, nothing pushed | 71 s |
+
+The full transcripts are in the [echarts case study](../../examples/echarts-21538/).
+
+## Where twin fits
+
+twin is for bugs whose cause is **environmental**: a version, a variable, a time zone, a resolved dependency, uncommitted changes. It does not find logic bugs, and it does not reproduce network or data problems. Replay runs on Linux. See [Limits](../../reference/limits/) for the full list.
+
+<CardGrid>
+  <Card title="Reporter" icon="document">
+    Run the failing command through `twin capture` and attach the file it writes. No account, no upload. [Capture guide](../../guides/capture/).
+  </Card>
+  <Card title="Maintainer" icon="laptop">
+    Replay the capsule, bisect it against a passing one, verify a fix, open a shell. [Quickstart](../quickstart/).
+  </Card>
+  <Card title="Coding agent" icon="rocket">
+    Give an agent the reporter's machine through MCP, so it can reproduce before it fixes. [AI agents](../../guides/ai-agents/).
+  </Card>
+  <Card title="CI" icon="github">
+    Check that a PR claiming to fix an issue actually fixes it in the reporter's environment. [GitHub Action](../../guides/github-action/).
+  </Card>
+</CardGrid>
+
+<LinkCard title="How it works" description="Capsule, replay plan, verdicts, bisect and verify, step by step." href="../how-it-works/" />

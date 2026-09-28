@@ -1,0 +1,139 @@
+---
+title: How it works
+description: From capsule to replay plan to verdict, plus how bisect and verify reuse the same machinery.
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+twin has one data format (the capsule) and one engine (the replay plan run on a Solari sandbox). Replay, bisect, verify, the MCP server and the GitHub Action are all built from those two pieces.
+
+## 1. Capture writes a capsule
+
+`twin capture -- <cmd>` records the environment first, so the facts describe what the command ran against, then runs the command with your terminal attached and keeps the tail of its output.
+
+| Recorded | How |
+|---|---|
+| OS, architecture, distro, libc | `/etc/os-release`, glibc version or `ldd --version`, `sw_vers` on macOS |
+| Runtimes and tools | version probes: node, bun, deno, python, go, rustc, java, ruby; npm, pnpm, yarn, pip, uv, poetry, cargo, git, make, gcc, clang, cmake, docker |
+| Package managers | lockfiles between the working directory and the repo root, plus `packageManager` in `package.json`, with a SHA-256 of each lockfile |
+| Installed packages | every `node_modules` from the working directory up to the repo root; `pip list` (or `uv pip list`) for the project's interpreter |
+| Repository | `origin` remote (credentials stripped), commit, branch, `git diff HEAD`, untracked file **names** |
+| Environment | every variable by name and state; values only for an allowlist (see [Privacy](../../reference/privacy/)) |
+| Locale | the time zone and locale the process resolved |
+| Command | argv, working directory relative to the repo root, exit code or signal, duration, a failure signature, the key lines, the last 200 lines of output |
+
+Everything that can carry user text passes through one redactor, and the capsule records how many replacements each rule made. The full schema is in [Capsule format](../../reference/capsule/).
+
+### The failure signature
+
+A capsule stores *how* the command failed, not only *that* it failed. twin normalizes the output (strips terminal escapes; replaces times, durations, UUIDs, hex addresses, long hashes, absolute paths, localhost ports and pids with placeholders), picks the key lines (the first 12 lines that look like errors, or the last 8 lines if none do), and hashes them:
+
+```text
+exit1:0aee0834ac9c4d2d
+```
+
+The part before the colon is the exit status (or the signal). The part after is the first 16 hex characters of a SHA-256 of the key lines. Replay fingerprints every attempt the same way, so a different failure is never counted as a reproduction.
+
+## 2. Replay turns the capsule into a plan
+
+The plan is a pure function of the capsule and the options: an ordered list of steps plus one environment. For the echarts capsule it is:
+
+```text
+  ✓ prepare workspace  0.3s
+  ✓ install node 22.23.3  2.1s
+  ✓ check out 984bf46b2f90  4.5s
+  ✓ install npm 10.9.9  3.7s
+  ✓ install dependencies (npm ci)  46.4s
+```
+
+| Step | What runs in the sandbox |
+|---|---|
+| prepare workspace | `mkdir -p /tmp/twin` |
+| install node | official tarball from nodejs.org for x64 or arm64, into `/tmp/twin/tools/node-<version>`; only when the project or command uses Node |
+| install python | uv, then `uv venv --python <version> /tmp/twin/venv`; only for Python projects |
+| check out | `git init`, `git fetch --depth 1 origin <sha>`, detached checkout in `/tmp/twin/repo` |
+| upload and apply working-tree diff | the capsule's `git diff HEAD`, applied with `git apply` (a failure here is reported but not fatal) |
+| upload and apply candidate fix | only for `verify --patch` |
+| install package manager | `npm install -g <manager>@<captured version>` |
+| install dependencies | `npm ci`, `pnpm install --frozen-lockfile`, `yarn install --frozen-lockfile` (or `--immutable` for Yarn 2+), `bun install --frozen-lockfile`; without a lockfile, a plain install |
+| install python dependencies | `uv sync --frozen` with `uv.lock`, else `uv pip install -r requirements.txt`, else `uv pip install -e .` |
+
+The environment for every step and the command:
+
+- every variable whose value the capsule recorded (the allowlist, plus anything captured with `--include-env`)
+- `TZ` set to the captured time zone when the capsule has no explicit `TZ`
+- values you pass with `--env NAME=value`, which win
+- `PATH` pointing at the installed runtimes first, then the system path
+
+Variables the reporter had set but whose values were not recorded are left unset, and the report lists them. The command itself runs from the captured working directory as `sh -c 'exec "$@"'`, so `PATH` resolves the installed runtime without re-parsing the arguments.
+
+## 3. Attempts become a verdict
+
+The command runs three times by default (`--attempts`). Each attempt gets a signature; the set of signatures decides the verdict.
+
+| Verdict | Meaning |
+|---|---|
+| `REPRODUCED` | Every attempt ended exactly as the capsule recorded. |
+| `DIFFERENT FAILURE` | Every attempt failed the same way, but not the captured way. |
+| `NOT REPRODUCED` | The capsule recorded a failure; every attempt passed. The difference is likely in what replay cannot copy (OS, unset values, local files). |
+| `FLAKY` | Attempts disagreed with each other. |
+| `INCONCLUSIVE` | A setup step failed, or an attempt timed out. |
+
+Then the machine is killed, and the kill is confirmed with the gateway. With `--keep` and `REPRODUCED`, it is left running instead, with `/tmp/twin/env.sh` (the replay environment) and `/tmp/twin/shell.sh` (an entry point that loads it, moves to the command's directory and starts an interactive shell) written into it.
+
+```text
+capsule
+  │
+  ▼
+create sandbox (template "base", metadata {app: "twin", run: <id>}, 15 min idle timeout)
+  │  install runtimes → fetch commit by SHA → apply diff → package manager → dependencies
+  ▼
+run the command N times (default 3) → fingerprint each attempt → verdict
+  │
+  ├─ --keep and REPRODUCED → write env.sh + shell.sh, detach, leave running for `twin shell`
+  └─ otherwise → kill, confirmed with get(), re-killed until gone
+```
+
+## 4. Bisect searches the differences
+
+`twin bisect bad.json --good good.json` needs two capsules from the **same commit**: one where the command failed and one where it passed.
+
+**Atoms.** Every difference between the two capsules is classified. Those twin can vary on a Linux sandbox become atoms:
+
+| Atom | Example label | How a trial applies it |
+|---|---|---|
+| environment value | `TZ=America/New_York`, `NODE_ENV=""`, `unset CI` | set in the command's environment, or removed with `env -u` |
+| time zone | `TZ=Asia/Kolkata` | through `TZ` |
+| Node version | `node 22.3.0` | both versions installed up front; `PATH` is switched |
+| npm dependency | `left-pad@1.3.0` | `npm install --no-save` of that version |
+| working-tree diff | `working tree diff` | swap the good diff for the failing one with `git apply` |
+
+Everything else is listed under "Not varied" with a reason: the OS, build tools, package manager versions, Python dependencies, other runtimes, variables whose value was not captured on the failing machine.
+
+**Search.** Bisect builds the good environment once on one sandbox and runs two bracketing trials: the good environment alone must pass, and all atoms together must fail the captured way. Then it runs Zeller's ddmin over the atoms: apply subsets, keep shrinking, and stop when removing any single remaining atom makes it pass. Results are cached, so a subset is never run twice.
+
+**Trials.** A trial is `fail` only if every run fails with the failing capsule's signature, `pass` if every run passes, and unresolved otherwise. Unresolved never shrinks the set, which keeps the search conservative. Trials that consistently fail with a *different* signature are shown separately, because they often point at the right cause with a cosmetic difference.
+
+**Resetting without snapshots.** Environment, time zone and Node atoms are process settings, so those trials leave nothing to undo. Diff trials are undone with an idempotent `git apply -R`. Dependency trials are undone by rerunning the good environment's install. If an undo fails, bisect stops with `RESET FAILED` rather than trust later trials.
+
+<Aside>
+Bisect originally forked trials from a snapshot. Measured on Solari, snapshot and revert took tens of seconds and revert was unreliable, so trials are undone in place instead. See [Solari](../../reference/solari/).
+</Aside>
+
+## 5. Verify reads the same verdicts from the other side
+
+`twin verify` is replay plus one extra step: apply your patch after the checkout (`--patch`), or check out a different commit (`--ref`, optionally from `--repo`). A verify run hopes the failure is gone:
+
+| Replay verdict | Verify reports |
+|---|---|
+| `NOT REPRODUCED` | `FIXED` |
+| `REPRODUCED` | `STILL FAILING` |
+| `DIFFERENT FAILURE` | `DIFFERENT FAILURE` |
+| `FLAKY` | `FLAKY` |
+| `INCONCLUSIVE` | `INCONCLUSIVE` (does the fix apply?) |
+
+## 6. Kept machines
+
+A kept machine is an ordinary Solari sandbox tagged `app=twin`. It keeps running, and billing, until 15 minutes pass with no activity, or until you release it with `twin gc` (or the MCP `release` tool). Machines an MCP session kept are released when that session ends. Anyone with your key can re-attach from any computer with `twin shell <id prefix>`; the machine carries everything the shell needs, so the capsule is not required again.

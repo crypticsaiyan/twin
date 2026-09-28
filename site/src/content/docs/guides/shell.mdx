@@ -1,0 +1,102 @@
+---
+title: Open a shell on the failure
+description: Keep a reproduced failure running and open a terminal on it, locally or in a browser shared with the reporter.
+sidebar:
+  order: 5
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+After `twin replay --keep` reproduces a failure, the machine stays up in the reporter's environment. `twin shell` opens a terminal on it: same environment values, `PATH`, time zone and working directory as the failing command.
+
+## Local terminal
+
+<Steps>
+
+1. Replay and keep:
+
+   ```sh
+   twin replay twin-capsule.json --keep
+   ```
+
+   The machine is kept only when the verdict is `REPRODUCED`.
+
+2. Open a shell:
+
+   ```sh
+   twin shell
+   ```
+
+   With one twin machine running, no id is needed. With several, pass the start of the id: `twin shell AlDq8esM`.
+
+3. You land in the command's working directory with a banner like:
+
+   ```text
+   twin: you are in the reporter's environment; commit 984bf46b2f90; rerun the failing command with: npx jest --config test/ut/jest.config.cjs --coverage=false test/ut/spec/util/time.test.ts
+   ```
+
+   Rerun it, add logging, try a fix, inspect `node_modules`. It is a normal root shell (`bash -i`, or `sh -i` if bash is missing).
+
+4. Press **Ctrl-]** to detach. The machine keeps running; `twin shell` again re-attaches, from this computer or any other with the same Solari key. Typing `exit` ends the shell session; the machine still keeps running.
+
+</Steps>
+
+`twin shell` without `--web` needs an interactive terminal. Otherwise it exits with `twin shell needs an interactive terminal; use --web for a browser terminal`.
+
+## Browser terminal to share: `--web`
+
+```sh
+twin shell --web
+```
+
+twin starts [ttyd](https://github.com/tsl0922/ttyd) (1.7.7) in the guest on port 7681, behind HTTP basic auth with user `twin` and a fresh random password, and exposes it through a Solari preview URL. The URL goes to stdout; the credentials go to stderr:
+
+```text
+Browser terminal on <id>
+  user      twin
+  password  <random>
+The link and password together give a root shell on this machine. Share them
+only with the reporter. The machine stops after 15 minutes idle or with: twin gc
+```
+
+Send the link and password to the reporter, and you can both look at the same failing machine. Running `--web` again restarts the browser terminal with a new password.
+
+On the echarts capsule this gave a browser terminal in `/tmp/twin/repo` with `TZ=America/New_York` and Node 22.23.3, where the test fails with the issue's exact numbers.
+
+<Aside type="danger" title="Security">
+The preview URL carries its own access token, and the password is a second factor. **Together they give a root shell** on the machine until it is released. Share them only with the reporter, over a private channel, never in a public issue. The machine holds no secrets of yours (twin never copies your environment into it), but whoever has the shell can run anything there, on your bill.
+</Aside>
+
+## What the shell is
+
+A kept machine carries two files that make `twin shell` work without the capsule:
+
+| File | Content |
+|---|---|
+| `/tmp/twin/env.sh` | `export` lines for the replay environment: recorded values, `TZ`, `--env` values, the `PATH` with the installed runtimes |
+| `/tmp/twin/shell.sh` | Loads `env.sh`, changes to the command's working directory (falling back to `/tmp/twin/repo`), prints the banner, starts an interactive shell |
+
+`twin shell` refuses machines that do not have `shell.sh`: `` machine <id> was not kept by `twin replay --keep` (no /tmp/twin/shell.sh) ``.
+
+## Releasing it
+
+A kept machine is billed until it has been idle for 15 minutes or until you release it:
+
+```sh
+twin gc
+```
+
+`twin gc` releases every machine twin started that is still running, and confirms each kill with the Solari gateway:
+
+```text
+No twin machines running.
+```
+
+or `Released N machines: <ids>`.
+
+## Options
+
+| Option | What it does |
+|---|---|
+| `[machine]` | Start of the machine id. Optional when only one twin machine is running. |
+| `--web` | Start a browser terminal and print a link plus a password. |
