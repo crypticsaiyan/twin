@@ -15,7 +15,8 @@ mkdir -p "$target"
 
 # Only tracked files are copied, so local artifacts (node_modules, dist, .env, capsules) never leak.
 # CI config is the standalone repo's own; the cookbook has its own checks. LICENSE is left out
-# because contributions to the cookbook fall under its Apache-2.0 license.
+# because contributions to the cookbook fall under its Apache-2.0 license. The website is published
+# from this repo and is not part of the example.
 cd "$root"
-git ls-files -z | grep -zvE '^(\.github/|LICENSE$)' | rsync -a --from0 --files-from=- ./ "$target/"
+git ls-files -z | grep -zvE '^(\.github/|LICENSE$|site/)' | rsync -a --from0 --files-from=- ./ "$target/"
 echo "synced $(git rev-parse --short HEAD) into $target"
