@@ -1,37 +1,70 @@
 /*
  * twin site tokens, shared by the landing page and the Starlight docs.
- * Paper and ink, one accent (the failure red), green only where something passes.
- * Every color is defined once with light-dark(), so it follows `color-scheme`,
- * which Starlight sets from `data-theme`.
+ *
+ * Light is the reporter's printout: tractor-feed paper, greenbar stripes, ribbon ink.
+ * Dark is the maintainer's terminal: an amber CRT.
+ * Light tokens live on bare :root; dark redefines only tokens, for the system setting
+ * (unless light was chosen) and for an explicit dark choice.
  */
 
 :root {
-  color-scheme: light;
-
-  --twin-font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --twin-font-display: 'Doto', 'Silkscreen', ui-monospace, monospace;
+  --twin-font-label: 'Silkscreen', ui-monospace, monospace;
+  --twin-font-term: 'VT323', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --twin-font-body: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --twin-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --twin-bg: light-dark(#fbfaf7, #121212);
-  --twin-bg-code: light-dark(#f2f0ea, #1b1b1b);
-  --twin-rule: light-dark(#dedad1, #2c2c2c);
-  --twin-text: light-dark(#1c1c1a, #e6e4df);
-  --twin-text-muted: light-dark(#5f5d57, #9d9a93);
+  --twin-paper: #f4f2e6;
+  --twin-greenbar: #dfead3;
+  --twin-ink: #24261f;
+  --twin-ink-dim: #686a5e;
+  --twin-rule: #cbc8b6;
+  --twin-hole: #e6e3d2;
+  --twin-hole-edge: #c4c0aa;
+  --twin-display: #24261f;
+  --twin-glow: transparent;
+  --twin-fail: #b0302a;
+  --twin-pass: #2c6a3a;
+  --twin-scanlines: transparent;
 
-  --twin-accent: light-dark(#b3261e, #f07167);
-  --twin-pass: light-dark(#1f6f43, #6fcf97);
-  --twin-link: light-dark(#1c1c1a, #e6e4df);
+  /* Names the docs theme uses. */
+  --twin-bg: var(--twin-paper);
+  --twin-bg-code: var(--twin-greenbar);
+  --twin-text: var(--twin-ink);
+  --twin-text-muted: var(--twin-ink-dim);
+  --twin-accent: var(--twin-fail);
+}
 
-  --twin-radius: 4px;
-  --twin-measure: 40rem;
-  --twin-wide: 48rem;
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --twin-paper: #110d06;
+    --twin-greenbar: #1c160b;
+    --twin-ink: #f1d9ad;
+    --twin-ink-dim: #a48c64;
+    --twin-rule: #3b301d;
+    --twin-hole: #0a0804;
+    --twin-hole-edge: #2c2415;
+    --twin-display: #ffb000;
+    --twin-glow: rgb(255 176 0 / 0.35);
+    --twin-fail: #ff7a5c;
+    --twin-pass: #b8dc8a;
+    --twin-scanlines: rgb(0 0 0 / 0.18);
+  }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    color-scheme: dark;
-  }
+  --twin-paper: #110d06;
+  --twin-greenbar: #1c160b;
+  --twin-ink: #f1d9ad;
+  --twin-ink-dim: #a48c64;
+  --twin-rule: #3b301d;
+  --twin-hole: #0a0804;
+  --twin-hole-edge: #2c2415;
+  --twin-display: #ffb000;
+  --twin-glow: rgb(255 176 0 / 0.35);
+  --twin-fail: #ff7a5c;
+  --twin-pass: #b8dc8a;
+  --twin-scanlines: rgb(0 0 0 / 0.18);
 }

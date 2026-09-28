@@ -1,68 +1,84 @@
-/* Starlight theme: maps the site tokens (tokens.css) onto Starlight's variables. */
+/* Starlight theme: the printout (light) and amber terminal (dark) from tokens.css. */
 
 :root,
 :root[data-theme='light'] {
   --sl-font: var(--twin-font-body);
   --sl-font-mono: var(--twin-font-mono);
+  --sl-text-body: 0.9rem;
 
-  /* Ink, not color: the red stays reserved for failures. */
-  --sl-color-accent-low: light-dark(#e9e6df, #262624);
-  --sl-color-accent: light-dark(#1c1c1a, #e6e4df);
-  --sl-color-accent-high: light-dark(#1c1c1a, #ffffff);
-  --sl-color-text-accent: light-dark(#1c1c1a, #ffffff);
+  /* Ink, not color: red stays reserved for failures. */
+  --sl-color-accent-low: light-dark(#dfead3, #2a2010);
+  --sl-color-accent: light-dark(#24261f, #ffb000);
+  --sl-color-accent-high: light-dark(#24261f, #ffcf6b);
+  --sl-color-text-accent: light-dark(#24261f, #ffb000);
 
-  --sl-color-white: light-dark(#1c1c1a, #ffffff);
-  --sl-color-gray-1: light-dark(#2a2a27, #e6e4df);
-  --sl-color-gray-2: light-dark(#3d3c38, #c9c6bf);
-  --sl-color-gray-3: light-dark(#5f5d57, #9d9a93);
-  --sl-color-gray-4: light-dark(#8f8c85, #65635e);
-  --sl-color-gray-5: light-dark(#d4d0c7, #333331);
-  --sl-color-gray-6: light-dark(#ebe8e1, #1e1e1e);
-  --sl-color-gray-7: light-dark(#f4f2ed, #171717);
-  --sl-color-black: var(--twin-bg);
+  --sl-color-white: light-dark(#24261f, #fbe7c2);
+  --sl-color-gray-1: light-dark(#2e3028, #f1d9ad);
+  --sl-color-gray-2: light-dark(#44463c, #d9bf92);
+  --sl-color-gray-3: light-dark(#686a5e, #a48c64);
+  --sl-color-gray-4: light-dark(#8e8f82, #6d5c40);
+  --sl-color-gray-5: light-dark(#cbc8b6, #3b301d);
+  --sl-color-gray-6: light-dark(#e7e4d5, #1c160b);
+  --sl-color-gray-7: light-dark(#efece0, #161109);
+  --sl-color-black: var(--twin-paper);
 
-  --sl-color-bg: var(--twin-bg);
-  --sl-color-bg-nav: var(--twin-bg);
-  --sl-color-bg-sidebar: var(--twin-bg);
+  --sl-color-bg: var(--twin-paper);
+  --sl-color-bg-nav: var(--twin-paper);
+  --sl-color-bg-sidebar: var(--twin-paper);
   --sl-color-hairline-light: var(--twin-rule);
   --sl-color-hairline: var(--twin-rule);
   --sl-color-hairline-shade: var(--twin-rule);
 }
 
-.sl-markdown-content :is(h1, h2, h3),
 h1#_top {
+  font: 900 2.4rem/1.1 var(--twin-font-display);
+  color: var(--twin-display);
+  text-shadow: 0 0 14px var(--twin-glow);
+}
+
+.sl-markdown-content :is(h2, h3) {
   font-weight: 600;
-  letter-spacing: -0.01em;
+}
+
+.sl-markdown-content h2 {
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .site-title {
-  color: var(--twin-text);
-  font-family: var(--twin-font-mono);
-  font-weight: 600;
-  font-size: 1.05rem;
+  color: var(--twin-display);
+  font: 900 1.5rem var(--twin-font-display);
 }
 
-.site-title img {
-  height: 1.25rem;
-  width: auto;
-}
-
-:focus-visible {
-  outline-color: var(--twin-accent);
-}
-
-/* Quiet heading anchors and a plain active sidebar entry. */
-.sl-anchor-link {
-  color: var(--twin-text-muted);
+.sidebar-content .group-label .large,
+.sidebar-content summary .large {
+  font: 400 0.72rem var(--twin-font-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--twin-ink-dim);
 }
 
 .sidebar-content a[aria-current='page'] {
   background: var(--sl-color-accent-low);
-  color: var(--twin-text);
+  color: var(--twin-ink);
   font-weight: 600;
+}
+
+.sl-anchor-link {
+  color: var(--twin-ink-dim);
 }
 
 .sl-markdown-content a {
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
+  text-underline-offset: 0.2em;
+}
+
+:focus-visible {
+  outline-color: var(--twin-fail);
+}
+
+/* Scrollbars follow the palette (the sidebar's otherwise shows a light track on the terminal). */
+* {
+  scrollbar-color: var(--twin-rule) transparent;
 }

@@ -37,12 +37,12 @@ export default defineConfig({
       // The branded 404 lives in src/pages/404.astro.
       disable404Route: true,
       customCss: [
-        '@fontsource/ibm-plex-sans/400.css',
-        '@fontsource/ibm-plex-sans/400-italic.css',
-        '@fontsource/ibm-plex-sans/500.css',
-        '@fontsource/ibm-plex-sans/600.css',
+        '@fontsource/doto/900.css',
+        '@fontsource/silkscreen/400.css',
+        '@fontsource/vt323/400.css',
         '@fontsource/ibm-plex-mono/400.css',
-        '@fontsource/ibm-plex-mono/500.css',
+        '@fontsource/ibm-plex-mono/400-italic.css',
+        '@fontsource/ibm-plex-mono/600.css',
         './src/styles/tokens.css',
         './src/styles/starlight.css',
       ],
