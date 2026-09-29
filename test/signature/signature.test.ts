@@ -47,7 +47,8 @@ describe('normalizeOutput', () => {
 
   it('drops host configuration warnings so a failure reads the same on every machine', () => {
     const output = [
-      ' WARN  Issue while reading "/home/me/.npmrc". Failed to replace env in config: ${GITHUB_TOKEN}',
+      ' WARN  Issue while reading "/home/me/.npmrc". Failed to replace env in config: $' +
+        '{GITHUB_TOKEN}',
       'bash: warning: setlocale: LC_ALL: cannot change locale (en_IN.UTF-8)',
       'AssertionError: expected 1 to be 2',
     ].join('\n');
