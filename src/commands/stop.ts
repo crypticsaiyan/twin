@@ -38,13 +38,13 @@ async function run(args: string[], context: CommandContext): Promise<number> {
     stopped = await backend.reap({ ...TWIN_LABELS });
   } else {
     const info = await resolveMachine(backend, positionals[0]);
-    const run = info.labels.run;
+    const runId = info.labels.run;
     // Every twin run starts one machine, so its run label names exactly this one.
-    if (run === undefined) {
+    if (runId === undefined) {
       await (await backend.connect(info.id)).kill();
       stopped = [info.id];
     } else {
-      stopped = await backend.reap({ ...TWIN_LABELS, run });
+      stopped = await backend.reap({ ...TWIN_LABELS, run: runId });
     }
   }
 

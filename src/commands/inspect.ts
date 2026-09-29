@@ -52,7 +52,7 @@ async function run(
     return 0;
   }
   if (positionals.length < min || positionals.length > max) {
-    const expected = min === max ? 'two capsules' : 'one capsule';
+    const expected = min === max ? 'two capsules' : 'one capsule (or two to compare)';
     throw new TwinError(`expected ${expected}\n\n${usage}`, { exitCode: 2 });
   }
 
