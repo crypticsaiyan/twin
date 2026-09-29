@@ -3,11 +3,11 @@
 // transform), Chrome pushes screencast frames as they change, and the frames are resampled to a
 // constant 30 fps by their arrival time.
 //
-// usage: node site-record.mjs <outDir> [baseUrl=http://127.0.0.1:4321/twin]
+// usage: node site-record.mjs <outDir> [baseUrl=http://127.0.0.1:4321]
 import { mkdirSync, rmSync, writeFileSync, linkSync } from 'node:fs';
 import { launch, sleep } from './cdp.mjs';
 
-const [out, base = 'http://127.0.0.1:4321/twin'] = process.argv.slice(2);
+const [out, base = 'http://127.0.0.1:4321'] = process.argv.slice(2);
 const W = 1500;
 const H = 820;
 const FPS = 30;
