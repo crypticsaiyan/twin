@@ -24,7 +24,8 @@ export interface RunResult {
   outputTail: string;
 }
 
-const DEFAULT_TAIL_LINES = 200;
+/** Lines of output capture fingerprints; replay must fingerprint the same window. */
+export const DEFAULT_TAIL_LINES = 200;
 const DEFAULT_TAIL_CHARS = 64_000;
 
 /**

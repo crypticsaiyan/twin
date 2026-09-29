@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FakeBackend, type FakeRunResult } from '../../src/backend/fake.ts';
 import type { RunSpec } from '../../src/backend/types.ts';
 import { type ReplayEvent, replay } from '../../src/replay/replay.ts';
-import { classify, describeAttempt } from '../../src/replay/verdict.ts';
+import { classify, describeAttempt, matchesSignature } from '../../src/replay/verdict.ts';
 import { failureIdentity } from '../../src/signature/signature.ts';
 import { makeCapsule } from '../helpers/capsule.ts';
 
@@ -180,6 +180,20 @@ describe('classify', () => {
     });
     expect(classify(passing, [pass()])).toBe('reproduced');
     expect(classify(passing, [fail()])).toBe('different-failure');
+  });
+
+  it('fingerprints the same output window capture keeps', () => {
+    const noise = Array.from({ length: 300 }, (_, i) => `Error: early noise ${i}`).join('\n');
+    const tail = Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n');
+    const whole = fail(`${noise}\n${tail}\n`);
+    expect(whole).toEqual(fail(tail));
+  });
+
+  it('matches a captured signal death reported by the guest as exit 128+n', () => {
+    const digest = 'abcdef0123456789';
+    expect(matchesSignature(`SIGSEGV:${digest}`, `exit139:${digest}`)).toBe(true);
+    expect(matchesSignature(`SIGSEGV:${digest}`, `exit1:${digest}`)).toBe(false);
+    expect(matchesSignature(`exit1:${digest}`, `exit129:${digest}`)).toBe(false);
   });
 
   it('scrubs guest output before fingerprinting', () => {

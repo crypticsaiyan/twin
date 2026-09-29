@@ -1,4 +1,6 @@
+import { constants } from 'node:os';
 import type { Capsule } from '../capsule/schema.ts';
+import { DEFAULT_TAIL_LINES } from '../capture/run-command.ts';
 import { Redactor } from '../redact/redactor.ts';
 import { failureIdentity } from '../signature/signature.ts';
 
@@ -45,9 +47,12 @@ export function describeAttempt(run: {
       keyLines: [],
     };
   }
+  // Capture fingerprints only the last DEFAULT_TAIL_LINES lines; a wider window would pick other
+  // key lines from long output and turn every reproduction into a "different failure".
+  const tail = run.output.replace(/\n$/, '').split('\n').slice(-DEFAULT_TAIL_LINES).join('\n');
   const identity = failureIdentity(
     { exitCode: run.exitCode, signal: null },
-    new Redactor().scrub(run.output),
+    new Redactor().scrub(tail),
   );
   return {
     exitCode: run.exitCode,
@@ -58,13 +63,27 @@ export function describeAttempt(run: {
   };
 }
 
+/**
+ * Whether a replay signature names the captured failure. Capture records a signal death as
+ * "SIGSEGV:<digest>", but a guest command reports it as exit 128+n (or no code at all), so those
+ * forms of the same failure also match.
+ */
+export function matchesSignature(expected: string | null, actual: string | null): boolean {
+  if (expected === null || actual === null) return expected === actual;
+  if (expected === actual) return true;
+  const [status, digest] = expected.split(':');
+  const number = (constants.signals as Record<string, number | undefined>)[status ?? ''];
+  if (number === undefined) return false;
+  return actual === `exit${128 + number}:${digest}` || actual === `exit?:${digest}`;
+}
+
 export function classify(capsule: Capsule, attempts: readonly AttemptResult[]): Verdict {
   if (attempts.length === 0 || attempts.some((attempt) => attempt.timedOut)) return 'inconclusive';
   const keys = new Set(attempts.map((attempt) => attempt.signature ?? 'pass'));
   if (keys.size > 1) return 'flaky';
   const [only] = keys;
   const expected = capsule.command.failure?.signature ?? 'pass';
-  if (only === expected) return 'reproduced';
+  if (matchesSignature(expected, only ?? null)) return 'reproduced';
   if (only === 'pass') return 'not-reproduced';
   return 'different-failure';
 }

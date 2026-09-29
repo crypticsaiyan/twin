@@ -5,7 +5,7 @@ import { planReplay, type Step } from '../replay/plan.ts';
 import { type ReplayEvent, runStep, type StepResult } from '../replay/replay.ts';
 import { installNodeScript, REPO_DIR } from '../replay/runtimes.ts';
 import { script } from '../replay/shell.ts';
-import { type AttemptResult, describeAttempt } from '../replay/verdict.ts';
+import { type AttemptResult, describeAttempt, matchesSignature } from '../replay/verdict.ts';
 import { type Atom, deriveAtoms, type Skipped } from './atoms.ts';
 import { ddmin, type TrialResult } from './ddmin.ts';
 import { planTrial, type TrialBase } from './trial.ts';
@@ -65,7 +65,8 @@ const MINUTE = 60_000;
 
 function trialResult(attempts: readonly AttemptResult[], expected: string | null): TrialResult {
   if (attempts.every((a) => a.outcome === 'pass')) return 'pass';
-  if (attempts.every((a) => a.signature !== null && a.signature === expected)) return 'fail';
+  if (attempts.every((a) => a.signature !== null && matchesSignature(expected, a.signature)))
+    return 'fail';
   return 'unresolved';
 }
 
@@ -127,15 +128,6 @@ export async function bisect(
     (step): step is Extract<Step, { kind: 'run' }> =>
       step.kind === 'run' && step.id === 'dependencies',
   );
-  const base: TrialBase = {
-    env: plan.env,
-    argv: good.command.argv,
-    dependencyDir: dependencyStep?.cwd ?? REPO_DIR,
-    repoDir: REPO_DIR,
-    goodDiff: plan.setup.some((step) => step.id === 'diff-file'),
-    reinstall: dependencyStep ?? null,
-  };
-
   const machine: Machine = await backend.create({
     labels: { ...TWIN_LABELS, run: report.runId },
     idleTimeoutMs: IDLE_TIMEOUT_MS,
@@ -152,6 +144,15 @@ export async function bisect(
         return report;
       }
     }
+    const base: TrialBase = {
+      env: plan.env,
+      argv: good.command.argv,
+      dependencyDir: dependencyStep?.cwd ?? REPO_DIR,
+      repoDir: REPO_DIR,
+      // The good diff step is optional; only a diff that actually applied has to be swapped out.
+      goodDiff: report.steps.some((step) => step.id === 'diff' && step.ok),
+      reinstall: dependencyStep ?? null,
+    };
 
     let pendingUndo: Step[] = [];
     const trial = async (subset: readonly Atom[]): Promise<TrialResult> => {
