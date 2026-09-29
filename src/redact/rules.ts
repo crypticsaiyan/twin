@@ -1,7 +1,7 @@
 import { looksLikeSecret } from './entropy.ts';
 
 /** Bump whenever rules change so a capsule records which rule set scrubbed it. */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 
 export interface SecretRule {
   id: string;
@@ -27,6 +27,12 @@ export const SECRET_RULES: readonly SecretRule[] = [
     id: 'private-key',
     pattern:
       /-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----/g,
+  },
+  {
+    // A key cut in half: an output tail that lost the BEGIN line, or output that ends mid-key.
+    id: 'private-key',
+    pattern:
+      /(?:^[A-Za-z0-9+/=]+\r?\n)+-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*$/gm,
   },
   {
     id: 'url-credentials',
@@ -58,8 +64,25 @@ export const SECRET_RULES: readonly SecretRule[] = [
     // KEY=value, "key": "value", password: value. Keeps the name, drops the value.
     id: 'assignment',
     pattern:
-      /(?<name>\b[A-Za-z0-9_.-]*(?:secret|token|passw(?:or)?d|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth)[A-Za-z0-9_.-]*)(?<sep>["']?\s*[:=]\s*)(?<quote>["']?)(?<value>[^\s"'<>,;]{4,})(?![^\s"'<>,;])(?!\s+<redacted:)/gi,
+      /(?<name>\b[A-Za-z0-9_.-]*(?:secret|token|passw(?:or)?d|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth)[A-Za-z0-9_.-]*)(?<sep>["']?\s*[:=]\s*)(?:(?<quote>["'])(?<quoted>(?:(?!\k<quote>)[^\r\n]){4,})\k<quote>|(?<open>["']?)(?<value>[^\s"'<>,;]{4,})(?![^\s"'<>,;]))(?!\s+<redacted:)/gi,
+    // A quoted value is dropped whole, spaces and punctuation included, so no tail of it survives.
     // The lookaheads stop "Authorization: Bearer <redacted:...>" from being redacted twice.
+    replace: (match, { name, sep, quote, quoted, open, value }) => {
+      if (quoted !== undefined) {
+        return quoted.includes('<redacted:')
+          ? match
+          : `${name}${sep}${quote}${marker('assignment')}${quote}`;
+      }
+      return value?.startsWith('<redacted:')
+        ? match
+        : `${name}${sep}${open}${marker('assignment')}`;
+    },
+  },
+  {
+    // Env-style *_KEY variables (SECRET_KEY_BASE aside, e.g. ENCRYPTION_KEY, SIGNING_KEY) often hold
+    // hex, which the high-entropy rule skips because hex digests are usually public.
+    id: 'assignment',
+    pattern: /\b(?<name>[A-Z][A-Z0-9_]*_KEY)(?<sep>\s*=\s*)(?<quote>["']?)(?<value>[^\s"']{8,})/g,
     replace: (match, { name, sep, quote, value }) =>
       value?.startsWith('<redacted:') ? match : `${name}${sep}${quote}${marker('assignment')}`,
   },

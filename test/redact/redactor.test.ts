@@ -117,3 +117,24 @@ describe('entropy', () => {
     expect(looksLikeSecret('AaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaA1')).toBe(false);
   });
 });
+
+describe('redaction gaps', () => {
+  const scrub = (text: string) => new Redactor().scrub(text);
+
+  it('drops a quoted secret whole, spaces and punctuation included', () => {
+    expect(scrub('password: "hunter2 is, great"')).toBe('password: "<redacted:assignment>"');
+  });
+
+  it('drops hex values of env-style *_KEY variables', () => {
+    expect(scrub(`ENCRYPTION_KEY=${'0123456789abcdef'.repeat(2)}`)).toBe(
+      'ENCRYPTION_KEY=<redacted:assignment>',
+    );
+  });
+
+  it('drops a private key whose BEGIN line was cut off by the output tail', () => {
+    const end = ['-----END', 'PRIVATE KEY-----'].join(' ');
+    expect(scrub(`MIIEvQIBADANBgkqhkiG9w0BAQEF\nab+/==\n${end}\nnext`)).toBe(
+      '<redacted:private-key>\nnext',
+    );
+  });
+});

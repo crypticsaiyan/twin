@@ -119,7 +119,7 @@ describe('capture', () => {
   it('records redaction settings', async () => {
     const { capsule } = await setup({}, { includeEnv: ['API_TOKEN'], salt: 's' });
     expect(capsule.redaction).toMatchObject({
-      rulesVersion: 1,
+      rulesVersion: 2,
       hashedValues: true,
       valuesIncluded: expect.arrayContaining(['API_TOKEN', 'NODE_ENV']),
     });
