@@ -44,6 +44,15 @@ describe('normalizeOutput', () => {
     ].join('\n');
     expect(normalizeOutput(output)).toEqual(['Error: boom', 'at run (src/a.js:1:1)']);
   });
+
+  it('drops host configuration warnings so a failure reads the same on every machine', () => {
+    const output = [
+      ' WARN  Issue while reading "/home/me/.npmrc". Failed to replace env in config: ${GITHUB_TOKEN}',
+      'bash: warning: setlocale: LC_ALL: cannot change locale (en_IN.UTF-8)',
+      'AssertionError: expected 1 to be 2',
+    ].join('\n');
+    expect(normalizeOutput(output)).toEqual(['AssertionError: expected 1 to be 2']);
+  });
 });
 
 describe('selectKeyLines', () => {

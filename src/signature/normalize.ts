@@ -31,8 +31,10 @@ const REPLACEMENTS: readonly [RegExp, Replacement][] = [
 
 // Runtime-internal locations and version trailers change between releases without meaning anything
 // about the failure (Node prints "node:internal/..." headers and "Node.js v22.3.0" after a crash).
+// Host configuration warnings (an unresolvable ${TOKEN} in ~/.npmrc, a locale the machine lacks)
+// describe the machine, not the failure, and would make the same failure differ per host.
 const NOISE_LINE =
-  /node:internal\/|^\s*at (?:process\.processTicksAndRejections|async Promise\.all)|^Node\.js v\d/;
+  /node:internal\/|^\s*at (?:process\.processTicksAndRejections|async Promise\.all)|^Node\.js v\d|^\S*\s*WARN\s+Issue while reading .*\.npmrc|setlocale: LC_\w+: cannot change locale/;
 
 export function normalizeLine(raw: string): string {
   let line = raw.replace(ANSI, '');

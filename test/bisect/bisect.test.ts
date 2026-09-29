@@ -61,7 +61,7 @@ function simulatedBackend(
     else if (text.includes('git apply --whitespace=nowarn /tmp/twin/failing.diff'))
       diffApplied = true;
     if (text.includes('npm install --no-save')) dependencyInstalled = true;
-    if (text === 'npm ci') dependencyInstalled = false;
+    if (spec.argv.at(-1) === 'npm ci') dependencyInstalled = false;
     if (!isCommand(spec)) return undefined;
     const world: World = {
       tz: spec.env?.TZ,
@@ -148,7 +148,7 @@ describe('bisect', () => {
     const backend = simulatedBackend((w) => w.dependency);
     const report = await bisect(good, bad, backend);
     expect(report.minimal).toEqual(['left-pad@1.4.0']);
-    const installs = backend.machines[0]?.runs.filter((r) => r.argv.join(' ') === 'npm ci') ?? [];
+    const installs = backend.machines[0]?.runs.filter((r) => r.argv.at(-1) === 'npm ci') ?? [];
     expect(installs.length).toBeGreaterThan(1);
   });
 
@@ -233,10 +233,7 @@ describe('bisect', () => {
     const { good, bad } = capsules();
     const backend = simulatedBackend(
       () => false,
-      (spec) =>
-        spec.argv[0] === 'npm' && spec.argv[1] === 'ci'
-          ? { exitCode: 1, output: 'npm ERR!' }
-          : undefined,
+      (spec) => (spec.argv.at(-1) === 'npm ci' ? { exitCode: 1, output: 'npm ERR!' } : undefined),
     );
     const report = await bisect(good, bad, backend);
     expect(report.verdict).toBe('setup-failed');

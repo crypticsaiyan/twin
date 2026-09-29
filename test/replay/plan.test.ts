@@ -55,10 +55,10 @@ describe('planReplay', () => {
       'git remote add origin https://github.com/o/r',
     );
     expect(find(plan.setup, 'package-manager')).toMatchObject({
-      argv: ['npm', 'install', '-g', 'npm@10.8.1'],
+      argv: script(['npm install -g npm@10.8.1']),
     });
     expect(find(plan.setup, 'dependencies')).toMatchObject({
-      argv: ['npm', 'ci'],
+      argv: script(['npm ci']),
       cwd: '/tmp/twin/repo',
     });
     expect(plan.command).toMatchObject({
@@ -158,11 +158,11 @@ describe('planReplay', () => {
       }),
     );
     expect(find(plan.setup, 'dependencies')).toMatchObject({
-      argv: ['pnpm', 'install', '--frozen-lockfile'],
+      argv: script(['pnpm install --frozen-lockfile']),
       cwd: '/tmp/twin/repo',
     });
     expect(find(plan.setup, 'package-manager')).toMatchObject({
-      argv: ['npm', 'install', '-g', 'pnpm@9.12.0'],
+      argv: script(['npm install -g pnpm@9.12.0']),
     });
     expect(plan.command.cwd).toBe('/tmp/twin/repo/packages/api');
   });

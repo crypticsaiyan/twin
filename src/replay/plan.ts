@@ -61,6 +61,11 @@ export interface PlanOptions {
 const HOST_SPECIFIC =
   /^(?:PATH|SHELL|HOME|USER|TERM|TERMINFO|TMPDIR|LD_LIBRARY_PATH|MANPATH|INFOPATH|PKG_CONFIG_PATH|.*_(?:HOME|PATH|DIR|ROOT))$/;
 
+/** A tool step run under the env's PATH (through sh), so the twin-installed node and npm win. */
+function viaPath(argv: readonly string[]): string[] {
+  return script([argv.map(shellQuote).join(' ')]);
+}
+
 function repoCheckout(url: string, ref: string): Step {
   // A ref or URL starting with "-" would be read by git as an option.
   for (const [what, value] of [
@@ -238,7 +243,9 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
         id: 'package-manager',
         title:
           `install ${nodeManager.name} ${nodeManager.version ?? nodeManager.declared ?? ''}`.trim(),
-        argv: managerCommands.setup,
+        // Through the env's PATH: exec alone looks the program up in the sandbox agent's PATH, so
+        // `npm` would be the image's old npm and the manager would land outside the twin node.
+        argv: viaPath(managerCommands.setup),
         timeoutMs: 5 * MINUTE,
       });
     }
@@ -246,7 +253,7 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
       kind: 'run',
       id: 'dependencies',
       title: `install dependencies (${managerCommands.install.join(' ')})`,
-      argv: managerCommands.install,
+      argv: viaPath(managerCommands.install),
       cwd,
       timeoutMs: 20 * MINUTE,
     });

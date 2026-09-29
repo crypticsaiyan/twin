@@ -97,7 +97,7 @@ describe('replay', () => {
     const backend = backendWhere(
       () => ({ exitCode: 1 }),
       (spec) =>
-        spec.argv[0] === 'npm' && spec.argv[1] === 'ci'
+        spec.argv.at(-1) === 'npm ci'
           ? { exitCode: 1, output: 'npm ERR! lockfile mismatch' }
           : undefined,
     );
