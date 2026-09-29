@@ -78,7 +78,7 @@ describe('planReplay', () => {
     expect(env).not.toHaveProperty('CI');
     expect(env).not.toHaveProperty('API_TOKEN');
     expect(notes).toContain(
-      "1 variable was set on the reporter's machine but only by name, so left unset here (API_TOKEN). Usually harmless; if the command needs one, pass --env NAME=value.",
+      "1 variable was set on the reporter's machine but only by name, so left unset here (API_TOKEN). Usually harmless; if the command needs one, pass --env NAME=value (or have the reporter capture with --include-env NAME).",
     );
   });
 

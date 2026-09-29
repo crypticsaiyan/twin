@@ -13,9 +13,13 @@ sidebar:
 
 ## Ecosystems
 
-- **Node and Python projects.** Verified end to end: npm projects on Solari, and uv projects (`uv.lock`) in the Docker harness. pnpm, Yarn and Bun projects, and Python `requirements.txt` / `pyproject.toml` projects, go through the same code path but have only unit tests so far.
+- **Node and Python projects.** Verified end to end on Solari: npm projects, pnpm projects (date-fns) and uv projects (click). Yarn (classic and Berry) and Bun projects, and Python `requirements.txt` / `pyproject.toml` projects, go through the same code path but have only unit tests so far.
 - **Other runtimes are recorded, not installed.** Go, Rust, Java, Ruby, Deno and Bun versions appear in the capsule and in `inspect` diffs, but replay installs only Node and Python. Commands that need the others rely on what the `base` template ships.
 - **Package managers other than npm, pnpm, Yarn and Bun** (for Node) are noted as unsupported, and dependencies are not installed for them.
+
+## Sandbox size
+
+- **Sandboxes are small:** about 2 GB of RAM, no swap and a 3.9 GB disk. A very large install (a big monorepo's `yarn install`, measured on mantine) can hit the guest's out-of-memory killer, which ends the sandbox's agent and drops the connection. twin then says it lost the connection, releases the machine, and suggests replaying a smaller workspace. Ordinary projects are fine, and a silent 100 second command does not drop the connection.
 
 ## What replay can copy
 

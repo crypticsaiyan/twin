@@ -14,7 +14,13 @@ type Chunk = { stream: 'stdout' | 'stderr'; data: string };
 
 /** Structural stand-in for an SDK Sandbox; only the members twin calls. */
 function fakeSandbox(
-  options: { chunks?: Chunk[]; exitCode?: number; hang?: boolean; connectFails?: boolean } = {},
+  options: {
+    chunks?: Chunk[];
+    exitCode?: number;
+    hang?: boolean;
+    connectFails?: boolean;
+    waitFails?: Error;
+  } = {},
 ) {
   const calls: string[] = [];
   const handle = {
@@ -24,7 +30,11 @@ function fakeSandbox(
       for (const chunk of options.chunks ?? []) cb(chunk);
     },
     wait: () =>
-      options.hang ? new Promise<number>(() => {}) : Promise.resolve(options.exitCode ?? 0),
+      options.waitFails
+        ? Promise.reject(options.waitFails)
+        : options.hang
+          ? new Promise<number>(() => {})
+          : Promise.resolve(options.exitCode ?? 0),
     kill: vi.fn(async (_signal?: number) => {
       calls.push('handle.kill');
     }),
@@ -164,6 +174,23 @@ describe('SolariMachine', () => {
       new SolariMachine(sandbox, Date.now, 0).run({ argv: ['x'], timeoutMs: 1 }),
     ).rejects.toThrow('ENOENT');
     expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains a channel lost while a command runs, and passes other errors through', async () => {
+    const lost = Object.assign(new Error('Control channel closed (1005)'), {
+      name: 'ConnectionError',
+    });
+    const { sandbox } = fakeSandbox({ waitFails: lost });
+    const error = await new SolariMachine(sandbox)
+      .run({ argv: ['yarn', 'install'], timeoutMs: 1000 })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(TwinError);
+    expect((error as Error).message).toMatch(/lost the connection .* "yarn".* 2 GB/);
+
+    const other = fakeSandbox({ waitFails: new Error('boom') }).sandbox;
+    await expect(new SolariMachine(other).run({ argv: ['x'], timeoutMs: 1000 })).rejects.toThrow(
+      'boom',
+    );
   });
 
   it('detaches by closing the channel without the SDK warning, and restores console.warn', async () => {

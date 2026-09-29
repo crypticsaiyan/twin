@@ -32,6 +32,17 @@ function isConnectionError(error: unknown): boolean {
   return error instanceof Error && error.name === 'ConnectionError';
 }
 
+/**
+ * A dropped control channel mid-command is not an idle timeout (a 100 s silent command is fine). The
+ * measured cause (2026-09-29, mantine yarn install) was the guest's OOM killer ending the agent:
+ * sandboxes have about 2 GB of RAM, no swap and a 3.9 GB disk.
+ */
+function connectionLost(command: string): TwinError {
+  return new TwinError(
+    `lost the connection to the sandbox while running "${command}". A large install or test run can exhaust the sandbox (about 2 GB RAM, no swap, 3.9 GB disk) and kill its agent; the machine is released. Try a smaller workspace, or replay just the failing package.`,
+  );
+}
+
 export interface ReleaseTiming {
   attempts: number;
   intervalMs: number;
@@ -137,7 +148,9 @@ export class SolariMachine implements Machine {
       timer = setTimeout(() => resolve('timeout'), spec.timeoutMs);
     });
     try {
-      const result = await Promise.race([handle.wait(), timeout]);
+      const result = await Promise.race([handle.wait(), timeout]).catch((error: unknown) => {
+        throw isConnectionError(error) ? connectionLost(cmd) : error;
+      });
       if (result === 'timeout') {
         await handle.kill(SIGKILL).catch(() => {});
         return {

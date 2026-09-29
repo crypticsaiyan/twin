@@ -301,7 +301,7 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
       unknown.length > MAX_LISTED_NAMES ? ` and ${unknown.length - MAX_LISTED_NAMES} more` : '';
     const noun = unknown.length === 1 ? 'variable was' : 'variables were';
     notes.push(
-      `${unknown.length} ${noun} set on the reporter's machine but only by name, so left unset here (${shown}${more}). Usually harmless; if the command needs one, pass --env NAME=value.`,
+      `${unknown.length} ${noun} set on the reporter's machine but only by name, so left unset here (${shown}${more}). Usually harmless; if the command needs one, pass --env NAME=value (or have the reporter capture with --include-env NAME).`,
     );
   }
 
