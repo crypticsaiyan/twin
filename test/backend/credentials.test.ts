@@ -33,6 +33,15 @@ describe('solariEnv', () => {
     });
   });
 
+  it('skips a nearer .env without the key, and never mixes files', async () => {
+    const root = await tempDir();
+    await writeTree(root, {
+      '.env': 'SOLARI_API_KEY=slr_root\n',
+      'app/.env': 'PORT=3000\nSOLARI_BASE_URL=https://elsewhere\n',
+    });
+    expect(await solariEnv({}, join(root, 'app'), read)).toEqual({ SOLARI_API_KEY: 'slr_root' });
+  });
+
   it('returns what the environment has when there is no readable .env', async () => {
     const root = await tempDir();
     expect(await solariEnv({}, root, read)).toEqual({});
