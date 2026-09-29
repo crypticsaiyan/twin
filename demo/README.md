@@ -19,7 +19,12 @@ uncommitted change and `pkgs/core/src/eachHourOfInterval/index.ts` unfixed.
    `DEMO_WORK=<work> CLONE=<clone> demo/record-all.sh -take1`
 5. Render and encode:
    `DEMO_WORK=<work> REPO=<twin repo> OUT=<out> demo/assemble.sh -take1`
-6. Contact sheet: `DEMO_WORK=<work> OUT=<out> demo/contact-sheet.sh 1.5,5,15,24,34,52,57,63,71.5,78,90,99`
+6. Website walkthrough (real site, no machines): build and serve the site (`pnpm build`, `pnpm preview --host 127.0.0.1 --port 4321`),
+   then `node demo/site-record.mjs <work>/site`. Run it before `assemble.sh`; `build.mjs` adds the scene when
+   `<work>/site/site.json` exists.
+7. Contact sheet: `DEMO_WORK=<work> OUT=<out> demo/contact-sheet.sh 1.5,4,15,30,47,58,70,84,94,104,114,125,136,141,143`
+
+Also see `voiceover.md` (timed narration script) and `cdp.mjs` (small CDP helper).
 
 Files: `rec.py` drives a real bash in a pty and logs timestamped output; `browser.mjs` drives headless Chrome over
 CDP against the `twin shell --web` link; `scene5.sh` chains them; `specs.py` writes the run specs;

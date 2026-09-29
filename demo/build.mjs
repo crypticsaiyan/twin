@@ -54,7 +54,7 @@ function terminalScene(logName, steps, opts = {}) {
     if (st.res) {
       const re = new RegExp(st.res);
       const R = ev.find((e) => e.t >= E && re.test(e.d))?.t ?? E;
-      if (st.progress && R - E > st.progress * 1.05) segs.push({ r0: E, r1: R, dur: st.progress, enter: E });
+      if (st.progress && R - E > st.progress * 1.05) segs.push({ r0: E, r1: R, dur: st.progress, real: D - E });
       else segs.push({ r0: E, r1: R });
       anchor = R;
     } else segs.push({ r0: E, r1: D });
@@ -65,7 +65,7 @@ function terminalScene(logName, steps, opts = {}) {
     if (anchor + hold < stop - 0.6) {
       segs.push({ r0: anchor, r1: anchor + hold });
       if (nextTyping !== null) {
-        segs.push({ r0: anchor + hold, r1: nextTyping - 0.3, dur: 0.5, enter: anchor + hold });
+        segs.push({ r0: anchor + hold, r1: nextTyping - 0.3, dur: 0.5 });
         prev = nextTyping - 0.3;
       } else prev = endT + 1e6; // last step: drop the idle tail
     } else prev = anchor;
@@ -75,7 +75,7 @@ function terminalScene(logName, steps, opts = {}) {
   const L = layout(segs);
   return {
     events: ev.filter((e) => !e.end).map((e) => ({ v: toV(L, e.t), d: e.d })),
-    segs: L.map(({ v0, v1, r0, r1, speed, enter }) => ({ v0, v1, r0, r1, speed, enter })),
+    segs: L.map(({ v0, v1, r0, r1, speed, real }) => ({ v0, v1, r0, r1, speed, real })),
     marks: marks.map((m) => ({ v: toV(L, m.r), text: m.text })),
     dur: L[L.length - 1].v1,
   };
@@ -111,8 +111,8 @@ add({
 const keep = terminalScene(
   'keep',
   [
-    { name: 'replay --keep', res: 'Replay on solari', progress: 2.5, hold: 2.2 },
-    { name: null, res: 'Browser terminal on', progress: 2.0, hold: 4.0 },
+    { name: 'replay --keep', res: 'Replay on solari', progress: 2.2, hold: 1.2 },
+    { name: null, res: 'Browser terminal on', progress: 1.4, hold: 2.6 },
   ],
 );
 add({
@@ -124,21 +124,21 @@ const bdir = `${work}/raw/browser${suffix}`;
 const bj = JSON.parse(readFileSync(`${bdir}/frames.json`, 'utf8'));
 const evT = Object.fromEntries(bj.events.map((e) => [e.ev, e.t]));
 const bsegs = layout([
-  { r0: evT['auth-prompt'] - 0.7, r1: evT['auth-submit'] },
-  { r0: evT['auth-submit'], r1: evT['typing-start'] - 0.8, dur: (evT['typing-start'] - 0.8 - evT['auth-submit']) / 3, enter: evT['auth-submit'] },
-  { r0: evT['typing-start'] - 0.8, r1: evT['result'] + 2.1 },
+  { r0: evT['auth-prompt'] - 0.4, r1: evT['auth-submit'], dur: 2.4 },
+  { r0: evT['auth-submit'], r1: evT['typing-start'] - 0.8, dur: (evT['typing-start'] - 0.8 - evT['auth-submit']) / 3 },
+  { r0: evT['typing-start'] - 0.8, r1: evT['result'] + 1.5 },
 ]);
 add({
   kind: 'browser', title: 'browser terminal', label: 'LIVE RUN', caption: 'Share a link. The reporter joins the same machine.',
   url: bj.url, W: bj.W, H: bj.H, dir: bdir,
   frames: bj.frames.map((f) => ({ r: f.t, file: f.file })),
-  segs: bsegs.map(({ v0, v1, r0, r1, speed }) => ({ v0, v1, r0, r1, speed })),
+  segs: bsegs.map(({ v0, v1, r0, r1, speed, real }) => ({ v0, v1, r0, r1, speed, real })),
   auth: { v0: toV(bsegs, evT['auth-prompt']), v1: toV(bsegs, evT['auth-submit']) },
   dur: bsegs[bsegs.length - 1].v1 + 0.3,
 });
 
 const cls = terminalScene('close', [
-  { name: null, hold: 1.2 }, { name: null, res: 'Stopped', progress: 1.5, hold: 1.2 }, { name: null, hold: 1.4 },
+  { name: null, hold: 0.8 }, { name: null, res: 'Stopped', progress: 1.5, hold: 0.8 }, { name: null, hold: 1.2 },
 ]);
 add({
   kind: 'term', title: 'browser terminal', label: 'LIVE RUN', caption: 'Share a link. The reporter joins the same machine.',
@@ -174,6 +174,19 @@ add({
   cols: 128, rows: 30, events: mev, segs: [{ v0: 0, v1: t + 2.2, r0: 0, r1: (t + 2.2), speed: 1 }], marks: [],
   fixedTag: 'recorded; waits shortened', dur: t + 2.2,
 });
+
+// Website walkthrough: real site frames recorded by site-record.mjs (30 fps, 1x).
+const sdir = `${work}/site`;
+if (existsSync(`${sdir}/site.json`)) {
+  const sj = JSON.parse(readFileSync(`${sdir}/site.json`, 'utf8'));
+  add({
+    kind: 'site', title: 'the website', dir: sdir, W: sj.W, H: sj.H, nframes: sj.frames,
+    captions: sj.captions.map((c) => ({ t: c.t, text: c.text })),
+    urls: sj.urls.map((c) => ({ t: c.t, url: c.url })),
+    zooms: sj.zooms.map((z) => ({ t0: z.t0, t1: z.t1 ?? z.t0, label: z.label })),
+    caption: '\u00a0', dur: sj.frames / sj.FPS,
+  });
+}
 
 // Close: logo, install line and a real `twin list` after `twin stop`.
 const fin = terminalScene('final', [{ name: null }]);
