@@ -71,7 +71,7 @@ describe('interruptible', () => {
       });
     send('SIGTERM');
     send('SIGINT');
-    expect(exits).toEqual([130]);
+    expect(exits).toEqual([143]);
     expect(stderr.text).toContain('twin: not waiting; stop sbx_fake0 with: twin stop');
     finish();
     await done;
