@@ -62,6 +62,15 @@ const HOST_SPECIFIC =
   /^(?:PATH|SHELL|HOME|USER|TERM|TERMINFO|TMPDIR|LD_LIBRARY_PATH|MANPATH|INFOPATH|PKG_CONFIG_PATH|.*_(?:HOME|PATH|DIR|ROOT))$/;
 
 function repoCheckout(url: string, ref: string): Step {
+  // A ref or URL starting with "-" would be read by git as an option.
+  for (const [what, value] of [
+    ['ref', ref],
+    ['repository URL', url],
+  ] as const) {
+    if (value.startsWith('-')) {
+      throw new TwinError(`${what} must not start with "-": ${value}`, { exitCode: 2 });
+    }
+  }
   return {
     kind: 'run',
     id: 'checkout',

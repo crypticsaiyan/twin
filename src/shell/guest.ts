@@ -19,8 +19,12 @@ export const EXIT_MARKER = '\u001b]twin;exit\u0007';
 export const WEB_TERMINAL_PORT = 7681;
 const TTYD_VERSION = '1.7.7';
 
+/** Names `export` accepts. Others (from a crafted capsule or --env) would abort or inject into env.sh. */
+const SHELL_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 export function envScript(env: Readonly<Record<string, string>>): string {
   const lines = Object.entries(env)
+    .filter(([name]) => SHELL_NAME.test(name))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, value]) => `export ${name}=${shellQuote(value)}`);
   return `${lines.join('\n')}\n`;

@@ -314,4 +314,10 @@ describe('nodeManagerCommands', () => {
   ])('%o', (manager, expected) => {
     expect(nodeManagerCommands(manager)).toEqual(expected);
   });
+  it('refuses refs and URLs that git would read as options', () => {
+    expect(() => planReplay(makeCapsule(), { ref: '--upload-pack=x' })).toThrow(/must not start/);
+    expect(() => planReplay(makeCapsule(), { repoUrl: '-oProxyCommand=x' })).toThrow(
+      /must not start/,
+    );
+  });
 });

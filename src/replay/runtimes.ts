@@ -1,4 +1,5 @@
 import type { PackageManagerFact } from '../capsule/schema.ts';
+import { TwinError } from '../errors.ts';
 import { shellQuote } from './shell.ts';
 
 /** Everything twin installs or checks out lives under one directory in the guest. */
@@ -18,6 +19,11 @@ export function nodeDir(version: string): string {
 
 /** Official Node.js tarball for the guest's architecture. No compiling, cached per version. */
 export function installNodeScript(version: string): string[] {
+  // The version lands inside a double-quoted URL, where quoting cannot neutralize $(...), and it
+  // comes from an untrusted capsule. Real Node versions never need more than these characters.
+  if (!/^[0-9A-Za-z.+-]+$/.test(version)) {
+    throw new TwinError(`not a node version: ${JSON.stringify(version)}`, { exitCode: 2 });
+  }
   const dir = shellQuote(nodeDir(version));
   const v = shellQuote(version);
   return [
