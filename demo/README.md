@@ -9,7 +9,7 @@ uncommitted change and `pkgs/core/src/eachHourOfInterval/index.ts` unfixed.
 
 1. Pack and install twin into a temp prefix (no publish):
    `npm pack --pack-destination <work>/pack` then
-   `npm install -g --prefix <work>/prefix <work>/pack/crypticsaiyan-twin-0.1.0.tgz`.
+   `npm install -g --prefix <work>/prefix <work>/pack/twincli-0.1.0.tgz`.
 2. Put `<work>/keyenv.sh` in place: one line that exports `SOLARI_API_KEY` from the twin `.env`. It is sourced
    in a hidden setup step and never printed.
 3. Copy `new-york`/`kolkata` inputs: the maintainer folder is `<work>/work/date-fns-2068/` and holds `fix.patch`

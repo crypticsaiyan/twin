@@ -1,6 +1,6 @@
 # twin
 
-Website and docs: https://crypticsaiyan-twin.vercel.app
+Website and docs: https://twincli.vercel.app
 
 **Turns "cannot reproduce" into a verified fix.** A reporter captures the environment their command failed in, as a small scrubbed file attached to the issue. twin rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, and checks a fix there, whether a maintainer or a coding agent wrote it.
 
@@ -35,7 +35,7 @@ Coding agents can't fix bugs they can't reproduce, and they report "fixed" after
 **`twin mcp`** gives an agent the reporter's machine. Add it to Claude Code (or any MCP client):
 
 ```sh
-claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twin mcp
+claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y twincli mcp
 ```
 
 | Tool | What the agent gets |
@@ -78,7 +78,7 @@ Node 22 or newer.
 **Reporter**, in the project where the command fails. Nothing is uploaded, no account needed:
 
 ```sh
-npx @crypticsaiyan/twin capture -- npm test
+npx twincli capture -- npm test
 ```
 
 twin runs the command as usual, shows what it recorded, and writes `twin-capsule.json` after you confirm. Attach that file to the issue.
@@ -87,10 +87,10 @@ twin runs the command as usual, shows what it recorded, and writes `twin-capsule
 
 ```sh
 export SOLARI_API_KEY=slr_live_...     # https://console.getsolari.com, or put it in a .env file
-npx @crypticsaiyan/twin replay twin-capsule.json
+npx twincli replay twin-capsule.json
 ```
 
-Install it once with `npm install -g @crypticsaiyan/twin` to get the `twin` command (then `twin capture -- npm test`, `twin replay ...`). To work from a clone instead: `pnpm install`, then `pnpm dev <command>` (or `pnpm build` and `node dist/bin.js <command>`).
+Install it once with `npm install -g twincli` to get the `twin` command (then `twin capture -- npm test`, `twin replay ...`). To work from a clone instead: `pnpm install`, then `pnpm dev <command>` (or `pnpm build` and `node dist/bin.js <command>`).
 
 ### Ask for capsules in your issue template
 
@@ -98,7 +98,7 @@ Install it once with `npm install -g @crypticsaiyan/twin` to get the `twin` comm
 If the bug does not reproduce for us, please run the failing command through twin
 and attach the file it writes (it records versions and variable names, never secrets):
 
-    npx @crypticsaiyan/twin capture -- <your failing command>
+    npx twincli capture -- <your failing command>
 ```
 
 ## Commands

@@ -38,14 +38,14 @@ The sidebar has four groups, each generated from a folder: `start/` (Start here)
 
 ## Deploy
 
-The site is on Vercel at https://crypticsaiyan-twin.vercel.app (project `crypticsaiyan-twin`, a static upload of `dist/`). Redeploy with `pnpm deploy` after `vercel login`.
+The site is on Vercel at https://twincli.vercel.app (project `twincli`, a static upload of `dist/`). Redeploy with `pnpm deploy` after `vercel login`.
 
 ## Change the URL or base path
 
 Both are set at the top of `astro.config.mjs`:
 
 ```js
-const SITE = process.env.SITE_URL ?? 'https://crypticsaiyan-twin.vercel.app';
+const SITE = process.env.SITE_URL ?? 'https://twincli.vercel.app';
 const BASE = process.env.SITE_BASE ?? '/';
 ```
 

@@ -4,7 +4,7 @@ import { defineConfig } from 'astro/config';
 
 // Hosted on Vercel at the domain root (see `pnpm deploy` in package.json). Set SITE_URL / SITE_BASE
 // to serve it elsewhere, for example under a sub-path. Every internal link is built from `base`.
-const SITE = process.env.SITE_URL ?? 'https://crypticsaiyan-twin.vercel.app';
+const SITE = process.env.SITE_URL ?? 'https://twincli.vercel.app';
 const BASE = process.env.SITE_BASE ?? '/';
 
 export default defineConfig({

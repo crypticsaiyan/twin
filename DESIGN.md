@@ -214,7 +214,7 @@ Notes:
 
 ## 9. Implementation
 
-- TypeScript, Node ≥ 22, ESM. Published as `@crypticsaiyan/twin` (the unscoped `twin` name is taken); `npx @crypticsaiyan/twin` or `npm install -g` gives the `twin` command.
+- TypeScript, Node ≥ 22, ESM. Published as `twincli` (the unscoped `twin` name is taken); `npx twincli` or `npm install -g` gives the `twin` command.
 - Runtime dependencies: `@solarisdk/sdk` (added with replay), `@modelcontextprotocol/sdk` and its schema library `zod` (added with `twin mcp`). Argument parsing with `node:util` `parseArgs`. No framework. Dev: TypeScript, Vitest, Biome.
 - A `Backend` / `Machine` interface (`create`, `connect`, `list`, `reap`; `run`, `writeFile`, `openTerminal`, `previewUrl`, `detach`, `kill`) with `SolariBackend`, an in-memory `FakeBackend` for unit tests, and a development-only Docker backend (`test/e2e/`) that runs the real guest scripts without a key.
 
