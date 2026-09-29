@@ -1,9 +1,12 @@
 ---
-import '@fontsource-variable/geist';
-import '@fontsource-variable/geist-mono';
+import '@fontsource-variable/jetbrains-mono';
 import '@fontsource/doto/900.css';
 import '../styles/tokens.css';
+import '../styles/grid.css';
+import kolkataCapsule from '../../../examples/echarts-21538/kolkata.json';
+import newYorkCapsule from '../../../examples/echarts-21538/new-york.json';
 import bisectLog from '../../../examples/echarts-21538/bisect.txt?raw';
+import fixPatch from '../../../examples/echarts-21538/fix.patch?raw';
 import mcpLog from '../../../examples/echarts-21538/mcp.txt?raw';
 import replayLog from '../../../examples/echarts-21538/replay.txt?raw';
 import verifyLog from '../../../examples/echarts-21538/verify.txt?raw';
@@ -58,80 +61,262 @@ const lines = (text: string) => text.split('\n');
 const lineStarting = (text: string, prefix: string) =>
   lines(text).find((line) => line.startsWith(prefix)) ?? '';
 
+/**
+ * One line of a terminal on this page. The server renders every line in its final state;
+ * the script only uses the data attributes to play it back (see src/scripts/demos.ts).
+ * `pending` is what the line shows while its step runs, `seconds` the recorded duration.
+ */
+type Line = {
+  html: string;
+  type?: string;
+  pending?: string;
+  seconds?: number;
+  verdict?: boolean;
+  stage?: number;
+  ref?: string;
+};
+
+const blank = (stage?: number): Line => ({ html: ' ', stage });
+const command = (text: string, stage?: number): Line => ({ html: paint(text), type: text, stage });
+
+/** A recorded report, split so step and attempt lines can be shown running, then done. */
+function report(log: string): Line[] {
+  return lines(log.trimEnd()).map((raw) => {
+    if (!raw.trim()) return blank();
+    const step = raw.match(/^ {2}✓ (.+?) {2}([\d.]+)s$/);
+    if (step) {
+      const ref = /candidate fix/.test(step[1]) ? step[1].split(' ')[0] : undefined;
+      return { html: paint(raw), pending: escape(`  … ${step[1]}`), seconds: Number(step[2]), ref };
+    }
+    const attempt = raw.match(/^ {2}(\d+) {2}(?:FAIL|PASS).* {2}([\d.]+)s$/);
+    if (attempt) {
+      return { html: paint(raw), pending: escape(`  ${attempt[1]}  …`), seconds: Number(attempt[2]) };
+    }
+    return { html: paint(raw), verdict: /^(REPRODUCED|FIXED|STILL FAILING):/.test(raw) };
+  });
+}
+
 // Hero: the three verdicts, verbatim from the recorded runs.
 const bisectResult = lines(bisectLog);
 const minimalAt = bisectResult.findIndex((line) => line.startsWith('Minimal failing difference'));
-const heroLog = [
-  '$ twin replay new-york.json',
-  lineStarting(replayLog, 'REPRODUCED'),
-  '',
-  '$ twin bisect new-york.json --good kolkata.json',
-  ...bisectResult.slice(minimalAt, minimalAt + 2),
-  '',
-  '$ twin verify new-york.json --patch fix.patch',
-  lineStarting(verifyLog, 'FIXED'),
-].join('\n');
-
-// The reporter's capsule, as `inspect` summarizes it (from the recorded agent session).
-const summary = lines(mcpLog.slice(0, mcpLog.indexOf('>>> replay')));
-const captureLog = summary
-  .filter((line) =>
-    /^ {2}(argv|result|time zone)\b|^ {13}(Expected|Received):|^ {2}(node|npm) {2,}|^ {2}commit /.test(
-      line,
-    ),
-  )
-  .join('\n');
-
-// The agent session, trimmed to the calls and the lines that matter.
-const agentLog = lines(shortenIds(mcpLog.slice(mcpLog.indexOf('>>> replay'))))
-  .filter(
-    (line) =>
-      /^(>>>|<<<) /.test(line) ||
-      /^(REPRODUCED|FIXED):|^ {2}machine |^TZ=|✕ roundTime_locale|✓ roundTime_locale|^Tests:|^wrote |^released /.test(
-        line,
-      ),
-  )
-  .join('\n');
-
-const synopsis = [
-  ['capture -- <command>', 'Run the command and record the environment it failed in.'],
-  ['inspect <capsule> [<other>]', 'Summarize a capsule, or list every difference between two.'],
-  ['replay <capsule> [--keep]', 'Rebuild it on a clean Solari sandbox and rerun the command.'],
-  ['bisect <bad> --good <good>', 'Find the smallest difference that makes it fail.'],
-  ['verify <capsule> --patch <file>', 'Check a fix in the reporter’s environment.'],
-  ['shell [machine] [--web]', 'Open a terminal on a kept machine, or share one in a browser.'],
-  ['mcp', 'Serve all of the above to a coding agent.'],
+const heroLines: Line[] = [
+  command('$ twin replay new-york.json'),
+  { html: paint(lineStarting(replayLog, 'REPRODUCED')), verdict: true },
+  blank(),
+  command('$ twin bisect new-york.json --good kolkata.json'),
+  ...bisectResult.slice(minimalAt, minimalAt + 2).map((raw) => ({ html: paint(raw) })),
+  blank(),
+  command('$ twin verify new-york.json --patch fix.patch'),
+  { html: paint(lineStarting(verifyLog, 'FIXED')), verdict: true },
 ];
+
+// Step 1, capture: the reporter's capsule, field by field, straight from new-york.json.
+type EnvEntry = { state: string; value?: string };
+const ny = newYorkCapsule as typeof newYorkCapsule & { env: Record<string, EnvEntry> };
+const good = kolkataCapsule as typeof kolkataCapsule & { env: Record<string, EnvEntry> };
+const lockfile = ny.packageManagers[0];
+const envList = Object.entries(ny.env);
+const envKept = envList.filter(([, entry]) => entry.state === 'set' && entry.value !== undefined);
+const envNamed = envList.filter(([, entry]) => entry.state === 'set' && entry.value === undefined);
+const envAbsent = envList.filter(([, entry]) => entry.state === 'absent').map(([name]) => name);
+const packageCount = Object.keys(ny.resolved.node).length;
+
+const capsule: { group: string; rows: [string, string, string?][] }[] = [
+  {
+    group: 'command',
+    rows: [
+      ['argv', ny.command.argv.join(' ')],
+      ['outcome', `${ny.command.outcome}, exit ${ny.command.exitCode}, ${ny.command.durationMs} ms`],
+      ['signature', ny.command.failure?.signature ?? ''],
+    ],
+  },
+  {
+    group: 'system',
+    rows: [
+      ['os', `${ny.os.platform} ${ny.os.arch}, ${ny.os.distro}, ${ny.os.libc} ${ny.os.libcVersion}`],
+      ['time zone', `${ny.locale.timeZone}, ${ny.locale.locale}`],
+    ],
+  },
+  {
+    group: 'toolchain',
+    rows: [
+      ['node', ny.runtimes.node],
+      [lockfile.name, `${lockfile.version}, ${lockfile.lockfile}`],
+      ['lockfile', `sha256 ${lockfile.lockfileSha256.slice(0, 16)}…`],
+      ['packages', `${packageCount} installed, versions recorded`],
+    ],
+  },
+  {
+    group: 'repository',
+    rows: [
+      ['remote', ny.repo.remote.replace(/^https:\/\//, '')],
+      ['commit', `${ny.repo.commit.slice(0, 12)} on ${ny.repo.branch}`],
+      [
+        'diff',
+        `${ny.repo.dirty ? 'uncommitted changes' : 'clean'}, ${ny.repo.untracked.length || 'no'} untracked`,
+      ],
+    ],
+  },
+  {
+    group: 'environment',
+    rows: [
+      ...envKept.map(([name, entry]): [string, string, string] => [name, entry.value ?? '', 'value recorded']),
+      ...envNamed.map(([name]): [string, string, string] => [name, 'set', 'name only']),
+      [
+        `${envAbsent.length} more`,
+        `${envAbsent.filter((name) => /^(CI|NODE_ENV|NODE_OPTIONS)$/.test(name)).join(', ')}, …`,
+        'not set',
+      ],
+    ],
+  },
+];
+
+// Step 3, bisect: what bisect varies, compared between the two capsules.
+const describeDiff = (capsuleRepo: typeof ny.repo) =>
+  capsuleRepo.dirty ? 'uncommitted changes' : 'clean';
+const unset = (capsuleEnv: Record<string, EnvEntry>) =>
+  Object.entries(capsuleEnv)
+    .filter(([, entry]) => entry.state === 'absent')
+    .map(([name]) => name)
+    .join(',');
+const bisectRows = [
+  ['node', good.runtimes.node, ny.runtimes.node, good.runtimes.node === ny.runtimes.node],
+  [
+    'npm packages',
+    `${Object.keys(good.resolved.node).length} installed`,
+    `${packageCount} installed`,
+    JSON.stringify(good.resolved) === JSON.stringify(ny.resolved),
+  ],
+  ['git diff', describeDiff(good.repo), describeDiff(ny.repo), good.repo.diff === ny.repo.diff],
+  ...['LANG', 'TZ'].map((name) => [
+    name,
+    good.env[name]?.value ?? 'not set',
+    ny.env[name]?.value ?? 'not set',
+    good.env[name]?.value === ny.env[name]?.value,
+  ]),
+  [
+    `${envAbsent.length} others`,
+    'not set',
+    'not set',
+    unset(good.env) === unset(ny.env),
+  ],
+] as [string, string, string, boolean][];
+
+/** The bisect transcript, in the four stages the demo steps through. */
+function bisectStages(log: string): Line[] {
+  let stage = 1;
+  const out: Line[] = [command('$ twin bisect new-york.json --good kolkata.json', 0)];
+  for (const raw of lines(log.trimEnd())) {
+    if (raw.startsWith('Trials')) stage = 2;
+    if (/^ +2 {2}/.test(raw)) stage = 3;
+    if (raw.startsWith('Minimal failing')) stage = 4;
+    const trial = raw.match(/^ +(\d+) {2}(?:pass|FAIL) /);
+    out.push(
+      raw.trim()
+        ? {
+            html: paint(raw),
+            stage,
+            pending: trial ? escape(`   ${trial[1]}  …`) : undefined,
+            seconds: trial ? Number(raw.match(/([\d.]+)s$/)?.[1]) : undefined,
+          }
+        : blank(stage),
+    );
+  }
+  // A blank line belongs to the stage of the line after it.
+  for (let index = out.length - 2; index >= 0; index--) {
+    if (out[index].html === ' ') out[index].stage = out[index + 1].stage;
+  }
+  return out;
+}
+
+// Step 4, verify: the candidate fix, as a short excerpt of fix.patch.
+const patchLines = lines(fixPatch.trimEnd());
+const patchFile = patchLines.find((line) => line.startsWith('+++ '))?.replace(/^\+\+\+ b\//, '') ?? '';
+const patchAdded = patchLines.filter((line) => /^\+(?!\+\+)/.test(line)).length;
+const patchRemoved = patchLines.filter((line) => /^-(?!--)/.test(line)).length;
+const hunk = patchLines.slice(patchLines.findIndex((line) => line.startsWith('@@')) + 1);
+const firstChange = hunk.findIndex((line) => /^[-+]/.test(line));
+const changed = hunk.slice(firstChange, hunk.findIndex((line, index) => index > firstChange && /^ /.test(line)));
+const indent = Math.min(...changed.map((line) => line.slice(1).match(/^ */)?.[0].length ?? 0));
+const patchExcerpt = changed.map((line) => ({
+  sign: line[0],
+  text: line.slice(1 + indent),
+}));
 
 const steps = [
   {
     title: 'The reporter captures the failure',
-    text: 'twin runs the command as usual and records what it ran in: OS, runtimes, package manager and lockfile hash, installed versions, commit and diff, time zone, environment variable names, and a fingerprint of the failure. Secrets are scrubbed, and the reporter reviews the file before it is written.',
-    command: 'twin inspect new-york.json',
-    time: null,
-    log: captureLog,
+    text: 'twin runs the command as usual and records what it ran in: OS, runtimes, package manager and lockfile hash, installed versions, commit and diff, time zone, environment variable names, and a fingerprint of the failure. Only a short list of variables keeps its value; the rest are names only. Secrets are scrubbed, and the reporter reviews the file before it is written.',
+    demo: 'capture',
   },
   {
     title: 'The maintainer replays it',
     text: 'Same Node, same npm, the exact commit fetched by SHA, npm ci from the lockfile, and the reporter’s time zone. Each attempt is compared with the failure recorded in the capsule.',
+    demo: 'replay',
+    recording: 'replay.txt, recorded on Solari',
     command: 'twin replay new-york.json',
     time: '72 s',
-    log: replayLog,
+    lines: [command('$ twin replay new-york.json'), ...report(replayLog)],
   },
   {
     title: 'Bisect finds the cause',
-    text: 'Given a capsule from a machine where the test passes, twin builds that environment, confirms it passes, and applies the differences until the smallest set that fails is left.',
+    text: 'Given a capsule from a machine where the test passes, twin compares the two, builds the passing environment, confirms it passes, and applies the differences until the smallest set that fails is left. The stage tabs step through it.',
+    demo: 'bisect',
+    recording: 'bisect.txt, recorded on Solari',
     command: 'twin bisect new-york.json --good kolkata.json',
     time: '69 s',
-    log: bisectLog,
+    lines: bisectStages(bisectLog),
   },
   {
     title: 'Verify checks the fix where it failed',
     text: 'The patch goes onto a fresh copy of the reporter’s environment, so nothing is pushed first. This run was recorded before verify had its own report header, so it prints “Replay”.',
+    demo: 'verify',
+    recording: 'verify.txt, recorded on Solari',
     command: 'twin verify new-york.json --patch fix.patch',
     time: '71 s',
-    log: verifyLog,
+    lines: [command('$ twin verify new-york.json --patch fix.patch'), ...report(verifyLog)],
   },
+];
+
+// The agent session: one entry per MCP tool call, with the recorded time each took.
+const sessionSeconds = Number(mcpLog.match(/^session (\d+) s$/m)?.[1]);
+const calls = mcpLog
+  .split(/^>>> /m)
+  .slice(1)
+  .map((block) => {
+    const body = lines(block.replace(/\nsession \d+ s\s*$/, '').trimEnd());
+    const name = body[0].split(' ')[0];
+    const doneAt = body.findIndex((line) => line.startsWith('<<< '));
+    const seconds = Number(body[doneAt].match(/^<<< (\d+) s/)?.[1]);
+    const output = body.slice(doneAt + 1);
+    const key =
+      [...output]
+        .reverse()
+        .find((line) => /^(REPRODUCED|FIXED):|^Tests:|^wrote |^released |^ {2}result /.test(line)) ?? '';
+    return {
+      name,
+      seconds,
+      key: paint(shortenIds(key.trim().replace(/ {2,}/g, ' '))),
+      detail: paint(shortenIds(`>>> ${body.join('\n')}`)),
+    };
+  });
+const callSeconds = calls.reduce((sum, call) => sum + call.seconds, 0);
+const shownCall = calls.findIndex((call) => call.name === 'verify');
+if (callSeconds !== sessionSeconds) {
+  throw new Error(`mcp.txt: calls add up to ${callSeconds} s, the session says ${sessionSeconds} s`);
+}
+
+const synopsis = [
+  ['capture -- <command>', 'Run the command and record the environment it failed in.'],
+  ['inspect <capsule>', 'Summarize what a capsule recorded.'],
+  ['diff <capsule> <other>', 'List every environment difference between two capsules.'],
+  ['replay <capsule> [--keep]', 'Rebuild it on a clean Solari sandbox and rerun the command.'],
+  ['bisect <bad> --good <good>', 'Find the smallest difference that makes it fail.'],
+  ['verify <capsule> --patch <file>', 'Check a fix in the reporter’s environment.'],
+  ['list', 'Show the machines twin has running.'],
+  ['shell [machine] [--web]', 'Open a terminal on a kept machine, or share one in a browser.'],
+  ['stop [machine]', 'Stop one kept machine, or all of them.'],
+  ['mcp', 'Serve all of the above to a coding agent.'],
 ];
 
 const seeAlso = [
@@ -141,6 +326,12 @@ const seeAlso = [
   ['StackBlitz, CodeSandbox', 'Run minimal repros in a browser.', 'twin uses the reporter’s real commit, lockfile, env and time zone.'],
   ['wsp', 'Clones your own setup into cloud workspaces for your agents.', 'twin rebuilds a stranger’s failing environment from a scrubbed file.'],
 ];
+
+/** Time zone names may wrap after their slash on a phone, never inside a word. */
+const breakable = (text: string) => escape(text).replaceAll('/', '/<wbr>');
+
+const lineClass = (line: Line) =>
+  ['ln', line.html === ' ' && 'blank', line.type && 'typed', line.verdict && 'verdict'].filter(Boolean).join(' ');
 ---
 
 <!doctype html>
@@ -158,17 +349,24 @@ const seeAlso = [
     <meta property="og:url" content={canonical} />
     <script is:inline>
       (() => {
+        const root = document.documentElement;
         let stored = null;
         try {
           stored = localStorage.getItem('starlight-theme');
         } catch {}
-        if (stored === 'light' || stored === 'dark') document.documentElement.dataset.theme = stored;
+        if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+        // The hero terminal is in view on load, so it starts blank instead of flashing its
+        // final state first. If the demo script has not taken over within 2.5 s, it shows as is.
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          root.classList.add('hero-armed');
+          setTimeout(() => root.classList.remove('hero-armed'), 2500);
+        }
       })();
     </script>
   </head>
   <body>
-    <div class="page">
-      <header class="nav">
+    <header class="band band-nav">
+      <div class="col nav">
         <a class="logo" href={link('')} aria-label="twin home">twin<span class="cursor" aria-hidden="true"></span></a>
         <nav aria-label="Site">
           <a href={docs.intro}>Docs</a>
@@ -176,10 +374,12 @@ const seeAlso = [
           <a href={REPO}>GitHub</a>
           <button type="button" id="theme">Dark</button>
         </nav>
-      </header>
+      </div>
+    </header>
 
-      <main>
-        <section class="hero">
+    <main>
+      <section class="band">
+        <div class="col hero">
           <div class="hero-text">
             <p class="kicker">For open source maintainers and coding agents</p>
             <h1>Reproduce the bug in the environment where it was reported.</h1>
@@ -199,18 +399,23 @@ const seeAlso = [
               <a href={docs.caseStudy}>Read the case study</a>
             </p>
           </div>
-          <figure class="term hero-term">
-            <figcaption>
-              <span><a href={ISSUE}>apache/echarts#21538</a>, recorded on Solari</span>
-            </figcaption>
-            <pre><code set:html={paint(heroLog)} /></pre>
-          </figure>
-        </section>
+          <div class="hero-demo split">
+            <figure class="term x4" data-demo="hero">
+              <figcaption>
+                <span><a href={ISSUE}>apache/echarts#21538</a>, recorded on Solari</span>
+                <button type="button" class="again" hidden>Play again</button>
+              </figcaption>
+              <pre><code>{heroLines.map((line) => <span class={lineClass(line)} data-type={line.type} set:html={line.html} />)}</code></pre>
+            </figure>
+          </div>
+        </div>
+      </section>
 
-        <section class="sec" aria-labelledby="commands">
-          <p class="rail">Synopsis</p>
-          <div class="body">
-            <h2 id="commands">Seven commands, one file between them</h2>
+      <section class="band" aria-labelledby="commands">
+        <div class="col sec">
+          <div class="rail"><p><span>01</span> Synopsis</p></div>
+          <div class="body split">
+            <h2 id="commands">Ten commands, one file between them</h2>
             <dl class="synopsis">
               {
                 synopsis.map(([cmd, what]) => (
@@ -225,46 +430,160 @@ const seeAlso = [
             </dl>
             <p class="small">Every command has <code>--help</code>. <a href={docs.cli}>Full reference</a></p>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="sec" id="example" aria-labelledby="example-title">
-          <p class="rail">Example</p>
-          <div class="body">
+      <section class="band" id="example" aria-labelledby="example-title">
+        <div class="col sec">
+          <div class="rail"><p><span>02</span> Example</p></div>
+          <div class="body split">
             <h2 id="example-title">A real bug, start to finish</h2>
             <p class="intro">
               <a href={ISSUE}>apache/echarts#21538</a> is an open issue: a date test fails in time zones
               with daylight saving time and passes everywhere else, so a maintainer in Kolkata can’t see
-              it. The output below is copied from the <a href={EXAMPLE}>recorded runs</a>.
+              it. Everything below is read from the <a href={EXAMPLE}>capsules and recorded runs</a>;
+              the terminals play the recordings back faster than they ran.
             </p>
             <ol class="steps">
               {
                 steps.map((step, index) => (
                   <li class="pair">
-                    <div>
+                    <div class="pair-text">
                       <p class="step-no">Step {index + 1}</p>
                       <h3>{step.title}</h3>
                       <p>{step.text}</p>
                     </div>
-                    <figure class="term">
-                      <figcaption>
-                        <code>$ {step.command}</code>
-                        {step.time && <span class="time">{step.time}</span>}
-                      </figcaption>
-                      <pre><code set:html={paint(step.log)} /></pre>
-                    </figure>
+
+                    {step.demo === 'capture' && (
+                      <figure class="term x4" data-demo="capture">
+                        <figcaption>
+                          <code>new-york.json</code>
+                          <span class="cap-meta">
+                            <span class="time">{ny.generator}</span>
+                            <button type="button" class="again" hidden>Play again</button>
+                          </span>
+                        </figcaption>
+                        <div class="tabs" role="group" aria-label="Capsule sections">
+                          {capsule.map(({ group }) => (
+                            <button type="button" data-group={group} aria-pressed="false">
+                              {group}
+                            </button>
+                          ))}
+                        </div>
+                        <dl class="capsule">
+                          {capsule.map(({ group, rows }) =>
+                            rows.map(([key, value, note], row) => (
+                              <div class={row === 0 ? 'cap-row group-start' : 'cap-row'} data-group={group} data-note={note}>
+                                <dt>{key}</dt>
+                                <dd>
+                                  <span class="cap-value">{value}</span>
+                                  {note && <span class="cap-note">{note}</span>}
+                                </dd>
+                              </div>
+                            )),
+                          )}
+                        </dl>
+                      </figure>
+                    )}
+
+                    {step.demo === 'replay' && (
+                      <figure class="term x4" data-demo="stream">
+                        <figcaption>
+                          <code>{step.recording}</code>
+                          <span class="cap-meta">
+                            <span class="time">{step.time}</span>
+                            <button type="button" class="again" hidden>Play again</button>
+                          </span>
+                        </figcaption>
+                        <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
+                      </figure>
+                    )}
+
+                    {step.demo === 'bisect' && (
+                      <figure class="term x4" data-demo="bisect" data-stage="4">
+                        <figcaption>
+                          <code>{step.recording}</code>
+                          <span class="cap-meta">
+                            <span class="time">{step.time}</span>
+                            <button type="button" class="again" hidden>Play again</button>
+                          </span>
+                        </figcaption>
+                        <div class="tabs" role="group" aria-label="Bisect stages">
+                          {['compare', 'trial 1', 'trial 2', 'result'].map((label, index) => (
+                            <button type="button" data-stage={index + 1} aria-pressed={index === 3 ? 'true' : 'false'}>
+                              <span class="tab-no">{index + 1}</span> {label}
+                            </button>
+                          ))}
+                        </div>
+                        <div class="table-scroll">
+                          <table class="compare">
+                            <thead>
+                              <tr>
+                                <th scope="col">varied by bisect</th>
+                                <th scope="col">
+                                  kolkata.json <span class="t-good">{good.command.outcome}</span>
+                                </th>
+                                <th scope="col">
+                                  new-york.json <span class="t-bad">{ny.command.outcome.toUpperCase()}</span>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bisectRows.map(([key, left, right, same]) => (
+                                <tr class={same ? 'same' : 'differs'}>
+                                  <th scope="row">
+                                    <span class="rel" aria-hidden="true">{same ? '=' : '≠'}</span>
+                                    {key}
+                                  </th>
+                                  <td data-t1 data-t2={same ? '' : undefined} set:html={breakable(left)} />
+                                  <td data-t2={same ? undefined : ''} set:html={breakable(right)} />
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-stage={line.stage} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
+                      </figure>
+                    )}
+
+                    {step.demo === 'verify' && (
+                      <figure class="term x4" data-demo="stream">
+                        <figcaption>
+                          <code>{step.recording}</code>
+                          <span class="cap-meta">
+                            <span class="time">{step.time}</span>
+                            <button type="button" class="again" hidden>Play again</button>
+                          </span>
+                        </figcaption>
+                        <div class="patch" data-state="applied">
+                          <p class="patch-head">
+                            <span>fix.patch</span>
+                            <span class="patch-file">{patchFile}</span>
+                            <span>
+                              <span class="t-good">+{patchAdded}</span> <span class="t-bad">-{patchRemoved}</span>
+                            </span>
+                            <span class="patch-state" aria-live="polite">applied</span>
+                          </p>
+                          <pre><code>{patchExcerpt.map(({ sign, text }) => <span class={`ln ${sign === '+' ? 'add' : 'del'}`}><span class="sign">{sign}</span>{text}</span>)}</code></pre>
+                        </div>
+                        <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} data-ref={line.ref} set:html={line.html} />)}</code></pre>
+                      </figure>
+                    )}
                   </li>
                 ))
               }
             </ol>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="sec" aria-labelledby="agents">
-          <p class="rail">Agents</p>
-          <div class="body">
+      <section class="band" aria-labelledby="agents">
+        <div class="col sec">
+          <div class="rail"><p><span>03</span> Agents</p></div>
+          <div class="body split">
             <h2 id="agents">Give coding agents the reporter’s machine</h2>
             <div class="pair">
-              <div>
+              <div class="pair-text">
                 <p>
                   An agent asked to fix #21538 runs the tests on its own machine, they pass, and it has
                   nothing to work with. twin’s MCP server lets it replay the failure, run commands in the
@@ -272,25 +591,55 @@ const seeAlso = [
                   change, and verify the final diff on a fresh machine.
                 </p>
                 <p class="small">
-                  Tools: inspect, replay, run, write_file, verify, bisect, release. <a href={docs.agents}>Agent guide</a>
+                  The session shown here is a recorded run of a scripted client. Select a call to see
+                  what it returned. <a href={docs.agents}>Agent guide</a>
                 </p>
               </div>
               <div class="stack">
-                <figure class="term">
+                <figure class="term x4">
                   <figcaption><span>Add to Claude Code</span></figcaption>
                   <pre><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
                 </figure>
-                <figure class="term">
+                <figure class="term x4" data-demo="agents" data-selected={shownCall}>
                   <figcaption>
-                    <span>Recorded session, scripted client, ids shortened</span>
-                    <span class="time">162 s</span>
+                    <span>MCP session, ids shortened</span>
+                    <span class="cap-meta">
+                      <span class="time">{sessionSeconds} s</span>
+                      <button type="button" class="again" hidden>Play again</button>
+                    </span>
                   </figcaption>
-                  <pre><code set:html={paint(agentLog)} /></pre>
+                  <div class="timeline" aria-hidden="true">
+                    <div class="track">
+                      {calls.map((call, index) => (
+                        <span class="seg" data-i={index} style={`flex-grow: ${call.seconds}`} title={`${call.name}, ${call.seconds} s`}>
+                          <span class="fill"></span>
+                          {call.seconds >= 30 && <span class="seg-label">{call.name}</span>}
+                        </span>
+                      ))}
+                    </div>
+                    <div class="scale"><span>0 s</span><span>{sessionSeconds} s</span></div>
+                  </div>
+                  <ol class="calls">
+                    {calls.map((call, index) => (
+                      <li class="call" data-i={index}>
+                        <button type="button" aria-pressed={index === shownCall ? 'true' : 'false'}>
+                          <span class="call-name">{call.name}</span>
+                          <span class="call-key" set:html={call.key} />
+                          <span class="call-time">{call.seconds} s</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                  <div class="call-out">
+                    {calls.map((call, index) => (
+                      <pre data-i={index} hidden={index !== shownCall}><code set:html={call.detail} /></pre>
+                    ))}
+                  </div>
                 </figure>
               </div>
             </div>
             <div class="pair">
-              <div>
+              <div class="pair-text">
                 <h3>Check the pull request where the bug happens</h3>
                 <p>
                   The GitHub Action finds the capsule on the issue a pull request closes, verifies the
@@ -299,7 +648,7 @@ const seeAlso = [
                 </p>
                 <p class="small"><a href={docs.action}>Action reference</a></p>
               </div>
-              <figure class="term">
+              <figure class="term x4">
                 <figcaption><code>.github/workflows/twin.yml</code></figcaption>
                 <pre><code>{`on: pull_request
 jobs:
@@ -312,11 +661,13 @@ jobs:
               </figure>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="sec" aria-labelledby="files">
-          <p class="rail">Files</p>
-          <div class="body">
+      <section class="band" aria-labelledby="files">
+        <div class="col sec">
+          <div class="rail"><p><span>04</span> Files</p></div>
+          <div class="body split">
             <h2 id="files">What a capsule holds</h2>
             <p class="intro">
               <code>twin-capsule.json</code> is a few kilobytes, attached to the issue by the reporter.
@@ -347,14 +698,16 @@ jobs:
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="sec" aria-labelledby="see-also">
-          <p class="rail">See also</p>
-          <div class="body">
+      <section class="band" aria-labelledby="see-also">
+        <div class="col sec">
+          <div class="rail"><p><span>05</span> See also</p></div>
+          <div class="body split">
             <h2 id="see-also">Where it fits</h2>
             <div class="table-wrap">
-              <table>
+              <table class="fits">
                 <thead>
                   <tr><th>Tool</th><th>What it does</th><th>What twin adds</th></tr>
                 </thead>
@@ -372,11 +725,13 @@ jobs:
               </table>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="sec" aria-labelledby="limits">
-          <p class="rail">Bugs</p>
-          <div class="body">
+      <section class="band" aria-labelledby="limits">
+        <div class="col sec">
+          <div class="rail"><p><span>06</span> Bugs</p></div>
+          <div class="body split">
             <h2 id="limits">Limits</h2>
             <p>
               Replay runs on Linux only. A macOS or Windows capsule is replayed with the same versions on
@@ -390,18 +745,22 @@ jobs:
               each. Building twin also turned up <a href={docs.solari}>platform behavior worth knowing</a>.
             </p>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+    </main>
 
-      <footer>
+    <footer class="band band-foot">
+      <div class="col foot">
         <span class="logo small-logo">twin</span>
         <span>MIT license</span>
         <a href={REPO}>GitHub</a>
         <a href={docs.intro}>Docs</a>
-      </footer>
-    </div>
+      </div>
+    </footer>
 
     <script>
+      import '../scripts/demos';
+
       const root = document.documentElement;
       const toggle = document.getElementById('theme') as HTMLButtonElement;
       const isDark = () =>
@@ -445,10 +804,35 @@ jobs:
     box-sizing: border-box;
   }
 
+  [hidden] {
+    display: none !important;
+  }
+
+  :root {
+    /* The page column: its hairline frame sits --inset from the viewport edge. */
+    --col-max: 80rem;
+    --inset: clamp(0.5rem, 2vw, 2.5rem);
+    --pad: 1rem;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (min-width: 48rem) {
+    :root {
+      --pad: 2rem;
+    }
+  }
+
+  @media (min-width: 80rem) {
+    :root {
+      --pad: 3rem;
+    }
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     background: var(--twin-bg);
     scrollbar-color: var(--twin-rule) transparent;
+    overflow-x: clip;
   }
 
   pre {
@@ -459,20 +843,17 @@ jobs:
     margin: 0;
     background: var(--twin-bg);
     color: var(--twin-text);
-    font: 400 1rem/1.65 var(--twin-font-body);
+    font: 400 0.9375rem/1.65 var(--twin-font-body);
+    /* Commands are shown literally: no programming ligatures for -- or =>. */
+    font-variant-ligatures: none;
+    font-feature-settings: 'calt' 0;
     -webkit-font-smoothing: antialiased;
-  }
-
-  .page {
-    max-width: 80rem;
-    margin: 0 auto;
-    padding-inline: clamp(1rem, 4vw, 3rem);
   }
 
   a {
     color: inherit;
     text-decoration-thickness: 1px;
-    text-underline-offset: 0.2em;
+    text-underline-offset: 0.22em;
     text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
   }
 
@@ -483,22 +864,115 @@ jobs:
   :focus-visible {
     outline: 2px solid var(--twin-focus);
     outline-offset: 2px;
-    border-radius: 4px;
   }
 
   button {
-    font: 500 0.875rem var(--twin-font-body);
-    color: var(--twin-text-muted);
-    background: transparent;
-    border: 1px solid var(--twin-rule);
-    border-radius: 6px;
-    padding: 0.3rem 0.7rem;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
     cursor: pointer;
   }
 
-  button:hover {
+  /* Small bordered controls: theme toggle, copy, play again. */
+  #theme,
+  .copy,
+  .again {
+    font: 500 0.75rem/1.4 var(--twin-font-body);
+    color: var(--twin-text-muted);
+    border: 1px solid var(--twin-rule);
+    background: var(--twin-bg);
+    padding: 0.25rem 0.65rem;
+  }
+
+  #theme:hover,
+  .copy:hover,
+  .again:hover {
     color: var(--twin-text);
     border-color: var(--twin-text-muted);
+  }
+
+  /* The grid: full-width horizontal rules, a framed column, + marks where they cross. */
+  .band {
+    border-top: 1px solid var(--twin-rule);
+  }
+
+  .band-nav {
+    border-top: 0;
+  }
+
+  .band-foot {
+    border-bottom: 1px solid var(--twin-rule);
+    margin-bottom: 4rem;
+  }
+
+  .col {
+    position: relative;
+    width: min(var(--col-max), 100% - 2 * var(--inset));
+    margin-inline: auto;
+    padding-inline: var(--pad);
+    border-inline: 1px solid var(--twin-rule);
+  }
+
+  .band:not(.band-nav) > .col::before,
+  .band-foot > .col::after,
+  .steps > li + li::before,
+  .body > .pair + .pair::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    right: -6px;
+    height: 11px;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      var(--twin-bar) 0 5px / 11px 1px no-repeat,
+      var(--twin-bar) 5px 0 / 1px 11px no-repeat,
+      var(--twin-bar) 100% 5px / 11px 1px no-repeat,
+      var(--twin-bar) calc(100% - 5px) 0 / 1px 11px no-repeat;
+  }
+
+  .band:not(.band-nav) > .col::before,
+  .steps > li + li::before,
+  .body > .pair + .pair::before {
+    top: -6px;
+  }
+
+  .band-foot > .col::after {
+    bottom: -6px;
+  }
+
+  /* A vertical rule inside a band, marked where it meets the band's top and bottom rules. */
+  .split {
+    position: relative;
+  }
+
+  .split::before {
+    content: none;
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    left: -6px;
+    width: 11px;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      var(--twin-bar) 0 5px / 11px 1px no-repeat,
+      var(--twin-bar) 5px 0 / 1px 11px no-repeat,
+      var(--twin-bar) 0 calc(100% - 5px) / 11px 1px no-repeat,
+      var(--twin-bar) 5px 100% / 1px 11px no-repeat;
+  }
+
+  /* A sub-row inside a section, ruled across the full cell. */
+  .steps > li + li,
+  .body > .pair + .pair {
+    position: relative;
+    margin-top: 3.5rem;
+    margin-inline: calc(-1 * var(--pad));
+    padding-inline: var(--pad);
+    padding-top: 3.5rem;
+    border-top: 1px solid var(--twin-rule);
   }
 
   /* Header */
@@ -507,15 +981,14 @@ jobs:
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding-block: 1.25rem;
-    border-bottom: 1px solid var(--twin-rule);
+    padding-block: 1.1rem;
   }
 
   .nav nav {
     display: flex;
     align-items: center;
     gap: 1.5rem;
-    font-size: 0.9rem;
+    font-size: 0.8125rem;
   }
 
   .nav nav a {
@@ -527,7 +1000,7 @@ jobs:
     color: var(--twin-text);
   }
 
-  /* The wordmark: dot-matrix letters and a prompt cursor, the only pixel type besides labels. */
+  /* The wordmark: dot-matrix letters and a prompt cursor. */
   .logo {
     font: 900 1.9rem/1 var(--twin-font-mark);
     letter-spacing: -0.02em;
@@ -550,28 +1023,15 @@ jobs:
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .cursor {
-      animation: none;
-    }
-  }
-
-  /* Type */
+  /* Type: Doto for headings, JetBrains Mono for everything else. */
   h1,
   h2,
   h3 {
     margin: 0;
-    font-weight: 600;
-    text-wrap: balance;
-  }
-
-  /* Headings share the logo's dot-matrix face; body text stays in Geist for reading. */
-  h1,
-  h2,
-  h3 {
     font-family: var(--twin-font-mark);
     font-weight: 900;
     letter-spacing: -0.01em;
+    text-wrap: balance;
   }
 
   h1 {
@@ -589,42 +1049,42 @@ jobs:
   h3 {
     font-size: 1.2rem;
     line-height: 1.3;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
   }
 
   p {
     margin: 0 0 1rem;
+    max-width: 72ch;
   }
 
   .lede,
   .intro {
     color: var(--twin-text-muted);
-    font-size: 1.075rem;
-    max-width: 38rem;
+    font-size: 0.9375rem;
+    max-width: 68ch;
   }
 
   .small {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: var(--twin-text-muted);
   }
 
   .kicker,
-  .rail,
+  .rail p,
   .step-no {
     font: 500 0.72rem/1.4 var(--twin-font-label);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--twin-text-muted);
   }
 
   code {
     font-family: var(--twin-font-mono);
-    font-size: 0.9em;
+    font-size: 0.92em;
   }
 
   :not(pre) > code {
-    padding: 0.1em 0.35em;
-    border-radius: 4px;
+    padding: 0.05em 0.3em;
     background: var(--twin-code);
     border: 1px solid var(--twin-rule);
   }
@@ -636,15 +1096,11 @@ jobs:
     border: 0;
   }
 
-  /* Layout */
-  main {
-    padding-bottom: 4rem;
-  }
-
+  /* Hero */
   .hero {
     display: grid;
     gap: 3rem;
-    padding-block: 4.5rem 5rem;
+    padding-block: 4rem;
   }
 
   .hero-text > * + * {
@@ -661,16 +1117,15 @@ jobs:
 
   .install {
     position: relative;
-    max-width: 36rem;
+    max-width: 38rem;
   }
 
   .install pre {
     margin: 0;
-    padding: 0.85rem 5.5rem 0.85rem 1rem;
+    padding: 0.8rem 5.5rem 0.8rem 1rem;
     background: var(--twin-surface);
     border: 1px solid var(--twin-rule);
-    border-radius: 8px;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -680,8 +1135,6 @@ jobs:
     top: 50%;
     right: 0.6rem;
     transform: translateY(-50%);
-    padding: 0.2rem 0.6rem;
-    font-size: 0.8rem;
   }
 
   .actions {
@@ -690,13 +1143,12 @@ jobs:
     align-items: center;
     gap: 0.75rem 1.5rem;
     margin-bottom: 0;
-    font-size: 0.95rem;
+    font-size: 0.875rem;
   }
 
   .button {
     display: inline-block;
     padding: 0.6rem 1.1rem;
-    border-radius: 8px;
     background: var(--twin-text);
     color: var(--twin-bg);
     font-weight: 500;
@@ -707,15 +1159,20 @@ jobs:
     opacity: 0.88;
   }
 
+  /* Sections: a label rail and a body, split by a rule on wide screens. */
   .sec {
     display: grid;
-    gap: 0.75rem 3rem;
-    padding-block: 4.5rem;
-    border-top: 1px solid var(--twin-rule);
+    gap: 0.75rem;
+    padding-block: 4rem;
   }
 
-  .rail {
+  .rail p {
     margin: 0;
+  }
+
+  .rail span {
+    color: var(--twin-text);
+    margin-right: 0.5em;
   }
 
   .body > :last-child {
@@ -724,21 +1181,17 @@ jobs:
 
   .pair {
     display: grid;
-    gap: 1.25rem 3rem;
+    gap: 1.5rem 3rem;
     align-items: start;
   }
 
-  .pair + .pair {
-    margin-top: 3.5rem;
-  }
-
-  .pair > div > :last-child {
+  .pair-text > :last-child {
     margin-bottom: 0;
   }
 
   .stack {
     display: grid;
-    gap: 1rem;
+    gap: 1.5rem;
     min-width: 0;
   }
 
@@ -748,44 +1201,84 @@ jobs:
     }
 
     .hero {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+    }
+
+    .hero-text,
+    .hero-demo {
+      padding: 4.5rem var(--pad);
+    }
+
+    .hero-text {
+      align-self: center;
+    }
+
+    .hero-demo {
+      display: flex;
       align-items: center;
-      gap: 3.5rem;
+    }
+
+    .hero-demo > .term {
+      flex: 1;
+    }
+
+    .hero .split {
+      border-left: 1px solid var(--twin-rule);
+    }
+
+    .hero .split::before {
+      content: '';
     }
   }
 
   @media (min-width: 80rem) {
     .sec {
-      grid-template-columns: 9rem minmax(0, 1fr);
+      grid-template-columns: 12rem minmax(0, 1fr);
+      gap: 0;
+      padding: 0;
     }
 
     .rail {
+      padding: 4.5rem 1.5rem;
+    }
+
+    .rail p {
       position: sticky;
       top: 1.5rem;
-      align-self: start;
-      padding-top: 0.6rem;
+      padding-top: 0.55rem;
+    }
+
+    .sec > .body {
+      padding: 4.5rem var(--pad);
+      border-left: 1px solid var(--twin-rule);
+    }
+
+    .sec > .split::before {
+      content: '';
     }
   }
 
-  /* Terminal output */
+  /* Terminals and demo cards: square, hairline, marked at the corners. */
   .term {
     margin: 0;
     min-width: 0;
     background: var(--twin-code);
     border: 1px solid var(--twin-rule);
-    border-radius: 10px;
-    overflow: hidden;
   }
 
   .term figcaption {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     gap: 1rem;
-    padding: 0.55rem 1rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.6rem 0.4rem 1rem;
     background: var(--twin-code-head);
     border-bottom: 1px solid var(--twin-rule);
-    font: 500 0.78rem/1.4 var(--twin-font-mono);
+    font: 500 0.75rem/1.4 var(--twin-font-mono);
     color: var(--twin-text-muted);
   }
 
@@ -795,11 +1288,25 @@ jobs:
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
+  }
+
+  .cap-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: none;
   }
 
   .term .time {
     flex: none;
     font-variant-numeric: tabular-nums;
+  }
+
+  .again {
+    padding: 0.1rem 0.5rem;
+    font-size: 0.7rem;
+    background: var(--twin-code);
   }
 
   .term pre {
@@ -809,7 +1316,7 @@ jobs:
     /* Long lines wrap instead of scrolling; indentation still shows the structure. */
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font: 400 0.8rem/1.6 var(--twin-font-mono);
+    font: 400 0.78rem/1.6 var(--twin-font-mono);
     scrollbar-width: thin;
   }
 
@@ -817,9 +1324,14 @@ jobs:
     font-size: inherit;
   }
 
-  .hero-term pre {
-    font-size: 0.85rem;
+  .ln {
+    display: block;
+  }
+
+  [data-demo='hero'] pre {
+    font-size: 0.82rem;
     line-height: 1.7;
+    padding-block: 1.25rem;
   }
 
   .t-cmd {
@@ -827,7 +1339,8 @@ jobs:
     font-weight: 600;
   }
 
-  .t-dim {
+  .t-dim,
+  .ln.pending {
     color: var(--twin-text-muted);
   }
 
@@ -843,6 +1356,376 @@ jobs:
     font-weight: 600;
   }
 
+  /* Playback states, set by src/scripts/demos.ts only while a demo runs. */
+  .ln.pending {
+    animation: pulse 0.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse {
+    to {
+      opacity: 0.45;
+    }
+  }
+
+  .ln.typing::after {
+    content: '';
+    display: inline-block;
+    width: 0.55em;
+    height: 1.15em;
+    margin-left: 1px;
+    vertical-align: text-bottom;
+    background: var(--twin-text-muted);
+  }
+
+  .hero-armed [data-demo='hero'] pre .ln {
+    opacity: 0;
+  }
+
+  /* Tabs inside a demo: capsule sections, bisect stages. */
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--twin-rule);
+    background: var(--twin-code);
+    scrollbar-width: none;
+  }
+
+  .tabs button {
+    flex: none;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.72rem;
+    color: var(--twin-text-muted);
+    border-right: 1px solid var(--twin-rule);
+    white-space: nowrap;
+  }
+
+  .tabs button:hover {
+    color: var(--twin-text);
+  }
+
+  .tabs button[aria-pressed='true'] {
+    color: var(--twin-text);
+    background: var(--twin-surface);
+    box-shadow: inset 0 -2px 0 var(--twin-text);
+  }
+
+  .tab-no {
+    color: var(--twin-text-muted);
+    margin-right: 0.2em;
+  }
+
+  /* Capture: the capsule, one field per row. */
+  .capsule {
+    margin: 0;
+    padding: 0.5rem 0;
+    font-size: 0.78rem;
+    line-height: 1.55;
+  }
+
+  .cap-row {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    gap: 0 1rem;
+    padding: 0.2rem 1rem;
+    transition: opacity 0.25s var(--ease);
+  }
+
+  .cap-row.group-start:not(:first-child) {
+    margin-top: 0.35rem;
+    padding-top: 0.55rem;
+    border-top: 1px dashed var(--twin-rule);
+  }
+
+  .cap-row.faded {
+    opacity: 0.3;
+  }
+
+  .cap-row dt {
+    color: var(--twin-text-muted);
+    font-weight: 400;
+  }
+
+  .cap-row dd {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 1rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .cap-note {
+    color: var(--twin-text-muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  .cap-note::before {
+    content: '// ';
+    opacity: 0.6;
+  }
+
+  [data-note='value recorded'] .cap-value {
+    color: var(--twin-text);
+    font-weight: 600;
+  }
+
+  [data-note='name only'] .cap-value,
+  [data-note='not set'] .cap-value {
+    color: var(--twin-text-muted);
+  }
+
+  [data-note='name only'] .cap-note {
+    color: var(--twin-text);
+  }
+
+  /* Bisect: the compared fields, then the trials. */
+  .table-scroll {
+    overflow-x: auto;
+    border-bottom: 1px solid var(--twin-rule);
+  }
+
+  .compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.76rem;
+    line-height: 1.5;
+  }
+
+  .compare th,
+  .compare td {
+    text-align: left;
+    padding: 0.3rem 0.75rem;
+    border-bottom: 1px solid var(--twin-rule);
+    white-space: nowrap;
+    transition:
+      color 0.3s var(--ease),
+      background-color 0.3s var(--ease);
+  }
+
+  .compare tr > :first-child {
+    padding-left: 1rem;
+  }
+
+  .compare tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .compare thead th {
+    font-weight: 500;
+    color: var(--twin-text-muted);
+    background: var(--twin-code);
+  }
+
+  .compare tbody th {
+    font-weight: 500;
+  }
+
+  .rel {
+    display: inline-block;
+    width: 1.4em;
+    color: var(--twin-text-muted);
+  }
+
+  [data-demo='bisect'][data-stage='0'] .rel {
+    visibility: hidden;
+  }
+
+  [data-demo='bisect']:not([data-stage='0']) tr.same {
+    color: var(--twin-text-muted);
+  }
+
+  [data-demo='bisect']:not([data-stage='0']) tr.differs {
+    font-weight: 600;
+  }
+
+  [data-demo='bisect'][data-stage='2'] [data-t1],
+  [data-demo='bisect'][data-stage='3'] [data-t2] {
+    background: var(--twin-surface);
+    color: var(--twin-text);
+    box-shadow: inset 2px 0 0 var(--twin-text-muted);
+  }
+
+  [data-demo='bisect'][data-stage='4'] tr.differs :is(th, td:last-child),
+  [data-demo='bisect'][data-stage='4'] tr.differs .rel {
+    color: var(--twin-fail);
+  }
+
+  /* Verify: the candidate fix above the run that checks it. */
+  .patch {
+    border-bottom: 1px solid var(--twin-rule);
+    background: var(--twin-surface);
+  }
+
+  .patch-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    max-width: none;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--twin-rule);
+    font-size: 0.72rem;
+    color: var(--twin-text-muted);
+  }
+
+  .patch-head > :first-child {
+    color: var(--twin-text);
+    font-weight: 600;
+  }
+
+  .patch-file {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .patch-state {
+    margin-left: auto;
+  }
+
+  .patch[data-state='applied'] .patch-state {
+    color: var(--twin-pass);
+  }
+
+  .patch pre {
+    padding-block: 0.6rem;
+    font-size: 0.74rem;
+  }
+
+  .patch .ln {
+    padding-left: 1.4em;
+    text-indent: -1.4em;
+  }
+
+  .patch .sign {
+    display: inline-block;
+    width: 1.4em;
+    text-indent: 0;
+  }
+
+  .patch .add .sign {
+    color: var(--twin-pass);
+  }
+
+  .patch .del .sign {
+    color: var(--twin-fail);
+  }
+
+  .patch .del {
+    color: var(--twin-text-muted);
+  }
+
+  /* Agents: the MCP session on a time axis. */
+  .timeline {
+    padding: 1rem 1rem 0.6rem;
+    border-bottom: 1px solid var(--twin-rule);
+  }
+
+  .track {
+    display: flex;
+    height: 1.9rem;
+    border: 1px solid var(--twin-rule);
+    background: var(--twin-bg);
+  }
+
+  .seg {
+    position: relative;
+    flex-basis: 0;
+    min-width: 4px;
+    border-right: 1px solid var(--twin-rule);
+    cursor: pointer;
+  }
+
+  .seg:last-child {
+    border-right: 0;
+  }
+
+  .seg .fill {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--twin-text) 9%, transparent);
+    transform-origin: left center;
+  }
+
+  .seg.current .fill {
+    background: color-mix(in srgb, var(--twin-text) 22%, transparent);
+  }
+
+  .seg-label {
+    position: absolute;
+    left: 0.45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.68rem;
+    color: var(--twin-text);
+    pointer-events: none;
+  }
+
+  .scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.35rem;
+    font-size: 0.66rem;
+    color: var(--twin-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .calls {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.76rem;
+  }
+
+  .call + .call {
+    border-top: 1px solid var(--twin-rule);
+  }
+
+  .call button {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.4rem 1rem;
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  .call button:hover {
+    background: color-mix(in srgb, var(--twin-text) 4%, transparent);
+  }
+
+  .call button[aria-pressed='true'] {
+    background: var(--twin-surface);
+    box-shadow: inset 2px 0 0 var(--twin-text);
+  }
+
+  .call-name {
+    font-weight: 600;
+  }
+
+  .call-key {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--twin-text-muted);
+  }
+
+  .call-time {
+    color: var(--twin-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .call-out {
+    border-top: 1px solid var(--twin-rule);
+  }
+
+  .call-out pre {
+    height: 19rem;
+    overflow-y: auto;
+    font-size: 0.74rem;
+  }
+
   /* Sections */
   .synopsis {
     display: grid;
@@ -852,14 +1735,15 @@ jobs:
 
   .synopsis div {
     display: grid;
-    gap: 0.25rem 2rem;
+    gap: 0.2rem 2rem;
     padding-block: 0.7rem;
     border-bottom: 1px solid var(--twin-rule);
+    font-size: 0.875rem;
   }
 
   @media (min-width: 48rem) {
     .synopsis div {
-      grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
     }
   }
 
@@ -867,29 +1751,26 @@ jobs:
     font-weight: 500;
   }
 
-  dt code {
-    font-size: 0.875rem;
-  }
-
   dd {
     margin: 0;
     color: var(--twin-text-muted);
+  }
+
+  .capsule dd {
+    color: var(--twin-text);
   }
 
   .steps {
     list-style: none;
     margin: 2.5rem 0 0;
     padding: 0;
-    display: grid;
-    gap: 3.5rem;
   }
 
   .step-no {
-    margin: 0 0 0.4rem;
-    color: var(--twin-fail);
+    margin: 0 0 0.5rem;
   }
 
-  .steps p:not(.step-no) {
+  .pair-text p:not(.step-no, .small) {
     color: var(--twin-text-muted);
   }
 
@@ -913,48 +1794,54 @@ jobs:
     color: var(--twin-text-muted);
   }
 
+  .steps > li,
+  .calls > li {
+    margin-bottom: 0;
+  }
+
   .table-wrap {
     overflow-x: auto;
     margin-top: 1.5rem;
   }
 
-  table {
+  .fits {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
   }
 
-  th,
-  td {
+  .fits th,
+  .fits td {
     text-align: left;
     vertical-align: top;
     padding: 0.75rem 1.5rem 0.75rem 0;
     border-bottom: 1px solid var(--twin-rule);
   }
 
-  th {
+  .fits th {
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--twin-text-muted);
   }
 
-  td:first-child {
-    font-weight: 500;
+  .fits td:first-child {
+    font-weight: 600;
     white-space: nowrap;
   }
 
-  td:nth-child(2) {
+  .fits td:nth-child(2) {
     color: var(--twin-text-muted);
   }
 
-  footer {
+  .foot {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem 1.5rem;
-    padding-block: 2rem 3rem;
-    border-top: 1px solid var(--twin-rule);
-    font-size: 0.875rem;
+    padding-block: 1.75rem;
+    font-size: 0.8125rem;
     color: var(--twin-text-muted);
   }
 
@@ -973,16 +1860,87 @@ jobs:
       display: none;
     }
 
-    .hero {
-      padding-block: 3rem 3.5rem;
-    }
-
+    .hero,
     .sec {
-      padding-block: 3.5rem;
+      padding-block: 3rem;
     }
 
-    td:first-child {
+    .term pre {
+      font-size: 0.72rem;
+      padding: 0.85rem;
+    }
+
+    [data-demo='hero'] pre {
+      font-size: 0.74rem;
+    }
+
+    .cap-row {
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 0 0.75rem;
+      padding-inline: 0.85rem;
+    }
+
+    .capsule {
+      font-size: 0.72rem;
+    }
+
+    .call button {
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+      gap: 0.6rem;
+      padding-inline: 0.85rem;
+    }
+
+    .call-out pre {
+      height: 15rem;
+    }
+
+    .tabs button {
+      padding-inline: 0.6rem;
+    }
+
+    .compare {
+      font-size: 0.68rem;
+    }
+
+    .compare th,
+    .compare td {
+      padding: 0.3rem 0.4rem;
       white-space: normal;
+      vertical-align: top;
+    }
+
+    .compare tr > :first-child {
+      padding-left: 0.85rem;
+    }
+
+    .rel {
+      width: 1.1em;
+    }
+
+    .fits td:first-child {
+      white-space: normal;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cursor,
+    .ln.pending {
+      animation: none;
+    }
+
+    .cap-row,
+    .compare th,
+    .compare td {
+      transition: none;
+    }
+  }
+
+  @media print {
+    .ln,
+    .cap-row,
+    .call {
+      opacity: 1 !important;
+      transform: none !important;
     }
   }
 </style>

@@ -7,17 +7,22 @@
  */
 
 :root {
-  --twin-font-body: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --twin-font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas,
+  /* JetBrains Mono for everything that is read; Doto only for headings and the wordmark. */
+  --twin-font-body: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
-  --twin-font-mark: 'Doto', 'Geist Mono Variable', ui-monospace, monospace;
-  --twin-font-label: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --twin-font-mono: var(--twin-font-body);
+  --twin-font-mark: 'Doto', 'JetBrains Mono Variable', ui-monospace, monospace;
+  --twin-font-label: var(--twin-font-body);
+
+  /* Engineering grid: hairline rules, and the + registration marks where they cross. */
+  --twin-mark-size: 11px;
 
   --twin-bg: #fafaf8;
   --twin-surface: #ffffff;
   --twin-code: #f4f4f1;
   --twin-code-head: #ecece8;
   --twin-rule: #e3e2dc;
+  --twin-mark: #aeaca3;
   --twin-text: #17181a;
   --twin-text-muted: #62636a;
   --twin-fail: #c3362b;
@@ -33,6 +38,7 @@
     --twin-code: #17181b;
     --twin-code-head: #1e1f23;
     --twin-rule: #2a2b30;
+    --twin-mark: #55565e;
     --twin-text: #ececea;
     --twin-text-muted: #9d9ea5;
     --twin-fail: #f0695c;
@@ -48,6 +54,7 @@
   --twin-code: #17181b;
   --twin-code-head: #1e1f23;
   --twin-rule: #2a2b30;
+  --twin-mark: #55565e;
   --twin-text: #ececea;
   --twin-text-muted: #9d9ea5;
   --twin-fail: #f0695c;

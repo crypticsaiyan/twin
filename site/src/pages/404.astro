@@ -1,6 +1,6 @@
 ---
-import '@fontsource-variable/geist';
-import '@fontsource-variable/geist-mono';
+import '@fontsource-variable/jetbrains-mono';
+import '@fontsource/doto/900.css';
 import '../styles/tokens.css';
 import { link } from '../site';
 ---
@@ -37,7 +37,7 @@ import { link } from '../site';
     margin: 0;
     background: var(--twin-bg);
     color: var(--twin-text);
-    font: 400 1.0625rem/1.6 var(--twin-font-body);
+    font: 400 0.9375rem/1.65 var(--twin-font-body);
   }
 
   main {
@@ -54,7 +54,8 @@ import { link } from '../site';
   }
 
   h1 {
-    font-weight: 600;
+    font-family: var(--twin-font-mark);
+    font-weight: 900;
     font-size: 2rem;
     margin: 0.5rem 0 1rem;
   }

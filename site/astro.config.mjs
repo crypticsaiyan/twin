@@ -37,10 +37,11 @@ export default defineConfig({
       // The branded 404 lives in src/pages/404.astro.
       disable404Route: true,
       customCss: [
-        '@fontsource-variable/geist',
-        '@fontsource-variable/geist-mono',
+        '@fontsource-variable/jetbrains-mono',
+        '@fontsource-variable/jetbrains-mono/wght-italic.css',
         '@fontsource/doto/900.css',
         './src/styles/tokens.css',
+        './src/styles/grid.css',
         './src/styles/starlight.css',
       ],
       expressiveCode: {
@@ -48,7 +49,7 @@ export default defineConfig({
         defaultProps: { frame: 'code' },
         themes: ['github-dark-default', 'github-light-default'],
         styleOverrides: {
-          borderRadius: '10px',
+          borderRadius: '0px',
           borderColor: 'var(--twin-rule)',
           codeBackground: 'var(--twin-code)',
           codeFontFamily: 'var(--twin-font-mono)',

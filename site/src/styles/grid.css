@@ -1,0 +1,35 @@
+/*
+ * The engineering grid, shared by the landing page and the docs: 1px hairline rules, and a
+ * small + registration mark wherever two rules cross or a framed box has a corner.
+ *
+ * Every mark is 11px with its 1px bars on the 6th pixel, so a mark whose box starts 6px
+ * before a 1px border sits exactly on that border. Marks are painted with plain
+ * background layers (one layer per bar), so they need no images and follow the theme.
+ */
+
+:root {
+  --twin-bar: linear-gradient(var(--twin-mark), var(--twin-mark));
+}
+
+/* Four corner marks around a bordered box (terminal cards, code frames). */
+.x4 {
+  position: relative;
+}
+
+.x4::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    var(--twin-bar) 0 5px / 11px 1px no-repeat,
+    var(--twin-bar) 5px 0 / 1px 11px no-repeat,
+    var(--twin-bar) 100% 5px / 11px 1px no-repeat,
+    var(--twin-bar) calc(100% - 5px) 0 / 1px 11px no-repeat,
+    var(--twin-bar) 0 calc(100% - 5px) / 11px 1px no-repeat,
+    var(--twin-bar) 5px 100% / 1px 11px no-repeat,
+    var(--twin-bar) 100% calc(100% - 5px) / 11px 1px no-repeat,
+    var(--twin-bar) calc(100% - 5px) 100% / 1px 11px no-repeat;
+}
+
