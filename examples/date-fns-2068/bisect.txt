@@ -1,0 +1,30 @@
+twin: machine ready
+twin: prepare workspace
+twin: install node 26.7.0
+twin: check out 717ce0a807ea
+twin: upload working-tree diff
+twin: apply working-tree diff
+twin: install pnpm 10.20.0
+twin: install dependencies (pnpm install --frozen-lockfile)
+twin: trial 1: good environment
+twin:   -> pass
+twin: trial 2: TZ=America/New_York
+twin:   -> fail
+Bisect on solari (machine Aj2Ug4zZ0j2aedJt…, run 17eeca91)
+  good environment built in 20.2s (7 steps)
+
+Candidates (1)
+  TZ=America/New_York
+
+Trials (2)
+   1  pass  (good environment)  1.7s
+   2  FAIL  TZ=America/New_York  1.5s
+
+Minimal failing difference:
+  TZ=America/New_York
+Applying it to the good environment fails the captured way; without it, it passes.
+
+Notes
+  - 42 variables were set on the reporter's machine but only by name, so left unset here (AI_AGENT, CASROOT, CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_ENTRYPOINT and 37 more). Usually harmless; if the command needs one, pass --env NAME=value.
+exit 0
+wall 31.8s

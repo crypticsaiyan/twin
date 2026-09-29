@@ -1,0 +1,32 @@
+twin: machine Am0tyJjd9MOUFZDv… ready
+twin: prepare workspace
+twin: install node 26.7.0
+twin: check out 717ce0a807ea
+twin: upload working-tree diff
+twin: apply working-tree diff
+twin: install pnpm 10.20.0
+twin: install dependencies (pnpm install --frozen-lockfile)
+twin: attempt 1/3
+twin: attempt 2/3
+twin: attempt 3/3
+Replay on solari (machine Am0tyJjd9MOUFZDv…, run cede3e86)
+  ✓ prepare workspace  0.3s
+  ✓ install node 26.7.0  2.2s
+  ✓ check out 717ce0a807ea  1.4s
+  ✓ upload working-tree diff  0.0s
+  ✓ apply working-tree diff  0.3s
+  ✓ install pnpm 10.20.0  1.4s
+  ✓ install dependencies (pnpm install --frozen-lockfile)  9.3s
+
+Attempts
+  1  FAIL exit 1  exit1:d8c18e2bf89e1715  1.4s
+  2  FAIL exit 1  exit1:d8c18e2bf89e1715  1.3s
+  3  FAIL exit 1  exit1:d8c18e2bf89e1715  1.3s
+  expected  FAIL exit1:d8c18e2bf89e1715
+
+REPRODUCED: every attempt failed exactly as the capsule recorded.
+
+Notes
+  - 42 variables were set on the reporter's machine but only by name, so left unset here (AI_AGENT, CASROOT, CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_ENTRYPOINT and 37 more). Usually harmless; if the command needs one, pass --env NAME=value.
+exit 0
+wall 31.8s

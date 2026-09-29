@@ -1,0 +1,23 @@
+diff --git a/pkgs/core/src/eachHourOfInterval/index.ts b/pkgs/core/src/eachHourOfInterval/index.ts
+index 2556cc0..07e8d73 100644
+--- a/pkgs/core/src/eachHourOfInterval/index.ts
++++ b/pkgs/core/src/eachHourOfInterval/index.ts
+@@ -1,4 +1,5 @@
+ import { normalizeInterval } from "../_lib/normalizeInterval/index.ts";
++import { millisecondsInHour } from "../constants/index.ts";
+ import { constructFrom } from "../constructFrom/index.ts";
+ import type { ContextOptions, Interval, StepOptions } from "../types.ts";
+ 
+@@ -85,7 +86,11 @@ export function eachHourOfInterval<
+ 
+   while (+date <= endTime) {
+     dates.push(constructFrom(start, date));
+-    date.setHours(date.getHours() + step);
++    // Step by elapsed time: `setHours` would skip the repeated hour when the
++    // clocks go back.
++    date.setTime(+date + step * millisecondsInHour);
++    // Keep hour starts in zones whose DST shift is not a whole hour.
++    if (date.getMinutes()) date.setMinutes(0, 0, 0);
+   }
+ 
+   return reversed ? dates.reverse() : dates;

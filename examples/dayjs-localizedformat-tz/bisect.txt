@@ -1,0 +1,28 @@
+twin: machine ready
+twin: prepare workspace
+twin: install node 26.7.0
+twin: check out 436bde0bcded
+twin: install npm 12.0.2
+twin: install dependencies (npm ci)
+twin: trial 1: good environment
+twin:   -> pass
+twin: trial 2: TZ=America/New_York
+twin:   -> fail
+Bisect on solari (machine Ak03Nt90ktstB3lD…, run ad643546)
+  good environment built in 32.6s (5 steps)
+
+Candidates (1)
+  TZ=America/New_York
+
+Trials (2)
+   1  pass  (good environment)  2.0s
+   2  FAIL  TZ=America/New_York  1.2s
+
+Minimal failing difference:
+  TZ=America/New_York
+Applying it to the good environment fails the captured way; without it, it passes.
+
+Notes
+  - 42 variables were set on the reporter's machine but only by name, so left unset here (AI_AGENT, CASROOT, CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_ENTRYPOINT and 37 more). Usually harmless; if the command needs one, pass --env NAME=value.
+exit 0
+wall 43.8s

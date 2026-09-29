@@ -1,0 +1,36 @@
+twin: machine AqpwGDoJLirt7sdD… ready
+twin: prepare workspace
+twin: install node 26.7.0
+twin: check out 717ce0a807ea
+twin: upload working-tree diff
+twin: apply working-tree diff
+twin: upload candidate fix
+twin: apply candidate fix
+twin: install pnpm 10.20.0
+twin: install dependencies (pnpm install --frozen-lockfile)
+twin: attempt 1/3
+twin: attempt 2/3
+twin: attempt 3/3
+Verify on solari (machine AqpwGDoJLirt7sdD…, run b6548d26)
+  ✓ prepare workspace  0.3s
+  ✓ install node 26.7.0  2.5s
+  ✓ check out 717ce0a807ea  1.3s
+  ✓ upload working-tree diff  0.0s
+  ✓ apply working-tree diff  0.3s
+  ✓ upload candidate fix  0.0s
+  ✓ apply candidate fix  0.3s
+  ✓ install pnpm 10.20.0  1.6s
+  ✓ install dependencies (pnpm install --frozen-lockfile)  12.3s
+
+Attempts
+  1  PASS  1.7s
+  2  PASS  1.5s
+  3  PASS  1.5s
+  expected  FAIL exit1:d8c18e2bf89e1715
+
+FIXED: the command passes in the reporter's environment with the fix applied.
+
+Notes
+  - 42 variables were set on the reporter's machine but only by name, so left unset here (AI_AGENT, CASROOT, CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_ENTRYPOINT and 37 more). Usually harmless; if the command needs one, pass --env NAME=value.
+exit 0
+wall 31.9s

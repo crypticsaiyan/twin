@@ -1,0 +1,28 @@
+twin: machine Am5sQiyMB6BjfhU2… ready
+twin: prepare workspace
+twin: install node 26.7.0
+twin: check out 436bde0bcded
+twin: install npm 12.0.2
+twin: install dependencies (npm ci)
+twin: attempt 1/3
+twin: attempt 2/3
+twin: attempt 3/3
+Replay on solari (machine Am5sQiyMB6BjfhU2…, run 4373ff29)
+  ✓ prepare workspace  0.3s
+  ✓ install node 26.7.0  2.4s
+  ✓ check out 436bde0bcded  1.1s
+  ✓ install npm 12.0.2  3.5s
+  ✓ install dependencies (npm ci)  25.5s
+
+Attempts
+  1  FAIL exit 1  exit1:2a300bbcd01b5678  2.0s
+  2  FAIL exit 1  exit1:2a300bbcd01b5678  1.3s
+  3  FAIL exit 1  exit1:2a300bbcd01b5678  1.3s
+  expected  FAIL exit1:2a300bbcd01b5678
+
+REPRODUCED: every attempt failed exactly as the capsule recorded.
+
+Notes
+  - 42 variables were set on the reporter's machine but only by name, so left unset here (AI_AGENT, CASROOT, CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_ENTRYPOINT and 37 more). Usually harmless; if the command needs one, pass --env NAME=value.
+exit 0
+wall 45.6s

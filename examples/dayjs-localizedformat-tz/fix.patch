@@ -1,0 +1,14 @@
+diff --git a/test/plugin/localizedFormat.test.js b/test/plugin/localizedFormat.test.js
+index da5b219..387833c 100644
+--- a/test/plugin/localizedFormat.test.js
++++ b/test/plugin/localizedFormat.test.js
+@@ -23,7 +23,8 @@ it('Declares English localized formats', () => {
+ })
+ 
+ it('Should not interpolate characters inside square brackets', () => {
+-  const date = new Date(0)
++  // Local noon on 1 January: `new Date(0)` is still 1969 in zones west of UTC.
++  const date = new Date(1970, 0, 1, 12)
+   const actualDate = dayjs(date)
+   const expectedDate = moment(date)
+ 
