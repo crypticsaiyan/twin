@@ -249,11 +249,28 @@ describe('SolariBackend', () => {
 
   it('kills the sandbox if the control channel cannot be opened', async () => {
     const { sandbox, calls } = fakeSandbox({ connectFails: true });
-    const { sandboxes } = api(sandbox);
+    const { sandboxes, kill } = api(sandbox, [], { [sandbox.id]: { state: 'running' } });
     await expect(
-      new SolariBackend(sandboxes).create({ labels: {}, idleTimeoutMs: 1 }),
+      new SolariBackend(sandboxes, FAST).create({ labels: {}, idleTimeoutMs: 1 }),
     ).rejects.toThrow('ws refused');
     expect(calls).toEqual(['connect', 'kill']);
+    expect(kill).toHaveBeenCalledWith(sandbox.id);
+  });
+
+  it('keeps reaping past a sandbox whose kill never takes effect', async () => {
+    const { sandbox } = fakeSandbox();
+    const { sandboxes, kill } = api(
+      sandbox,
+      [
+        { sandboxId: 'zombie', state: 'running' },
+        { sandboxId: 'b', state: 'running' },
+      ],
+      { zombie: { state: 'running', killsToDie: 99 }, b: { state: 'running' } },
+    );
+    await expect(new SolariBackend(sandboxes, FAST).reap({ app: 'twin' })).rejects.toThrow(
+      /zombie.*stopped b/,
+    );
+    expect(kill).toHaveBeenCalledWith('b');
   });
 
   it('reaps live sandboxes, skipping ghosts the listing still shows', async () => {

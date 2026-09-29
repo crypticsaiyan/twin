@@ -220,7 +220,9 @@ export class SolariBackend implements Backend {
       // The control channel is not opened by create(); streaming commands need it.
       await sandbox.connect();
     } catch (error) {
+      // An unconfirmed kill can leave the sandbox billing (see RELEASE_TIMING), so verify it.
       await sandbox.kill().catch(() => {});
+      await killAndConfirm(this.#sandboxes, sandbox.id, this.#timing).catch(() => {});
       throw error;
     }
     return this.#machine(sandbox);
@@ -251,14 +253,24 @@ export class SolariBackend implements Backend {
     return machines;
   }
 
+  /** Tries every sandbox even when one fails, so one stuck kill does not leave the rest billing. */
   async reap(labels: Record<string, string>): Promise<string[]> {
     const killed: string[] = [];
+    const failures: string[] = [];
     for await (const view of this.#sandboxes.listAll({ metadata: labels })) {
-      // The listing lags; ask for the sandbox itself before counting it as live.
-      const state = await liveState(this.#sandboxes, view.sandboxId);
-      if (state === null || state === 'releasing') continue;
-      await killAndConfirm(this.#sandboxes, view.sandboxId, this.#timing);
-      killed.push(view.sandboxId);
+      try {
+        // The listing lags; ask for the sandbox itself before counting it as live.
+        const state = await liveState(this.#sandboxes, view.sandboxId);
+        if (state === null || state === 'releasing') continue;
+        await killAndConfirm(this.#sandboxes, view.sandboxId, this.#timing);
+        killed.push(view.sandboxId);
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+    if (failures.length > 0) {
+      const done = killed.length > 0 ? ` (stopped ${killed.join(', ')})` : '';
+      throw new Error(`${failures.join('; ')}${done}`);
     }
     return killed;
   }
