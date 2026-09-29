@@ -59,11 +59,40 @@ describe('TrackedBackend', () => {
     expect(inner.machines[0]?.killed).toBe(true);
   });
 
-  it('kills a machine that finishes creating after an interrupt', async () => {
+  it('is live from the start of creation, and idle again if creation fails', async () => {
+    const inner = new FakeBackend();
+    const { backend, events } = tracked(inner);
+    let fail: (error: Error) => void = () => {};
+    inner.create = () =>
+      new Promise((_, reject) => {
+        fail = reject;
+      });
+    const creating = backend.create({ labels, idleTimeoutMs: 1 });
+    expect(events).toEqual(['live']);
+    fail(new Error('no capacity'));
+    await expect(creating).rejects.toThrow('no capacity');
+    expect(events).toEqual(['live', 'idle']);
+  });
+
+  it('waits for a machine still being created, then kills it', async () => {
     const { inner, backend } = tracked();
-    await backend.releaseAll();
-    await expect(backend.create({ labels, idleTimeoutMs: 1 })).rejects.toThrow('interrupted');
+    const creating = backend.create({ labels, idleTimeoutMs: 1 });
+    const release = backend.releaseAll();
+    await expect(creating).rejects.toThrow('interrupted');
+    expect(await release).toEqual({ released: ['sbx_fake0'], failed: [] });
     expect(inner.machines[0]?.killed).toBe(true);
     expect(backend.live).toEqual([]);
+  });
+
+  it('refuses new machines once released, and reports cut-short calls as interrupts', async () => {
+    const { inner, backend } = tracked();
+    const machine = await backend.create({ labels, idleTimeoutMs: 1 });
+    await backend.releaseAll();
+    await expect(backend.create({ labels, idleTimeoutMs: 1 })).rejects.toThrow('interrupted');
+    expect(inner.machines).toHaveLength(1);
+    await expect(machine.run({ argv: ['true'], timeoutMs: 1 })).rejects.toMatchObject({
+      name: 'TwinError',
+      exitCode: 130,
+    });
   });
 });

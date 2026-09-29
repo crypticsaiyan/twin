@@ -1,6 +1,7 @@
 import { TrackedBackend } from './backend/tracked.ts';
 import type { Backend } from './backend/types.ts';
 import type { Output } from './io.ts';
+import { shortMachineId } from './shell/machines.ts';
 
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
 type Signal = (typeof SIGNALS)[number];
@@ -12,12 +13,15 @@ export interface SignalSource {
   exit(code: number): void;
 }
 
-const short = (id: string) => id.slice(0, 12);
+/** Short ids, or `fallback` when there are none yet (a machine still being created). */
+const names = (ids: readonly string[], fallback: string) =>
+  ids.map(shortMachineId).join(', ') || fallback;
 
 /**
  * Wraps the backend so that Ctrl-C (or a stop signal) while machines are live releases them,
- * confirmed, before exiting 130. The handler is installed only while a machine is live, so
- * commands that manage interrupts themselves (capture forwards Ctrl-C to the child) are untouched.
+ * confirmed, before exiting 130. The handler is installed only while a machine is live or being
+ * created, so commands that manage interrupts themselves (capture forwards Ctrl-C to the child)
+ * are untouched.
  * A second signal exits at once and names the machines for `twin stop`.
  */
 export function interruptible(
@@ -32,23 +36,19 @@ export function interruptible(
     const tracked = backend as TrackedBackend;
     const live = tracked.live;
     if (interrupted) {
-      stderr.write(
-        `twin: not waiting; stop ${live.map(short).join(', ') || 'leftovers'} with: twin stop\n`,
-      );
+      stderr.write(`twin: not waiting; stop ${names(live, 'leftovers')} with: twin stop\n`);
       signals.exit(130);
       return;
     }
     interrupted = true;
     stderr.write(
-      `\ntwin: interrupted, releasing ${live.map(short).join(', ')} (Ctrl-C again to skip)\n`,
+      `\ntwin: interrupted, releasing ${names(live, 'the machine being created')} (Ctrl-C again to skip)\n`,
     );
     void tracked.releaseAll().then(({ released, failed }) => {
       if (failed.length > 0) {
-        stderr.write(
-          `twin: could not confirm ${failed.map(short).join(', ')} is gone; run: twin stop\n`,
-        );
+        stderr.write(`twin: could not confirm ${names(failed, '')} is gone; run: twin stop\n`);
       } else {
-        stderr.write(`twin: released ${released.map(short).join(', ')}\n`);
+        stderr.write(`twin: released ${names(released, 'nothing')}\n`);
       }
       signals.exit(130);
     });
