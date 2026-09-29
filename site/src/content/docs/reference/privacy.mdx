@@ -59,13 +59,13 @@ Records that variable's value too, scrubbed. Repeatable. Use it for values that 
 
 Every other set variable gets `hash`: the first 32 hex characters of HMAC-SHA-256 of its value, keyed by the salt. Two capsules captured with the same salt can be compared (`twin inspect a.json b.json` reports whether the values differ) without revealing them. twin never writes unsalted hashes, because hashes of short or common values can be reversed by guessing.
 
-## Secret rules (rules version 1)
+## Secret rules (rules version 2)
 
 Every piece of captured text (the output tail, the diff, argv, recorded values and untracked file names) passes through these rules in order, most specific first. A match is replaced by `<redacted:RULE-ID>` and counted in `redaction.scrubbed`.
 
 | Rule id | What it matches |
 |---|---|
-| `private-key` | `-----BEGIN … PRIVATE KEY-----` blocks through the matching `END` line |
+| `private-key` | `-----BEGIN … PRIVATE KEY-----` blocks through the matching `END` line, and keys cut in half by the output tail (base64 lines ending in an `END` line, or a `BEGIN` with no `END`) |
 | `url-credentials` | `user:password@` in any `scheme://` URL (the scheme and host are kept) |
 | `aws-access-key` | AWS access key ids: `AKIA`, `ASIA`, `AGPA`, `AIDA`, `AROA` followed by 16 characters |
 | `github-token` | `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` tokens and `github_pat_` fine-grained tokens |
@@ -78,7 +78,7 @@ Every piece of captured text (the output tail, the diff, argv, recorded values a
 | `llm-api-key` | `sk-…`, `sk-ant-…`, `sk-proj-…` keys (OpenAI, Anthropic and compatible) |
 | `jwt` | three-part `eyJ…` JSON Web Tokens |
 | `bearer-token` | the token after `Bearer`, `Basic` or `Token` (the scheme word is kept) |
-| `assignment` | the value in `NAME=value`, `"name": "value"` or `name: value` when the name contains `secret`, `token`, `password`, `passwd`, `pwd`, `api_key`, `access_key`, `private_key`, `credential` or `auth` (the name is kept) |
+| `assignment` | the value in `NAME=value`, `"name": "value"` or `name: value` when the name contains `secret`, `token`, `password`, `passwd`, `pwd`, `api_key`, `access_key`, `private_key`, `credential` or `auth` (the name is kept). A quoted value is dropped whole, spaces included. Also `UPPER_CASE_KEY=value` with a value of 8 or more characters, such as `ENCRYPTION_KEY=3f2a…`, which is often hex |
 | `high-entropy` | random-looking strings no other rule caught (below) |
 
 ### The entropy heuristic

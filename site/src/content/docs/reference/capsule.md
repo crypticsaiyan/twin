@@ -214,7 +214,7 @@ The allowlist is in [Privacy](../privacy/).
 
 | Field | Type | Description |
 |---|---|---|
-| `rulesVersion` | integer | Version of the secret rules that scrubbed this capsule. Currently `1`. |
+| `rulesVersion` | integer | Version of the secret rules that scrubbed this capsule. Currently `2`. |
 | `valuesIncluded` | string[] | Variables whose values were recorded. |
 | `hashedValues` | boolean | Whether `--salt` was used. |
 | `scrubbed` | map of integer | Replacement counts per rule id (e.g. `github-token`, `home-path`) across all captured text. |
