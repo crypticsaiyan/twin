@@ -41,7 +41,6 @@ export default defineConfig({
         '@fontsource-variable/jetbrains-mono/wght-italic.css',
         '@fontsource/doto/900.css',
         './src/styles/tokens.css',
-        './src/styles/grid.css',
         './src/styles/starlight.css',
       ],
       expressiveCode: {

@@ -112,71 +112,8 @@ h1#_top {
   scrollbar-color: var(--twin-rule) transparent;
 }
 
-/*
- * The engineering grid, restrained: + marks where the header rule meets the sidebar rules,
- * and at both ends of the rule under the page title. Code frames stay plain.
- */
 .starlight-aside {
   border-radius: 0;
-}
-
-@media (min-width: 50rem) {
-  /* Header rule meets the left sidebar's rule. */
-  .page > .header::after {
-    content: '';
-    position: absolute;
-    bottom: -6px;
-    left: calc(var(--sl-sidebar-width) - 6px);
-    width: 11px;
-    height: 11px;
-    pointer-events: none;
-    background:
-      var(--twin-bar) 0 5px / 11px 1px no-repeat,
-      var(--twin-bar) 5px 0 / 1px 11px no-repeat;
-  }
-
-  /* The rule under the page title, marked where it meets the sidebars. */
-  .content-panel + .content-panel {
-    position: relative;
-  }
-
-  .content-panel + .content-panel::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    left: -6px;
-    right: -6px;
-    height: 11px;
-    pointer-events: none;
-    background:
-      var(--twin-bar) 0 5px / 11px 1px no-repeat,
-      var(--twin-bar) 5px 0 / 1px 11px no-repeat;
-  }
-}
-
-@media (min-width: 72rem) {
-  [data-has-toc] .content-panel + .content-panel::before {
-    background:
-      var(--twin-bar) 0 5px / 11px 1px no-repeat,
-      var(--twin-bar) 5px 0 / 1px 11px no-repeat,
-      var(--twin-bar) 100% 5px / 11px 1px no-repeat,
-      var(--twin-bar) calc(100% - 5px) 0 / 1px 11px no-repeat;
-  }
-
-  /* Header rule meets the table of contents' rule. The mark keeps the rail's static left edge. */
-  .right-sidebar-container::before {
-    content: '';
-    position: fixed;
-    top: calc(var(--sl-nav-height) - 6px);
-    margin-left: -6px;
-    width: 11px;
-    height: 11px;
-    z-index: calc(var(--sl-z-index-navbar) + 1);
-    pointer-events: none;
-    background:
-      var(--twin-bar) 0 5px / 11px 1px no-repeat,
-      var(--twin-bar) 5px 0 / 1px 11px no-repeat;
-  }
 }
 
 /* Code in one color, like the landing page's terminals: no syntax highlighting. */

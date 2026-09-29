@@ -2,7 +2,6 @@
 import '@fontsource-variable/jetbrains-mono';
 import '@fontsource/doto/900.css';
 import '../styles/tokens.css';
-import '../styles/grid.css';
 import kolkataCapsule from '../../../examples/echarts-21538/kolkata.json';
 import newYorkCapsule from '../../../examples/echarts-21538/new-york.json';
 import bisectLog from '../../../examples/echarts-21538/bisect.txt?raw';
@@ -893,17 +892,8 @@ jobs:
     border-color: var(--twin-text-muted);
   }
 
-  /* The grid: full-width horizontal rules, a framed column, + marks where they cross. */
-  .band {
-    border-top: 1px solid var(--twin-rule);
-  }
-
-  .band-nav {
-    border-top: 0;
-  }
-
+  /* The frame: a bordered column, closed by rules that end at its edges, like stacked boxes. */
   .band-foot {
-    border-bottom: 1px solid var(--twin-rule);
     margin-bottom: 4rem;
   }
 
@@ -915,53 +905,16 @@ jobs:
     border-inline: 1px solid var(--twin-rule);
   }
 
-  .band:not(.band-nav) > .col::before,
-  .band-foot > .col::after,
-  .steps > li + li::before,
-  .body > .pair + .pair::before {
-    content: '';
-    position: absolute;
-    left: -6px;
-    right: -6px;
-    height: 11px;
-    z-index: 2;
-    pointer-events: none;
-    background:
-      var(--twin-bar) 0 5px / 11px 1px no-repeat,
-      var(--twin-bar) 5px 0 / 1px 11px no-repeat,
-      var(--twin-bar) 100% 5px / 11px 1px no-repeat,
-      var(--twin-bar) calc(100% - 5px) 0 / 1px 11px no-repeat;
+  .band:not(.band-nav) > .col {
+    border-top: 1px solid var(--twin-rule);
   }
 
-  .band:not(.band-nav) > .col::before,
-  .steps > li + li::before,
-  .body > .pair + .pair::before {
-    top: -6px;
+  .band-foot > .col {
+    border-bottom: 1px solid var(--twin-rule);
   }
 
-  .band-foot > .col::after {
-    bottom: -6px;
-  }
-
-  /* A vertical rule inside a band, marked where it meets the band's top and bottom rules. */
   .split {
     position: relative;
-  }
-
-  .split::before {
-    content: none;
-    position: absolute;
-    top: -6px;
-    bottom: -6px;
-    left: -6px;
-    width: 11px;
-    z-index: 2;
-    pointer-events: none;
-    background:
-      var(--twin-bar) 0 5px / 11px 1px no-repeat,
-      var(--twin-bar) 5px 0 / 1px 11px no-repeat,
-      var(--twin-bar) 0 calc(100% - 5px) / 11px 1px no-repeat,
-      var(--twin-bar) 5px 100% / 1px 11px no-repeat;
   }
 
   /* A sub-row inside a section, ruled across the full cell. */
@@ -1228,10 +1181,6 @@ jobs:
     .hero .split {
       border-left: 1px solid var(--twin-rule);
     }
-
-    .hero .split::before {
-      content: '';
-    }
   }
 
   @media (min-width: 80rem) {
@@ -1255,13 +1204,9 @@ jobs:
       padding: 4.5rem var(--pad);
       border-left: 1px solid var(--twin-rule);
     }
-
-    .sec > .split::before {
-      content: '';
-    }
   }
 
-  /* Terminals and demo cards: square, hairline, marked at the corners. */
+  /* Terminals and demo cards: square and hairline. */
   .term {
     margin: 0;
     min-width: 0;
