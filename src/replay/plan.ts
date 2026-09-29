@@ -108,6 +108,9 @@ function envFor(
   }
   // Linux resolves the zone from TZ; the capsule records the zone the reporter's process used.
   if (env.TZ === undefined && capsule.locale.timeZone) env.TZ = capsule.locale.timeZone;
+  // Capture pipes the command's output, so tools saw no terminal and printed plain text. A guest
+  // command may look colour-capable, and tools like vitest then word the same failure differently.
+  if (env.NO_COLOR === undefined && env.FORCE_COLOR === undefined) env.NO_COLOR = '1';
   Object.assign(env, options.env);
   env.PATH = [...paths, SYSTEM_PATH].join(':');
   return { env, unknown: unknown.filter((name) => options.env?.[name] === undefined) };

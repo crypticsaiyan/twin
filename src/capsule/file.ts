@@ -42,6 +42,12 @@ export async function readCapsule(path: string): Promise<Capsule> {
 
 export async function writeCapsule(path: string, capsule: Capsule): Promise<number> {
   const text = serializeCapsule(capsule);
-  await writeFile(path, text, 'utf8');
+  try {
+    await writeFile(path, text, 'utf8');
+  } catch (error) {
+    throw new TwinError(`cannot write ${path}: ${(error as NodeJS.ErrnoException).code ?? error}`, {
+      cause: error,
+    });
+  }
   return Buffer.byteLength(text);
 }

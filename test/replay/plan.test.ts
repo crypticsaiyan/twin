@@ -320,4 +320,11 @@ describe('nodeManagerCommands', () => {
       /must not start/,
     );
   });
+  it('sets NO_COLOR unless the reporter had a colour setting, since capture ran piped', () => {
+    const base = makeCapsule();
+    expect(planReplay(base).env.NO_COLOR).toBe('1');
+    const forced = makeCapsule({ env: { ...base.env, FORCE_COLOR: { state: 'set', value: '1' } } });
+    expect(planReplay(forced).env).not.toHaveProperty('NO_COLOR');
+    expect(planReplay(base, { env: { NO_COLOR: '' } }).env.NO_COLOR).toBe('');
+  });
 });

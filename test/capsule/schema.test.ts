@@ -88,6 +88,11 @@ describe('capsule files', () => {
     expect(await readCapsule(path)).toEqual(capsule);
   });
 
+  it('explains a path that cannot be written', async () => {
+    const path = join(await tempDir(), 'missing', 'c.json');
+    await expect(writeCapsule(path, makeCapsule())).rejects.toThrow(/cannot write .*ENOENT/);
+  });
+
   it('explains invalid JSON', () => {
     expect(() => parseCapsule('{nope', 'bad.json')).toThrow(TwinError);
     expect(() => parseCapsule('{nope', 'bad.json')).toThrow(/bad\.json is not valid JSON/);
