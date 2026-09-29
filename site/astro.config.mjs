@@ -2,10 +2,10 @@
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 
-// Where the site is hosted. Change these two values (or set SITE_URL / SITE_BASE)
-// when hosting is decided. Every internal link on the landing page is built from `base`.
-const SITE = process.env.SITE_URL ?? 'https://crypticsaiyan.github.io';
-const BASE = process.env.SITE_BASE ?? '/twin';
+// Hosted on Vercel at the domain root (see `pnpm deploy` in package.json). Set SITE_URL / SITE_BASE
+// to serve it elsewhere, for example under a sub-path. Every internal link is built from `base`.
+const SITE = process.env.SITE_URL ?? 'https://crypticsaiyan-twin.vercel.app';
+const BASE = process.env.SITE_BASE ?? '/';
 
 export default defineConfig({
   site: SITE,

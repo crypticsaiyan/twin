@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "deploy": "astro build && vercel deploy dist --prod --yes"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.4",
