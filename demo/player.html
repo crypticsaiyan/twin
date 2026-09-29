@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>twin demo player</title>
+<link rel="stylesheet" href="vendor/xterm.css">
+<style>
+@font-face { font-family: 'Doto'; font-weight: 900; src: url(vendor/doto-latin-900-normal.woff2) format('woff2'); }
+:root {
+  --bg: #fafaf8; --text: #17181a; --muted: #62636a; --rule: #e3e2dc;
+  --fail: #c3362b; --pass: #1d7a49;
+  --t-bg: #141517; --t-head: #1e1f23; --t-rule: #2a2b30; --t-text: #ececea; --t-muted: #9d9ea5;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+html, body { margin: 0; background: var(--bg); }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); font-family: var(--mono); color: var(--text); }
+.scene { position: absolute; inset: 0; opacity: 0; }
+.stitle { position: absolute; left: 173px; top: 28px; font-family: 'Doto'; font-weight: 900; font-size: 42px; letter-spacing: 0.02em; line-height: 1; }
+.caption { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 30px; letter-spacing: -0.01em; }
+.win { position: absolute; left: 50%; transform: translateX(-50%); top: 92px; background: var(--t-bg); border: 1px solid var(--t-rule); }
+.whead { height: 40px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; background: var(--t-head); border-bottom: 1px solid var(--t-rule); font-size: 15px; color: var(--t-muted); letter-spacing: 0.04em; white-space: nowrap; }
+.whead .r { display: flex; gap: 18px; align-items: center; }
+.chip { border: 1px solid var(--t-muted); padding: 1px 8px; color: var(--t-text); letter-spacing: 0.04em; }
+.chip.fast { background: var(--t-text); color: #111214; border-color: var(--t-text); font-weight: 700; }
+.done { color: var(--t-text); }
+.tbody { padding: 14px 18px 18px 18px; }
+.xterm .xterm-viewport { overflow: hidden !important; background: transparent !important; }
+.xterm-cursor-block { background: #f0695c !important; color: #111214 !important; }
+.blinkoff .xterm-cursor-block { background: transparent !important; color: inherit !important; }
+.xterm-rows { font-variant-ligatures: none; }
+/* title */
+.wordmark { font-family: 'Doto'; font-weight: 900; line-height: 1; display: inline-flex; align-items: flex-end; }
+.wordmark .cur { display: inline-block; background: var(--fail); }
+.tagline { font-size: 34px; color: var(--muted); letter-spacing: -0.01em; }
+/* issue */
+.shot { position: absolute; left: 50%; top: 116px; transform: translateX(-50%); border: 1px solid var(--rule); background: #fff; }
+.shot img { display: block; width: 1120px; }
+/* browser */
+.bwin { position: absolute; left: 50%; transform: translateX(-50%); top: 92px; border: 1px solid var(--t-rule); background: var(--t-bg); }
+.bbar { height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 14px; background: var(--t-head); border-bottom: 1px solid var(--t-rule); font-size: 15px; color: var(--t-muted); }
+.bbar .r { display: flex; gap: 14px; white-space: nowrap; align-items: center; }
+.url { flex: 1; min-width: 0; background: var(--t-bg); border: 1px solid var(--t-rule); padding: 6px 12px; color: var(--t-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bpage { position: relative; background: #fff; overflow: hidden; }
+.bpage img { display: block; }
+.auth { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 460px; background: #fff; color: #17181a; border: 1px solid #b9b9b3; padding: 22px 26px; font-size: 16px; }
+.auth h4 { margin: 0 0 4px; font-size: 20px; }
+.auth .s { color: #62636a; font-size: 14px; margin-bottom: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth .f { margin-bottom: 12px; }
+.auth .f b { display: block; font-weight: 400; font-size: 13px; color: #62636a; margin-bottom: 4px; }
+.auth .f i { display: block; font-style: normal; border: 1px solid #b9b9b3; padding: 7px 10px; height: 20px; }
+/* close */
+.install { position: absolute; left: 50%; transform: translateX(-50%); background: #141517; color: #ececea; border: 1px solid #2a2b30; padding: 18px 34px; font-size: 34px; white-space: nowrap; }
+.install span { color: #9d9ea5; }
+.center { position: absolute; left: 0; right: 0; text-align: center; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="vendor/xterm.js"></script>
+<script src="data.js"></script>
+<script>
+const D = window.DATA;
+const stage = document.getElementById('stage');
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const THEME = {
+  background: '#141517', foreground: '#ececea', cursor: '#f0695c', cursorAccent: '#111214', selectionBackground: '#2a2b30',
+  black: '#141517', red: '#f0695c', green: '#5ec98d', yellow: '#d9c47a', blue: '#7d9dff', magenta: '#b79cf0', cyan: '#6fc4c9', white: '#ececea',
+  brightBlack: '#9d9ea5', brightRed: '#f0695c', brightGreen: '#5ec98d', brightYellow: '#d9c47a', brightBlue: '#7d9dff', brightMagenta: '#b79cf0', brightCyan: '#6fc4c9', brightWhite: '#ffffff',
+};
+const R = { images: {} };
+
+function mkWordmark(size, curBlink) {
+  const w = el('div', 'wordmark');
+  w.style.fontSize = size + 'px';
+  w.innerHTML = '<span>twin</span><span class="cur"></span>';
+  const c = w.querySelector('.cur');
+  c.style.width = (size * 0.3) + 'px';
+  c.style.height = (size * 0.5) + 'px';
+  c.style.marginLeft = (size * 0.1) + 'px';
+  c.style.marginBottom = (size * 0.155) + 'px';
+  return w;
+}
+
+function mkTerm(host, cols, rows) {
+  const term = new Terminal({
+    cols, rows, fontFamily: "'JetBrains Mono'", fontSize: 20, lineHeight: 1.0, letterSpacing: 0,
+    theme: THEME, cursorStyle: 'block', cursorBlink: false, disableStdin: true, scrollback: 0, allowProposedApi: true,
+    convertEol: false,
+  });
+  term.open(host);
+  return term;
+}
+
+async function init() {
+  await document.fonts.load("20px 'JetBrains Mono'");
+  await document.fonts.load("900 40px 'Doto'");
+  for (const s of D.scenes) {
+    const root = el('div', 'scene');
+    s.root = root;
+    if (s.title) root.appendChild(el('div', 'stitle', s.title));
+    if (s.caption) root.appendChild(el('div', 'caption', s.caption));
+    if (s.kind === 'title') {
+      const c = el('div', 'center'); c.style.top = '330px';
+      const w = mkWordmark(300); c.appendChild(w);
+      const t = el('div', 'tagline', 'Turns “cannot reproduce” into a verified fix.');
+      t.style.marginTop = '46px';
+      c.appendChild(t);
+      s.cur = w.querySelector('.cur');
+      root.appendChild(c);
+    } else if (s.kind === 'issue') {
+      const sh = el('div', 'shot'); const im = new Image(); im.src = 'assets/issue.png'; sh.appendChild(im); root.appendChild(sh);
+      await im.decode();
+    } else if (s.kind === 'term' || s.kind === 'close') {
+      const win = el('div', 'win');
+      const head = el('div', 'whead');
+      const left = el('span', '', s.label || 'LIVE RUN');
+      const right = el('div', 'r');
+      head.append(left, right);
+      const body = el('div', 'tbody');
+      const host = el('div'); body.appendChild(host);
+      win.append(head, body);
+      s.term = mkTerm(host, s.cols, s.rows);
+      s.win = win; s.right = right; s.idx = 0; s.lastU = -1;
+      if (s.kind === 'close') {
+        win.style.top = '640px';
+        left.textContent = 'LIVE RUN';
+        const c = el('div', 'center'); c.style.top = '84px';
+        c.appendChild(mkWordmark(190));
+        s.cur = c.querySelector('.cur');
+        const ins = el('div', 'install', '<span>$</span> npm install -g @crypticsaiyan/twin'); ins.style.top = '400px';
+        const repo = el('div', 'center', 'github.com/crypticsaiyan/twin'); repo.style.top = '520px'; repo.style.fontSize = '30px'; repo.style.color = 'var(--muted)';
+        const cap = el('div', 'caption', 'no machines left running'); cap.style.bottom = '40px';
+        const note = el('div', 'center', 'date-fns #2068 is still open upstream; PR #4140 covers the same function. This demo shows the workflow.');
+        note.style.bottom = '104px'; note.style.fontSize = '20px'; note.style.color = 'var(--muted)'; note.style.display = 'none';
+        root.append(c, ins, repo, note, cap);
+        s.noteEl = note;
+      }
+      if (s.kind === 'term' && s.rows > 20) { /* full size window */ }
+      root.appendChild(win);
+    } else if (s.kind === 'browser') {
+      const bw = el('div', 'bwin');
+      bw.style.width = s.W + 'px';
+      const bar = el('div', 'bbar');
+      const lab = el('span', '', 'LIVE RUN');
+      const url = el('div', 'url', s.url);
+      const right = el('span', 'r');
+      s.right = right;
+      bar.append(lab, url, right);
+      const page = el('div', 'bpage'); page.style.height = s.H + 'px';
+      const img = el('img'); img.width = s.W; img.height = s.H; page.appendChild(img);
+      s.img = img;
+      const host = s.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      const auth = el('div', 'auth', `<h4>Sign in</h4><div class="s">${host}</div><div class="f"><b>Username</b><i class="u"></i></div><div class="f"><b>Password</b><i class="p"></i></div>`);
+      auth.style.display = 'none';
+      s.auth_el = auth; page.appendChild(auth);
+      bw.append(bar, page);
+      root.appendChild(bw);
+      s.images = s.frames.map((f) => { const i = new Image(); i.src = `file://${s.dir}/${f.file}`; return i; });
+      await Promise.all(s.images.map((i) => i.decode().catch(() => {})));
+    }
+    stage.appendChild(root);
+  }
+  window.READY = true;
+}
+
+const fmt = (x) => Math.max(0, Math.floor(x));
+function tagFor(s, u) {
+  const seg = s.segs.find((g) => u <= g.v1 + 1e-9) || s.segs[s.segs.length - 1];
+  let chip, real = '';
+  if (s.fixedTag) chip = `<span class="chip fast">${s.fixedTag}</span>`;
+  else if (seg.speed > 1.06) {
+    const raw = seg.r0 + (Math.min(u, seg.v1) - seg.v0) * seg.speed;
+    chip = `<span class="chip fast">${Math.round(seg.speed)}x</span>`;
+    real = `<span>real ${fmt(raw - (seg.enter ?? seg.r0))} s</span>`;
+  } else chip = '<span class="chip">1x</span>';
+  const done = (s.marks || []).filter((m) => m.v <= u + 1e-9).map((m) => `<span class="done">${m.text}</span>`).join('');
+  return done + real + chip;
+}
+
+async function seek(t) {
+  const parts = [];
+  for (const s of D.scenes) {
+    const u = t - s.start;
+    const vis = u >= -1e-9 && u <= s.dur + 1e-9;
+    const op = vis ? Math.max(0, Math.min(1, u / 0.25, (s.dur - u) / 0.25)) : 0;
+    s.root.style.opacity = op.toFixed(3);
+    s.root.style.visibility = vis ? 'visible' : 'hidden';
+    if (!vis) { s.lastU = -1; continue; }
+    let key = op.toFixed(2);
+    const blink = Math.floor(u * 1.8) % 2 === 0;
+    if (s.term) {
+      if (u < s.lastU) { s.term.reset(); s.idx = 0; }
+      s.lastU = u;
+      let chunk = '';
+      while (s.idx < s.events.length && s.events[s.idx].v <= u + 1e-9) chunk += s.events[s.idx++].d;
+      if (chunk) await new Promise((r) => s.term.write(chunk, r));
+      s.win.classList.toggle('blinkoff', !blink);
+      const tag = tagFor(s, u);
+      if (s.right.innerHTML !== tag) s.right.innerHTML = tag;
+      if (s.noteEl) s.noteEl.style.display = u > 1.0 ? 'block' : 'none';
+      key += `|${s.idx}|${blink}|${tag}`;
+    }
+    if (s.cur) { s.cur.style.opacity = 1; }
+    if (s.kind === 'browser') {
+      const seg = s.segs.find((g) => u <= g.v1 + 1e-9) || s.segs[s.segs.length - 1];
+      const raw = seg.r0 + (Math.min(u, seg.v1) - seg.v0) * seg.speed;
+      let k = 0;
+      for (let i = 0; i < s.frames.length; i++) if (s.frames[i].r <= raw) k = i;
+      s.img.src = s.images[k].src;
+      const showAuth = u >= s.auth.v0 - 0.7 + 0.0 && u <= s.auth.v1;
+      const a = s.auth_el;
+      a.style.display = showAuth ? 'block' : 'none';
+      if (showAuth) {
+        const p = u - (s.auth.v0);
+        const nu = Math.max(0, Math.min(4, Math.floor((p - 0.5) / 0.15)));
+        const np = Math.max(0, Math.min(16, Math.floor((p - 1.1) / 0.06)));
+        a.querySelector('.u').textContent = 'twin'.slice(0, nu);
+        a.querySelector('.p').textContent = '•'.repeat(np);
+        key += `|a${nu}.${np}`;
+      }
+      const tag = tagFor(s, u);
+      if (s.right.innerHTML !== tag) s.right.innerHTML = tag;
+      key += `|f${k}|${tag}`;
+    }
+    parts.push(s.kind + ':' + key);
+  }
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return parts.join(';');
+}
+window.seek = seek;
+init();
+</script>
+</body>
+</html>
