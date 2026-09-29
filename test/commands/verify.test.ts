@@ -124,7 +124,7 @@ describe('twin verify', () => {
     const { context, stdout } = await setup(backend);
     expect(await main(['verify', 'bug.json', '--patch', 'fix.patch'], context)).toBe(1);
     expect(stdout.text).toContain('patch does not apply');
-    expect(stdout.text).toContain('INCONCLUSIVE: setup failed (does the fix apply?)');
+    expect(stdout.text).toContain("INCONCLUSIVE: the fix did not apply to the capsule's tree");
   });
 
   it.each([

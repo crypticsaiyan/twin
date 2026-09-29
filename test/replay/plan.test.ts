@@ -78,16 +78,16 @@ describe('planReplay', () => {
     expect(env).not.toHaveProperty('CI');
     expect(env).not.toHaveProperty('API_TOKEN');
     expect(notes).toContain(
-      "1 variables were set on the reporter's machine with unknown values and are left unset (API_TOKEN). Provide any that matter with --env NAME=value.",
+      "1 variable was set on the reporter's machine but only by name, so left unset here (API_TOKEN). Usually harmless; if the command needs one, pass --env NAME=value.",
     );
   });
 
-  it('lists at most eight unknown variable names', () => {
+  it('lists at most five unknown variable names', () => {
     const env = Object.fromEntries(
       Array.from({ length: 10 }, (_, i) => [`V${i}`, { state: 'set' as const }]),
     );
     const { notes } = planReplay(makeCapsule({ env }));
-    expect(notes.join('\n')).toContain('(V0, V1, V2, V3, V4, V5, V6, V7 and 2 more)');
+    expect(notes.join('\n')).toContain('(V0, V1, V2, V3, V4 and 5 more)');
   });
 
   it('uses provided values for name-only variables and never copies host paths', () => {

@@ -18,7 +18,10 @@ import {
 import { execArgv, script, shellQuote } from './shell.ts';
 
 const MINUTE = 60_000;
-const MAX_LISTED_NAMES = 8;
+const MAX_LISTED_NAMES = 5;
+
+/** Step title of the verify patch, which reports look for to explain a patch that fails. */
+export const APPLY_FIX_TITLE = 'apply candidate fix';
 
 export type Step =
   | {
@@ -203,7 +206,7 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
       {
         kind: 'run',
         id: 'patch',
-        title: 'apply candidate fix',
+        title: APPLY_FIX_TITLE,
         argv: ['git', 'apply', '--whitespace=nowarn', FIX_PATCH_PATH],
         cwd: REPO_DIR,
         timeoutMs: MINUTE,
@@ -277,8 +280,9 @@ export function planReplay(capsule: Capsule, options: PlanOptions = {}): ReplayP
     const shown = unknown.slice(0, MAX_LISTED_NAMES).join(', ');
     const more =
       unknown.length > MAX_LISTED_NAMES ? ` and ${unknown.length - MAX_LISTED_NAMES} more` : '';
+    const noun = unknown.length === 1 ? 'variable was' : 'variables were';
     notes.push(
-      `${unknown.length} variables were set on the reporter's machine with unknown values and are left unset (${shown}${more}). Provide any that matter with --env NAME=value.`,
+      `${unknown.length} ${noun} set on the reporter's machine but only by name, so left unset here (${shown}${more}). Usually harmless; if the command needs one, pass --env NAME=value.`,
     );
   }
 

@@ -256,6 +256,35 @@ describe('renderReplay', () => {
     expect(text).toContain('Notes\n  - something');
   });
 
+  it('names why a run is inconclusive', () => {
+    const step = (title: string) => ({
+      id: 's',
+      title,
+      ok: false,
+      optional: false,
+      durationMs: 1,
+      exitCode: 1,
+      outputTail: 'boom',
+    });
+    const attempt = {
+      exitCode: null,
+      timedOut: true,
+      durationMs: 1,
+      outcome: 'fail' as const,
+      signature: 'exit?:c',
+      keyLines: [],
+    };
+    const render = (overrides: Partial<ReplayReport>, verify = false) =>
+      renderReplay(report({ verdict: 'inconclusive', ...overrides }), plain, { verify });
+    expect(render({ steps: [step('npm ci')] })).toContain(
+      'INCONCLUSIVE: "npm ci" failed, so the command never ran (output above).',
+    );
+    expect(render({ attempts: [attempt] })).toContain(
+      'INCONCLUSIVE: attempt 1 timed out (raise --timeout).',
+    );
+    expect(render({}, true)).toContain('INCONCLUSIVE: setup failed (does the fix apply?)');
+  });
+
   it('explains kept machines and passing attempts', () => {
     const text = renderReplay(
       report({

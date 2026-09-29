@@ -1,3 +1,4 @@
+import { APPLY_FIX_TITLE } from '../replay/plan.ts';
 import type { ReplayReport } from '../replay/replay.ts';
 import type { Verdict } from '../replay/verdict.ts';
 import type { Style } from './style.ts';
@@ -28,7 +29,24 @@ const VERIFY_TEXT: Record<Verdict, string> = {
   inconclusive: 'INCONCLUSIVE: setup failed (does the fix apply?) or an attempt timed out.',
 };
 
-function verdictLine(verdict: Verdict, style: Style, verify: boolean): string {
+/** Names what went wrong, so a patch that does not apply is not mistaken for a timeout. */
+function inconclusiveText(report: ReplayReport, verify: boolean): string | undefined {
+  const failed = report.steps.find((step) => !step.ok && !step.optional);
+  if (failed) {
+    if (verify && failed.title === APPLY_FIX_TITLE) {
+      return "INCONCLUSIVE: the fix did not apply to the capsule's tree (git apply error above).";
+    }
+    return `INCONCLUSIVE: "${failed.title}" failed, so the command never ran (output above).`;
+  }
+  const timedOut = report.attempts.findIndex((attempt) => attempt.timedOut);
+  if (timedOut >= 0) return `INCONCLUSIVE: attempt ${timedOut + 1} timed out (raise --timeout).`;
+  return undefined;
+}
+
+function verdictLine(report: ReplayReport, style: Style, verify: boolean): string {
+  const { verdict } = report;
+  const specific = verdict === 'inconclusive' ? inconclusiveText(report, verify) : undefined;
+  if (specific) return style.red(specific);
   if (verify) {
     const text = VERIFY_TEXT[verdict];
     if (verdict === 'not-reproduced') return style.green(text);
@@ -104,7 +122,7 @@ export function renderReplay(
     }
   }
 
-  lines.push('', verdictLine(report.verdict, style, options.verify === true));
+  lines.push('', verdictLine(report, style, options.verify === true));
 
   if (report.kept && options.agent) {
     lines.push(
