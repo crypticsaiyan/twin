@@ -9,7 +9,7 @@ sidebar:
 Usage: twin <command> [options]
 ```
 
-Run `twin <command> --help` (or `twin help <command>`) for the same details in the terminal; `twin --help` lists the commands grouped by task. A mistyped command gets a suggestion. `twin --version` (or `-v` as the first argument) prints the version. Run from the repository with `npx github:crypticsaiyan/twin <command>`; Node 22 or newer.
+Run `twin <command> --help` (or `twin help <command>`) for the same details in the terminal; `twin --help` lists the commands grouped by task. A mistyped command gets a suggestion. `twin --version` (or `-v` as the first argument) prints the version. Run from the repository with `npx @crypticsaiyan/twin <command>`; Node 22 or newer.
 
 | Command | Needs `SOLARI_API_KEY` | What it does |
 |---|---|---|
@@ -234,7 +234,7 @@ Serves twin's tools to AI coding agents over MCP (stdio): `inspect`, `replay`, `
 Needs `SOLARI_API_KEY` in the server's environment (every tool except `inspect` uses it). For example, in Claude Code:
 
 ```sh
-claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp
+claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twin mcp
 ```
 
 Machines kept during the session are released when it ends. The server exits with `0` when the client closes the session (or on SIGINT / SIGTERM). You normally do not run it by hand; your agent's client starts it.

@@ -13,7 +13,7 @@ environment, debug inside it and check its fix there.
 
 Needs SOLARI_API_KEY in the server's environment. For example, in Claude Code:
 
-  claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp
+  claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twin mcp
 
 Machines kept during the session are released when it ends.`;
 

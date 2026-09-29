@@ -1,10 +1,29 @@
 {
-  "name": "twin",
+  "name": "@crypticsaiyan/twin",
   "version": "0.1.0",
-  "private": true,
   "description": "Capture a failing environment on one machine, replay it on a Solari sandbox, and find the difference that breaks it.",
   "type": "module",
   "license": "MIT",
+  "author": "crypticsaiyan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crypticsaiyan/twin.git"
+  },
+  "homepage": "https://github.com/crypticsaiyan/twin#readme",
+  "bugs": {
+    "url": "https://github.com/crypticsaiyan/twin/issues"
+  },
+  "keywords": [
+    "reproduce",
+    "bug-report",
+    "environment",
+    "bisect",
+    "solari",
+    "sandbox",
+    "mcp",
+    "works-on-my-machine",
+    "cli"
+  ],
   "bin": {
     "twin": "dist/bin.js"
   },
@@ -27,7 +46,8 @@
     "e2e:docker": "node test/e2e/replay-docker.ts",
     "e2e:docker:bisect": "node test/e2e/bisect-docker.ts",
     "e2e:mcp": "node test/e2e/mcp-session.ts",
-    "prepare": "tsc -p tsconfig.build.json"
+    "prepare": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm check && pnpm build"
   },
   "packageManager": "pnpm@10.20.0",
   "devDependencies": {
@@ -41,5 +61,8 @@
     "@modelcontextprotocol/sdk": "^1.30.1",
     "@solarisdk/sdk": "0.1.4",
     "zod": "^4.6.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

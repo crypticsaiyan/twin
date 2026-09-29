@@ -19,7 +19,7 @@ You have a command that fails on your machine. Nothing is uploaded and no accoun
 1. In the project where the command fails, run it through twin:
 
    ```sh
-   npx github:crypticsaiyan/twin capture -- npm test
+   npx @crypticsaiyan/twin capture -- npm test
    ```
 
    Put your own failing command after `--`. twin runs it as usual; you see its output live.
@@ -58,8 +58,8 @@ You have a capsule from an issue and want to see the failure.
 2. Replay the capsule. Pass the attachment link from the issue directly, or a downloaded file:
 
    ```sh
-   npx github:crypticsaiyan/twin replay https://github.com/user-attachments/files/<id>/twin-capsule.json
-   npx github:crypticsaiyan/twin replay twin-capsule.json
+   npx @crypticsaiyan/twin replay https://github.com/user-attachments/files/<id>/twin-capsule.json
+   npx @crypticsaiyan/twin replay twin-capsule.json
    ```
 
    twin creates a fresh Linux sandbox, installs the captured Node version, fetches the exact commit, applies the reporter's uncommitted diff, installs the captured package manager and dependencies from the lockfile, sets the captured environment values and time zone, and runs the command three times.
@@ -69,11 +69,11 @@ You have a capsule from an issue and want to see the failure.
 4. Keep going:
 
    ```sh
-   npx github:crypticsaiyan/twin replay twin-capsule.json --keep      # leave it running at the failure
-   npx github:crypticsaiyan/twin shell                                # open a terminal on it (Ctrl-] detaches)
-   npx github:crypticsaiyan/twin bisect twin-capsule.json --good mine.json
-   npx github:crypticsaiyan/twin verify twin-capsule.json --patch fix.patch
-   npx github:crypticsaiyan/twin stop                                   # release anything still running
+   npx @crypticsaiyan/twin replay twin-capsule.json --keep      # leave it running at the failure
+   npx @crypticsaiyan/twin shell                                # open a terminal on it (Ctrl-] detaches)
+   npx @crypticsaiyan/twin bisect twin-capsule.json --good mine.json
+   npx @crypticsaiyan/twin verify twin-capsule.json --patch fix.patch
+   npx @crypticsaiyan/twin stop                                   # release anything still running
    ```
 
 </Steps>

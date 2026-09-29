@@ -15,7 +15,7 @@ const title = 'twin';
 const description =
   'twin records the environment a command failed in, rebuilds it on a clean Solari sandbox, finds the difference that causes the failure, and checks a fix there.';
 const canonical = new URL(link(''), Astro.site).href;
-const install = 'npx github:crypticsaiyan/twin capture -- npm test';
+const install = 'npx @crypticsaiyan/twin capture -- npm test';
 
 const docs = {
   intro: link('start/introduction/'),
@@ -597,7 +597,7 @@ const lineClass = (line: Line) =>
               <div class="stack">
                 <figure class="term">
                   <figcaption><span>Add to Claude Code</span></figcaption>
-                  <pre><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
+                  <pre><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twin mcp</code></pre>
                 </figure>
                 <figure class="term" data-demo="agents" data-selected={shownCall}>
                   <figcaption>
