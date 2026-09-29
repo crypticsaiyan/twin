@@ -30,7 +30,11 @@ const VERIFY_TEXT: Record<Verdict, string> = {
 };
 
 /** Names what went wrong, so a patch that does not apply is not mistaken for a timeout. */
-function inconclusiveText(report: ReplayReport, verify: boolean): string | undefined {
+function inconclusiveText(
+  report: ReplayReport,
+  verify: boolean,
+  agent: boolean,
+): string | undefined {
   const failed = report.steps.find((step) => !step.ok && !step.optional);
   if (failed) {
     if (verify && failed.title === APPLY_FIX_TITLE) {
@@ -39,13 +43,15 @@ function inconclusiveText(report: ReplayReport, verify: boolean): string | undef
     return `INCONCLUSIVE: "${failed.title}" failed, so the command never ran (output above).`;
   }
   const timedOut = report.attempts.findIndex((attempt) => attempt.timedOut);
-  if (timedOut >= 0) return `INCONCLUSIVE: attempt ${timedOut + 1} timed out (raise --timeout).`;
+  // Agents replay over MCP, which has no timeout option to raise.
+  const hint = agent ? '' : ' (raise --timeout)';
+  if (timedOut >= 0) return `INCONCLUSIVE: attempt ${timedOut + 1} timed out${hint}.`;
   return undefined;
 }
 
-function verdictLine(report: ReplayReport, style: Style, verify: boolean): string {
+function verdictLine(report: ReplayReport, style: Style, verify: boolean, agent: boolean): string {
   const { verdict } = report;
-  const specific = verdict === 'inconclusive' ? inconclusiveText(report, verify) : undefined;
+  const specific = verdict === 'inconclusive' ? inconclusiveText(report, verify, agent) : undefined;
   if (specific) return style.red(specific);
   if (verify) {
     const text = VERIFY_TEXT[verdict];
@@ -122,7 +128,7 @@ export function renderReplay(
     }
   }
 
-  lines.push('', verdictLine(report, style, options.verify === true));
+  lines.push('', verdictLine(report, style, options.verify === true, options.agent === true));
 
   if (report.kept && options.agent) {
     lines.push(
