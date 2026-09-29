@@ -33,6 +33,11 @@ export function closeWhenAnswered(inner: Transport, input: EventEmitter): Transp
     const id = requestId(message);
     if (id !== undefined) pending.add(id);
     outer.onmessage?.(message, extra);
+    // The SDK never answers a cancelled request, so it must stop holding the session open.
+    if ('method' in message && message.method === 'notifications/cancelled') {
+      const cancelled = (message.params as { requestId?: RequestId } | undefined)?.requestId;
+      if (cancelled !== undefined && pending.delete(cancelled)) closeIfDone();
+    }
   };
   inner.onclose = () => outer.onclose?.();
   inner.onerror = (error) => outer.onerror?.(error);
