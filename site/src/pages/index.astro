@@ -400,7 +400,7 @@ const lineClass = (line: Line) =>
             </p>
           </div>
           <div class="hero-demo split">
-            <figure class="term x4" data-demo="hero">
+            <figure class="term" data-demo="hero">
               <figcaption>
                 <span><a href={ISSUE}>apache/echarts#21538</a>, recorded on Solari</span>
                 <button type="button" class="again" hidden>Play again</button>
@@ -455,7 +455,7 @@ const lineClass = (line: Line) =>
                     </div>
 
                     {step.demo === 'capture' && (
-                      <figure class="term x4" data-demo="capture">
+                      <figure class="term" data-demo="capture">
                         <figcaption>
                           <code>new-york.json</code>
                           <span class="cap-meta">
@@ -487,7 +487,7 @@ const lineClass = (line: Line) =>
                     )}
 
                     {step.demo === 'replay' && (
-                      <figure class="term x4" data-demo="stream">
+                      <figure class="term" data-demo="stream">
                         <figcaption>
                           <code>{step.recording}</code>
                           <span class="cap-meta">
@@ -500,7 +500,7 @@ const lineClass = (line: Line) =>
                     )}
 
                     {step.demo === 'bisect' && (
-                      <figure class="term x4" data-demo="bisect" data-stage="4">
+                      <figure class="term" data-demo="bisect" data-stage="4">
                         <figcaption>
                           <code>{step.recording}</code>
                           <span class="cap-meta">
@@ -547,7 +547,7 @@ const lineClass = (line: Line) =>
                     )}
 
                     {step.demo === 'verify' && (
-                      <figure class="term x4" data-demo="stream">
+                      <figure class="term" data-demo="stream">
                         <figcaption>
                           <code>{step.recording}</code>
                           <span class="cap-meta">
@@ -596,11 +596,11 @@ const lineClass = (line: Line) =>
                 </p>
               </div>
               <div class="stack">
-                <figure class="term x4">
+                <figure class="term">
                   <figcaption><span>Add to Claude Code</span></figcaption>
                   <pre><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y github:crypticsaiyan/twin mcp</code></pre>
                 </figure>
-                <figure class="term x4" data-demo="agents" data-selected={shownCall}>
+                <figure class="term" data-demo="agents" data-selected={shownCall}>
                   <figcaption>
                     <span>MCP session, ids shortened</span>
                     <span class="cap-meta">
@@ -648,7 +648,7 @@ const lineClass = (line: Line) =>
                 </p>
                 <p class="small"><a href={docs.action}>Action reference</a></p>
               </div>
-              <figure class="term x4">
+              <figure class="term">
                 <figcaption><code>.github/workflows/twin.yml</code></figcaption>
                 <pre><code>{`on: pull_request
 jobs:
@@ -843,7 +843,7 @@ jobs:
     margin: 0;
     background: var(--twin-bg);
     color: var(--twin-text);
-    font: 400 0.9375rem/1.65 var(--twin-font-body);
+    font: 400 0.9375rem/1.85 var(--twin-font-body);
     /* Commands are shown literally: no programming ligatures for -- or =>. */
     font-variant-ligatures: none;
     font-feature-settings: 'calt' 0;
@@ -1042,18 +1042,18 @@ jobs:
 
   h2 {
     font-size: clamp(1.5rem, 2.3vw, 1.95rem);
-    line-height: 1.2;
-    margin-bottom: 1rem;
+    line-height: 1.25;
+    margin-bottom: 1.75rem;
   }
 
   h3 {
     font-size: 1.2rem;
-    line-height: 1.3;
-    margin-bottom: 0.6rem;
+    line-height: 1.35;
+    margin-bottom: 1rem;
   }
 
   p {
-    margin: 0 0 1rem;
+    margin: 0 0 1.5rem;
     max-width: 72ch;
   }
 
@@ -1099,12 +1099,12 @@ jobs:
   /* Hero */
   .hero {
     display: grid;
-    gap: 3rem;
-    padding-block: 4rem;
+    gap: 4rem;
+    padding-block: 6rem;
   }
 
   .hero-text > * + * {
-    margin-top: 1.25rem;
+    margin-top: 2rem;
   }
 
   .hero-text .lede {
@@ -1162,8 +1162,8 @@ jobs:
   /* Sections: a label rail and a body, split by a rule on wide screens. */
   .sec {
     display: grid;
-    gap: 0.75rem;
-    padding-block: 4rem;
+    gap: 1.5rem;
+    padding-block: 6rem;
   }
 
   .rail p {
@@ -1181,7 +1181,7 @@ jobs:
 
   .pair {
     display: grid;
-    gap: 1.5rem 3rem;
+    gap: 2rem 5rem;
     align-items: start;
   }
 
@@ -1191,7 +1191,7 @@ jobs:
 
   .stack {
     display: grid;
-    gap: 1.5rem;
+    gap: 2.5rem;
     min-width: 0;
   }
 
@@ -1330,8 +1330,8 @@ jobs:
 
   [data-demo='hero'] pre {
     font-size: 0.82rem;
-    line-height: 1.7;
-    padding-block: 1.25rem;
+    line-height: 1.85;
+    padding-block: 1.75rem;
   }
 
   .t-cmd {
@@ -1419,14 +1419,14 @@ jobs:
     margin: 0;
     padding: 0.5rem 0;
     font-size: 0.78rem;
-    line-height: 1.55;
+    line-height: 1.7;
   }
 
   .cap-row {
     display: grid;
     grid-template-columns: 8.5rem minmax(0, 1fr);
     gap: 0 1rem;
-    padding: 0.2rem 1rem;
+    padding: 0.35rem 1.25rem;
     transition: opacity 0.25s var(--ease);
   }
 

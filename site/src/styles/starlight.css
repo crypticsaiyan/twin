@@ -10,7 +10,7 @@
   --sl-text-body-sm: 0.8125rem;
   --sl-text-code: 0.8125rem;
   --sl-text-code-sm: 0.75rem;
-  --sl-line-height: 1.65;
+  --sl-line-height: 1.85;
   --sl-content-width: 46rem;
 
   --sl-color-accent-low: light-dark(#ecece8, #23242a);
@@ -114,30 +114,8 @@ h1#_top {
 
 /*
  * The engineering grid, restrained: + marks where the header rule meets the sidebar rules,
- * at both ends of the rule under the page title, and on the corners of code frames.
+ * and at both ends of the rule under the page title. Code frames stay plain.
  */
-.expressive-code {
-  position: relative;
-}
-
-.expressive-code::after {
-  content: '';
-  position: absolute;
-  /* The border belongs to the pre inside, so the marks start 5px out rather than 6px. */
-  inset: -5px;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    var(--twin-bar) 0 5px / 11px 1px no-repeat,
-    var(--twin-bar) 5px 0 / 1px 11px no-repeat,
-    var(--twin-bar) 100% 5px / 11px 1px no-repeat,
-    var(--twin-bar) calc(100% - 5px) 0 / 1px 11px no-repeat,
-    var(--twin-bar) 0 calc(100% - 5px) / 11px 1px no-repeat,
-    var(--twin-bar) 5px 100% / 1px 11px no-repeat,
-    var(--twin-bar) 100% calc(100% - 5px) / 11px 1px no-repeat,
-    var(--twin-bar) calc(100% - 5px) 100% / 1px 11px no-repeat;
-}
-
 .starlight-aside {
   border-radius: 0;
 }
@@ -199,4 +177,41 @@ h1#_top {
       var(--twin-bar) 0 5px / 11px 1px no-repeat,
       var(--twin-bar) 5px 0 / 1px 11px no-repeat;
   }
+}
+
+/* Code in one color, like the landing page's terminals: no syntax highlighting. */
+.expressive-code .ec-line span[style^='--'] {
+  color: inherit !important;
+}
+
+/* Room to breathe between blocks: prose, code, lists and headings. */
+.sl-markdown-content
+  :not(a, strong, em, del, span, input, code, br)
+  + :not(a, strong, em, del, span, input, code, br, :where(.not-content *)) {
+  margin-top: 1.5rem;
+}
+
+.sl-markdown-content .expressive-code,
+.sl-markdown-content :is(table, .starlight-aside) {
+  margin-block: 2rem;
+}
+
+.sl-markdown-content h2 {
+  margin-top: 3.5rem;
+}
+
+.sl-markdown-content h3 {
+  margin-top: 2.5rem;
+}
+
+.sl-markdown-content :is(h2, h3) + * {
+  margin-top: 1.25rem;
+}
+
+.sl-markdown-content li + li {
+  margin-top: 0.6rem;
+}
+
+.expressive-code pre > code {
+  padding-block: 1.1rem;
 }

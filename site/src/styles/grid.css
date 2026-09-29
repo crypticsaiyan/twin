@@ -10,26 +10,3 @@
 :root {
   --twin-bar: linear-gradient(var(--twin-mark), var(--twin-mark));
 }
-
-/* Four corner marks around a bordered box (terminal cards, code frames). */
-.x4 {
-  position: relative;
-}
-
-.x4::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    var(--twin-bar) 0 5px / 11px 1px no-repeat,
-    var(--twin-bar) 5px 0 / 1px 11px no-repeat,
-    var(--twin-bar) 100% 5px / 11px 1px no-repeat,
-    var(--twin-bar) calc(100% - 5px) 0 / 1px 11px no-repeat,
-    var(--twin-bar) 0 calc(100% - 5px) / 11px 1px no-repeat,
-    var(--twin-bar) 5px 100% / 1px 11px no-repeat,
-    var(--twin-bar) 100% calc(100% - 5px) / 11px 1px no-repeat,
-    var(--twin-bar) calc(100% - 5px) 100% / 1px 11px no-repeat;
-}
-

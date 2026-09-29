@@ -22,7 +22,7 @@
   --twin-code: #f4f4f1;
   --twin-code-head: #ecece8;
   --twin-rule: #e3e2dc;
-  --twin-mark: #aeaca3;
+  --twin-mark: var(--twin-rule);
   --twin-text: #17181a;
   --twin-text-muted: #62636a;
   --twin-fail: #c3362b;
@@ -38,7 +38,7 @@
     --twin-code: #17181b;
     --twin-code-head: #1e1f23;
     --twin-rule: #2a2b30;
-    --twin-mark: #55565e;
+    --twin-mark: var(--twin-rule);
     --twin-text: #ececea;
     --twin-text-muted: #9d9ea5;
     --twin-fail: #f0695c;
@@ -54,7 +54,7 @@
   --twin-code: #17181b;
   --twin-code-head: #1e1f23;
   --twin-rule: #2a2b30;
-  --twin-mark: #55565e;
+  --twin-mark: var(--twin-rule);
   --twin-text: #ececea;
   --twin-text-muted: #9d9ea5;
   --twin-fail: #f0695c;
