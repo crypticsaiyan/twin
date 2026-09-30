@@ -400,3 +400,16 @@ for (const figure of all(document, '[data-demo]')) {
     { amount: 0.3 },
   );
 }
+
+/* The example tour: one stage that shows the panel of the chosen step and plays it. */
+for (const tour of all(document, '[data-tour]')) {
+  const steps = all(tour, '.tour-step');
+  const panels = all(tour, '.tour-panel');
+  steps.forEach((step, index) =>
+    step.addEventListener('click', () => {
+      steps.forEach((other, i) => other.setAttribute('aria-pressed', String(i === index)));
+      panels.forEach((panel, i) => (panel.hidden = i !== index));
+      panels[index]?.querySelector<HTMLButtonElement>('.again')?.click();
+    }),
+  );
+}

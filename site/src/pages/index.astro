@@ -383,135 +383,144 @@ const lineClass = (line: Line) =>
               so a maintainer in Kolkata can’t see it. Everything below comes from the
               <a href={EXAMPLE}>capsules and recorded runs</a>, played back faster than they ran.
             </p>
-            <ol class="steps">
-              {
-                steps.map((step, index) => (
-                  <li class="pair">
-                    <div class="pair-text">
-                      <p class="step-no">Step {index + 1}</p>
-                      <h3>{step.title}</h3>
-                      <p>{step.text}</p>
-                    </div>
-
+            <div class="tour" data-tour>
+              <ol class="tour-nav">
+                {
+                  steps.map((step, index) => (
+                    <li>
+                      <button type="button" class="tour-step" aria-pressed={index === 0 ? 'true' : 'false'} data-step={index}>
+                        <span class="step-no">Step {index + 1}</span>
+                        <span class="tour-title">{step.title}</span>
+                        <span class="tour-text">{step.text}</span>
+                      </button>
+                    </li>
+                  ))
+                }
+              </ol>
+              <div class="tour-stage">
+                {
+                  steps.map((step, index) => (
+                    <div class="tour-panel" data-panel={index} hidden={index !== 0}>
                     {step.demo === 'capture' && (
-                      <figure class="term" data-demo="capture">
-                        <figcaption>
-                          <code>new-york.json</code>
-                          <span class="cap-meta">
-                            <span class="time">{ny.generator}</span>
-                            <button type="button" class="again" hidden>Play again</button>
-                          </span>
-                        </figcaption>
-                        <div class="tabs" role="group" aria-label="Capsule sections">
-                          {capsule.map(({ group }) => (
-                            <button type="button" data-group={group} aria-pressed="false">
-                              {group}
-                            </button>
-                          ))}
-                        </div>
-                        <dl class="capsule">
-                          {capsule.map(({ group, rows }) =>
-                            rows.map(([key, value, note], row) => (
-                              <div class={row === 0 ? 'cap-row group-start' : 'cap-row'} data-group={group} data-note={note}>
-                                <dt>{key}</dt>
-                                <dd>
-                                  <span class="cap-value">{value}</span>
-                                  {note && <span class="cap-note">{note}</span>}
-                                </dd>
-                              </div>
-                            )),
-                          )}
-                        </dl>
-                      </figure>
-                    )}
-
-                    {step.demo === 'replay' && (
-                      <figure class="term" data-demo="stream">
-                        <figcaption>
-                          <code>{step.recording}</code>
-                          <span class="cap-meta">
-                            <span class="time">{step.time}</span>
-                            <button type="button" class="again" hidden>Play again</button>
-                          </span>
-                        </figcaption>
-                        <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
-                      </figure>
-                    )}
-
-                    {step.demo === 'bisect' && (
-                      <figure class="term" data-demo="bisect" data-stage="4">
-                        <figcaption>
-                          <code>{step.recording}</code>
-                          <span class="cap-meta">
-                            <span class="time">{step.time}</span>
-                            <button type="button" class="again" hidden>Play again</button>
-                          </span>
-                        </figcaption>
-                        <div class="tabs" role="group" aria-label="Bisect stages">
-                          {['compare', 'trial 1', 'trial 2', 'result'].map((label, index) => (
-                            <button type="button" data-stage={index + 1} aria-pressed={index === 3 ? 'true' : 'false'}>
-                              <span class="tab-no">{index + 1}</span> {label}
-                            </button>
-                          ))}
-                        </div>
-                        <div class="table-scroll">
-                          <table class="compare">
-                            <thead>
-                              <tr>
-                                <th scope="col">varied by bisect</th>
-                                <th scope="col">
-                                  kolkata.json <span class="t-good">{good.command.outcome}</span>
-                                </th>
-                                <th scope="col">
-                                  new-york.json <span class="t-bad">{ny.command.outcome.toUpperCase()}</span>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {bisectRows.map(([key, left, right, same]) => (
-                                <tr class={same ? 'same' : 'differs'}>
-                                  <th scope="row">
-                                    <span class="rel" aria-hidden="true">{same ? '=' : '≠'}</span>
-                                    {key}
-                                  </th>
-                                  <td data-t1 data-t2={same ? '' : undefined} set:html={breakable(left)} />
-                                  <td data-t2={same ? undefined : ''} set:html={breakable(right)} />
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-stage={line.stage} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
-                      </figure>
-                    )}
-
-                    {step.demo === 'verify' && (
-                      <figure class="term" data-demo="stream">
-                        <figcaption>
-                          <code>{step.recording}</code>
-                          <span class="cap-meta">
-                            <span class="time">{step.time}</span>
-                            <button type="button" class="again" hidden>Play again</button>
-                          </span>
-                        </figcaption>
-                        <div class="patch" data-state="applied">
-                          <p class="patch-head">
-                            <span>fix.patch</span>
-                            <span class="patch-file">{patchFile}</span>
-                            <span>
-                              <span class="t-good">+{patchAdded}</span> <span class="t-bad">-{patchRemoved}</span>
+                        <figure class="term" data-demo="capture">
+                          <figcaption>
+                            <code>new-york.json</code>
+                            <span class="cap-meta">
+                              <span class="time">{ny.generator}</span>
+                              <button type="button" class="again" hidden>Play again</button>
                             </span>
-                            <span class="patch-state" aria-live="polite">applied</span>
-                          </p>
-                          <pre><code>{patchExcerpt.map(({ sign, text }) => <span class={`ln ${sign === '+' ? 'add' : 'del'}`}><span class="sign">{sign}</span>{text}</span>)}</code></pre>
-                        </div>
-                        <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} data-ref={line.ref} set:html={line.html} />)}</code></pre>
-                      </figure>
-                    )}
-                  </li>
-                ))
-              }
-            </ol>
+                          </figcaption>
+                          <div class="tabs" role="group" aria-label="Capsule sections">
+                            {capsule.map(({ group }) => (
+                              <button type="button" data-group={group} aria-pressed="false">
+                                {group}
+                              </button>
+                            ))}
+                          </div>
+                          <dl class="capsule">
+                            {capsule.map(({ group, rows }) =>
+                              rows.map(([key, value, note], row) => (
+                                <div class={row === 0 ? 'cap-row group-start' : 'cap-row'} data-group={group} data-note={note}>
+                                  <dt>{key}</dt>
+                                  <dd>
+                                    <span class="cap-value">{value}</span>
+                                    {note && <span class="cap-note">{note}</span>}
+                                  </dd>
+                                </div>
+                              )),
+                            )}
+                          </dl>
+                        </figure>
+                      )}
+
+                      {step.demo === 'replay' && (
+                        <figure class="term" data-demo="stream">
+                          <figcaption>
+                            <code>{step.recording}</code>
+                            <span class="cap-meta">
+                              <span class="time">{step.time}</span>
+                              <button type="button" class="again" hidden>Play again</button>
+                            </span>
+                          </figcaption>
+                          <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
+                        </figure>
+                      )}
+
+                      {step.demo === 'bisect' && (
+                        <figure class="term" data-demo="bisect" data-stage="4">
+                          <figcaption>
+                            <code>{step.recording}</code>
+                            <span class="cap-meta">
+                              <span class="time">{step.time}</span>
+                              <button type="button" class="again" hidden>Play again</button>
+                            </span>
+                          </figcaption>
+                          <div class="tabs" role="group" aria-label="Bisect stages">
+                            {['compare', 'trial 1', 'trial 2', 'result'].map((label, index) => (
+                              <button type="button" data-stage={index + 1} aria-pressed={index === 3 ? 'true' : 'false'}>
+                                <span class="tab-no">{index + 1}</span> {label}
+                              </button>
+                            ))}
+                          </div>
+                          <div class="table-scroll">
+                            <table class="compare">
+                              <thead>
+                                <tr>
+                                  <th scope="col">varied by bisect</th>
+                                  <th scope="col">
+                                    kolkata.json <span class="t-good">{good.command.outcome}</span>
+                                  </th>
+                                  <th scope="col">
+                                    new-york.json <span class="t-bad">{ny.command.outcome.toUpperCase()}</span>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {bisectRows.map(([key, left, right, same]) => (
+                                  <tr class={same ? 'same' : 'differs'}>
+                                    <th scope="row">
+                                      <span class="rel" aria-hidden="true">{same ? '=' : '≠'}</span>
+                                      {key}
+                                    </th>
+                                    <td data-t1 data-t2={same ? '' : undefined} set:html={breakable(left)} />
+                                    <td data-t2={same ? undefined : ''} set:html={breakable(right)} />
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-stage={line.stage} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
+                        </figure>
+                      )}
+
+                      {step.demo === 'verify' && (
+                        <figure class="term" data-demo="stream">
+                          <figcaption>
+                            <code>{step.recording}</code>
+                            <span class="cap-meta">
+                              <span class="time">{step.time}</span>
+                              <button type="button" class="again" hidden>Play again</button>
+                            </span>
+                          </figcaption>
+                          <div class="patch" data-state="applied">
+                            <p class="patch-head">
+                              <span>fix.patch</span>
+                              <span class="patch-file">{patchFile}</span>
+                              <span>
+                                <span class="t-good">+{patchAdded}</span> <span class="t-bad">-{patchRemoved}</span>
+                              </span>
+                              <span class="patch-state" aria-live="polite">applied</span>
+                            </p>
+                            <pre><code>{patchExcerpt.map(({ sign, text }) => <span class={`ln ${sign === '+' ? 'add' : 'del'}`}><span class="sign">{sign}</span>{text}</span>)}</code></pre>
+                          </div>
+                          <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} data-ref={line.ref} set:html={line.html} />)}</code></pre>
+                        </figure>
+                      )}
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1115,6 +1124,74 @@ jobs:
     .sec > .body {
       padding: 6rem var(--pad);
       border-left: 1px solid var(--twin-rule);
+    }
+  }
+
+  /* The example tour: step list on the left, one stage on the right. */
+  .tour {
+    display: grid;
+    gap: 2rem 4rem;
+    margin-top: 2.5rem;
+    align-items: start;
+  }
+
+  .tour-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    border-top: 1px solid var(--twin-rule);
+  }
+
+  .tour-nav li {
+    margin: 0;
+    border-bottom: 1px solid var(--twin-rule);
+  }
+
+  .tour-step {
+    display: grid;
+    gap: 0.35rem;
+    width: 100%;
+    padding: 1rem 0;
+    background: none;
+    border: 0;
+    color: var(--twin-text-muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .tour-step:hover,
+  .tour-step[aria-pressed='true'] {
+    color: var(--twin-text);
+  }
+
+  .tour-title {
+    font-family: var(--twin-font-mark);
+    font-weight: 900;
+    font-size: 1.05rem;
+    line-height: 1.35;
+  }
+
+  .tour-text {
+    display: none;
+    font-size: 0.875rem;
+    line-height: 1.75;
+    color: var(--twin-text-muted);
+  }
+
+  .tour-step[aria-pressed='true'] .tour-text {
+    display: block;
+  }
+
+  .tour-stage {
+    min-width: 0;
+    min-height: 34rem;
+  }
+
+  @media (min-width: 64rem) {
+    .tour {
+      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
     }
   }
 
