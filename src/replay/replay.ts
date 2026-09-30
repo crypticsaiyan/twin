@@ -167,9 +167,11 @@ async function pinDependencies(
   if (skipped.length > 0) {
     const shown = skipped.slice(0, 3).map((skip) => `${skip.name} (${skip.reason})`);
     const more = skipped.length > 3 ? ` and ${skipped.length - 3} more` : '';
-    report.notes.push(
-      `${skipped.length} package versions from the capsule were not installed: ${shown.join(', ')}${more}.`,
-    );
+    const count =
+      skipped.length === 1
+        ? '1 package version from the capsule was'
+        : `${skipped.length} package versions from the capsule were`;
+    report.notes.push(`${count} not installed: ${shown.join(', ')}${more}.`);
   }
   if (pins.length === 0) return true;
 

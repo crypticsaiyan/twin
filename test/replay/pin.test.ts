@@ -144,7 +144,9 @@ describe('replay pins dependencies', () => {
     ].join('\n');
     const report = await replay(capsule, backend, { attempts: 1, patch });
     expect(report.pinned).toEqual([{ name: 'left-pad', version: '1.3.0' }]);
-    expect(report.notes.join('\n')).toContain('dayjs (the candidate fix sets this package)');
+    expect(report.notes.join('\n')).toContain(
+      '1 package version from the capsule was not installed: dayjs (the candidate fix sets this package)',
+    );
   });
 
   it('ends inconclusive when the pin install fails', async () => {
