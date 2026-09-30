@@ -4,7 +4,7 @@ Website and docs: https://twincli.vercel.app
 
 **Turns "cannot reproduce" into a verified fix.** A reporter captures the environment their command failed in, as a small scrubbed file attached to the issue. twin rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, and checks a fix there, whether a maintainer or a coding agent wrote it.
 
-Most "works on my machine" bugs are not in the code. The commit is the same; what differs is a runtime version, a dependency the lockfile resolved differently, an environment variable, the time zone. Today the maintainer gets, at best, a pasted `envinfo` block that nobody can run, and the issue sits at "cannot reproduce".
+Most "works on my machine" bugs are not in the code. The commit is the same; what differs is a runtime version, a dependency the lockfile resolved differently, an environment variable, the time zone. Today the maintainer gets, at best, a pasted list of versions that nobody can run, and the issue sits at "cannot reproduce".
 
 | Step | Who | Command | Needs a Solari key |
 |---|---|---|---|
@@ -153,16 +153,6 @@ Building this turned up platform behavior worth knowing, all measured and writte
 - **Values replay cannot know.** Variables recorded by name only are left unset unless provided with `--env NAME=value`.
 - **A kept machine is billed** until it idles out (15 minutes) or `twin stop`. The browser terminal link and password together give a root shell on that machine; share them only with the reporter.
 
-## How it compares
-
-| Tool | What it does | Difference |
-|---|---|---|
-| `envinfo` | prints versions as text | twin's capsule is replayable, scrubbed, and diffable |
-| Dev containers, Codespaces, Nix | give contributors the *maintainer's* environment | twin rebuilds the *reporter's* environment |
-| StackBlitz, CodeSandbox | browser repros of a minimal example | twin uses the reporter's actual commit, lockfile, env and time zone, for Node and Python, on a real Linux VM |
-| `git bisect` | finds the commit that broke something | twin finds the environment difference, at a fixed commit |
-| worldbisect, crux | delta debugging over environment factors on one machine | twin runs across machines and runtimes, starting from a reporter's capture |
-| wsp | clones *your own* setup, sign-ins included, into cloud workspaces for your agents | twin rebuilds a *stranger's* failing environment from a scrubbed capsule, finds the difference and verifies fixes. They compose: a capsule could seed a workspace |
 
 ## Development
 

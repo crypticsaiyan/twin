@@ -6,7 +6,7 @@
 
 A user reports "`npm test` fails on my machine". The maintainer runs it and it passes. The issue sits at "cannot reproduce" until someone gives up. The difference is almost never the code (same commit). It is the environment: a runtime version, a transitive dependency the lockfile resolved differently, an env var, the timezone, a stale cache, the OS.
 
-Today the maintainer gets, at best, a pasted `envinfo` text block. Nobody can run that.
+Today the maintainer gets, at best, a pasted list of versions. Nobody can run that.
 
 **twin** turns the reporter's environment into something runnable:
 
@@ -185,7 +185,7 @@ Notes:
 - the working-tree diff (one atom, or per-file atoms)
 - OS (only as a note: cannot be varied on Linux)
 
-**Search.** Classic ddmin over the atom set: start from GOOD, apply subsets of BAD's atoms, run the predicate, keep shrinking until removing any single remaining atom makes it pass. This is established delta debugging (prior art: Zeller's ddmin, [worldbisect](https://github.com/iwadjp/worldbisect), [crux](https://github.com/meagoodboy/solari-cookbook/tree/main/applications/crux)); twin's contribution is running it across machines and runtimes on disposable VMs.
+**Search.** Classic ddmin over the atom set: start from GOOD, apply subsets of BAD's atoms, run the predicate, keep shrinking until removing any single remaining atom makes it pass. This is established delta debugging (Zeller's ddmin); twin's contribution is running it on disposable VMs from a reporter's capsule.
 
 **Each trial** runs on the one machine that holds GOOD's world, applies the subset, and runs the command N times: FAIL only if every run fails with BAD's signature, PASS if every run passes, otherwise unresolved (reported, never counted as the bug). The search is bracketed by two checks: GOOD alone must pass and all atoms together must fail.
 

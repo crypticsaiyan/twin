@@ -61,7 +61,7 @@ export default defineConfig({
         { label: 'Start here', items: [{ autogenerate: { directory: 'start' } }] },
         { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
         { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
-        { label: 'Case study', items: [{ autogenerate: { directory: 'examples' } }] },
+        { label: 'Case studies', items: [{ autogenerate: { directory: 'examples' } }] },
       ],
     }),
   ],

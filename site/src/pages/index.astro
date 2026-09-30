@@ -318,14 +318,6 @@ const synopsis = [
   ['mcp', 'Serve all of the above to a coding agent.'],
 ];
 
-const seeAlso = [
-  ['envinfo', 'Prints versions as text.', 'A capsule can be replayed, diffed and bisected.'],
-  ['Dev containers, Nix', 'Give contributors the maintainer’s environment.', 'twin rebuilds the reporter’s.'],
-  ['git bisect', 'Finds the commit that broke something.', 'twin finds the environment difference at a fixed commit.'],
-  ['StackBlitz, CodeSandbox', 'Run minimal repros in a browser.', 'twin uses the reporter’s real commit, lockfile, env and time zone.'],
-  ['wsp', 'Clones your own setup into cloud workspaces for your agents.', 'twin rebuilds a stranger’s failing environment from a scrubbed file.'],
-];
-
 /** Time zone names may wrap after their slash on a phone, never inside a word. */
 const breakable = (text: string) => escape(text).replaceAll('/', '/<wbr>');
 
@@ -369,7 +361,7 @@ const lineClass = (line: Line) =>
         <a class="logo" href={link('')} aria-label="twin home">twin<span class="cursor" aria-hidden="true"></span></a>
         <nav aria-label="Site">
           <a href={docs.intro}>Docs</a>
-          <a href={docs.caseStudy}>Case study</a>
+          <a href={docs.caseStudy}>Case studies</a>
           <a href={REPO}>GitHub</a>
           <button type="button" id="theme">Dark</button>
         </nav>
@@ -393,7 +385,7 @@ const lineClass = (line: Line) =>
             </div>
             <p class="actions">
               <a class="button" href={docs.quickstart}>Get started</a>
-              <a href={docs.caseStudy}>Read the case study</a>
+              <a href={docs.caseStudy}>Read the case studies</a>
             </p>
           </div>
           <div class="hero-demo split">
@@ -418,10 +410,6 @@ const lineClass = (line: Line) =>
                 <source src={link('demo/twin-demo.mp4')} type="video/mp4" />
               </video>
             </figure>
-            <p class="small">
-              date-fns#2068: capture, replay, bisect, verify, a shared browser terminal and Claude Code,
-              3.5 minutes.
-            </p>
           </div>
         </div>
       </section>
@@ -706,33 +694,6 @@ jobs:
                 </ul>
                 <p class="small"><a href={docs.privacy}>Privacy and redaction</a></p>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="band" aria-labelledby="see-also">
-        <div class="col sec">
-          <div class="rail"><p><span>06</span> See also</p></div>
-          <div class="body split">
-            <h2 id="see-also">Where it fits</h2>
-            <div class="table-wrap">
-              <table class="fits">
-                <thead>
-                  <tr><th>Tool</th><th>What it does</th><th>What twin adds</th></tr>
-                </thead>
-                <tbody>
-                  {
-                    seeAlso.map(([name, does, adds]) => (
-                      <tr>
-                        <td>{name}</td>
-                        <td>{does}</td>
-                        <td>{adds}</td>
-                      </tr>
-                    ))
-                  }
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
@@ -1757,42 +1718,6 @@ jobs:
     margin-bottom: 0;
   }
 
-  .table-wrap {
-    overflow-x: auto;
-    margin-top: 1.5rem;
-  }
-
-  .fits {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
-
-  .fits th,
-  .fits td {
-    text-align: left;
-    vertical-align: top;
-    padding: 0.75rem 1.5rem 0.75rem 0;
-    border-bottom: 1px solid var(--twin-rule);
-  }
-
-  .fits th {
-    font-weight: 500;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--twin-text-muted);
-  }
-
-  .fits td:first-child {
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .fits td:nth-child(2) {
-    color: var(--twin-text-muted);
-  }
-
   .foot {
     display: flex;
     flex-wrap: wrap;
@@ -1873,10 +1798,6 @@ jobs:
 
     .rel {
       width: 1.1em;
-    }
-
-    .fits td:first-child {
-      white-space: normal;
     }
   }
 
