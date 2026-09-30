@@ -1,0 +1,17 @@
+Replay on solari (machine Al6cvM6rzWZPX5bN…, run 6a3b8f47)
+  ✓ prepare workspace  0.3s
+  ✓ install node 24.15.0  2.2s
+  ✓ check out 883ac15d47f9  1.4s
+  ✓ install npm 11.12.1  3.7s
+  ✓ install dependencies (npm ci)  11.6s
+
+Attempts
+  1  PASS  33.7s
+  2  PASS  33.7s
+  3  PASS  33.7s
+  expected  FAIL exit1:3c9267cd7d019116
+
+NOT REPRODUCED: the same versions pass on this Linux machine. The difference is likely in what replay cannot copy (OS, unset env values, local files).
+
+Notes
+  - 42 variables were set on the reporter's machine but only by name, so left unset here (AI_AGENT, CASROOT, CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_ENTRYPOINT and 37 more). Usually harmless; if the command needs one, pass --env NAME=value (or have the reporter capture with --include-env NAME).
