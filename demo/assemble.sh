@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Builds the timeline from the raw recordings, renders every frame and encodes the outputs.
-# usage: DEMO_WORK=<scratch> REPO=<twin repo> OUT=<out dir> demo/assemble.sh [suffix]
+# usage: WORK=<demo-raw> REPO=<twin repo> OUT=<out dir> demo/assemble.sh [suffix]
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
-W="${DEMO_WORK:?}"; REPO="${REPO:?}"; OUT="${OUT:?}"; SUF="${1:-}"
+W="${WORK:-/home/cryptosaiyan/Documents/solaribuild/demo-raw}"; REPO="${REPO:-/home/cryptosaiyan/Documents/solaribuild/twin}"; OUT="${OUT:-/home/cryptosaiyan/Documents/solaribuild/demo-out}"; SUF="${1:-}"
 mkdir -p "$OUT"
 cp "$HERE/player.html" "$W/player.html"
 node "$HERE/build.mjs" "$W" "$SUF" "$REPO"

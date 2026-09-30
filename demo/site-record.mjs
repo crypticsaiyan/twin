@@ -124,70 +124,72 @@ log.urls.push({ t: 0, url: base + '/' });
 await send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: W, maxHeight: H, everyNthFrame: 1 });
 
 cap('The twin site: install, the ten commands, and a real bug worked end to end.');
-await hold(3.0); // the hero terminal plays its recording
+await hold(2.6); // the hero terminal plays its recording
 
 cap('Install with one command. Copy it in one click.');
 await zoomTo(await R('.install'), 'install', 110, 2.2);
 await click('.copy', 0.4);
-await hold(1.7); // button reads "Copied"
+await hold(1.3); // button reads "Copied"
 await zoomOut();
 await ev('__hideCursor()');
 
 cap('Ten commands, one file between them.');
 await scrollTo('#commands', 1.0, 70);
-await hold(1.8);
+await hold(1.4);
 
 cap('A real bug: the capsule shows what it kept, value recorded, name only or not set.');
 await scrollTo('[data-demo=capture]', 1.1, 130);
-await hold(1.0);
+await hold(0.6);
 await click('[data-demo=capture] .tabs button[data-group=environment]', 0.5);
-await zoomTo(await R('[data-demo=capture] .capsule'), 'privacy', 30, 1.9);
-await hold(2.6);
+await scrollTo('[data-demo=capture] .capsule', 0.5, 40);
+const capR = await R('[data-demo=capture] .capsule');
+await zoomTo({ ...capR, y: capR.y + capR.h - 300, h: 300 }, 'privacy', 40, 1.8);
+await hold(2.4);
 await zoomOut();
 await ev('__hideCursor()');
 
 cap('Replay rebuilds the environment on a Solari machine.');
 await scrollTo('[data-demo=stream]', 1.1, 130);
-await hold(1.8);
+await hold(1.4);
 
 cap('Bisect narrows it down in stages: compare, trial 1, trial 2, result.');
 await scrollTo('[data-demo=bisect]', 1.1, 110);
-await hold(0.8);
+await hold(0.5);
 const bis = await R('[data-demo=bisect]');
 await zoomTo({ ...bis, h: 470 }, 'bisect', 20, 1.6);
-for (let i = 1; i <= 4; i++) await click(`[data-demo=bisect] .tabs button[data-stage="${i}"]`, 0.8);
+for (let i = 1; i <= 4; i++) await click(`[data-demo=bisect] .tabs button[data-stage="${i}"]`, 0.7);
 await zoomOut();
 await ev('__hideCursor()');
 
 cap('Verify checks the fix in the environment where the bug was reported.');
 const ver = await R('ol.steps > li.pair:last-child');
 await scrollY(ver.pageY - 120, 1.0);
-await hold(1.6);
+await hold(1.2);
 
 cap('Agents get the reporter’s machine over MCP.');
 await scrollTo('[data-demo=agents]', 1.2, 110);
-await hold(0.8);
+await hold(0.5);
 await zoomTo(await R('[data-demo=agents] .timeline'), 'agents', 50, 1.9);
 await click('[data-demo=agents] .call[data-i="2"] button', 0.4).catch(() => {});
-await hold(2.2);
+await hold(1.8);
 await zoomOut();
 await ev('__hideCursor()');
 
 cap('What a capsule holds, where twin fits, and its limits.');
 await scrollTo('#files', 1.0, 70);
-await hold(1.1);
-await scrollTo('#see-also', 1.0, 70);
+await hold(0.9);
+await scrollTo('#see-also', 0.9, 70);
+await hold(0.4);
+await scrollTo('#limits', 0.9, 70);
+await hold(0.4);
+await scrollY(99999, 0.9);
 await hold(0.6);
-await scrollTo('#limits', 1.0, 70);
-await hold(0.6);
-await scrollY(99999, 1.0);
-await hold(0.8);
 
 cap('Guides and a CLI reference cover every command.');
 await navigate(base + '/guides/replay/');
-await hold(1.4);
-await scrollY(420, 1.2);
-await hold(1.2);
+await hold(1.1);
+await scrollY(420, 1.1);
+await hold(1.0);
 
 const total = now();
 await send('Page.stopScreencast');

@@ -182,6 +182,7 @@ function tagFor(s, u) {
   const seg = s.segs.find((g) => u <= g.v1 + 1e-9) || s.segs[s.segs.length - 1];
   let chip, real = '';
   if (s.fixedTag) chip = `<span class="chip fast">${s.fixedTag}</span>`;
+  else if (seg.speed > 1.06 && !seg.real && seg.v1 - seg.v0 < 1.0) { chip = ''; }
   else if (seg.speed > 1.06) {
     const x = seg.speed < 2 ? seg.speed.toFixed(1) : Math.round(seg.speed);
     chip = `<span class="chip fast">${x}x</span>`;

@@ -111,8 +111,8 @@ add({
 const keep = terminalScene(
   'keep',
   [
-    { name: 'replay --keep', res: 'Replay on solari', progress: 2.2, hold: 1.2 },
-    { name: null, res: 'Browser terminal on', progress: 1.4, hold: 2.6 },
+    { name: 'replay --keep', res: 'Replay on solari', progress: 1.8, hold: 0.8 },
+    { name: null, res: 'Browser terminal on', progress: 1.2, hold: 2.2 },
   ],
 );
 add({
@@ -124,9 +124,9 @@ const bdir = `${work}/raw/browser${suffix}`;
 const bj = JSON.parse(readFileSync(`${bdir}/frames.json`, 'utf8'));
 const evT = Object.fromEntries(bj.events.map((e) => [e.ev, e.t]));
 const bsegs = layout([
-  { r0: evT['auth-prompt'] - 0.4, r1: evT['auth-submit'], dur: 2.4 },
+  { r0: evT['auth-prompt'] - 0.4, r1: evT['auth-submit'], dur: 2.0 },
   { r0: evT['auth-submit'], r1: evT['typing-start'] - 0.8, dur: (evT['typing-start'] - 0.8 - evT['auth-submit']) / 3 },
-  { r0: evT['typing-start'] - 0.8, r1: evT['result'] + 1.5 },
+  { r0: evT['typing-start'] - 0.8, r1: evT['result'] + 1.2 },
 ]);
 add({
   kind: 'browser', title: 'browser terminal', label: 'LIVE RUN', caption: 'Share a link. The reporter joins the same machine.',
@@ -138,7 +138,7 @@ add({
 });
 
 const cls = terminalScene('close', [
-  { name: null, hold: 0.8 }, { name: null, res: 'Stopped', progress: 1.5, hold: 0.8 }, { name: null, hold: 1.2 },
+  { name: null, hold: 0.5 }, { name: null, res: 'Stopped', progress: 1.2, hold: 0.5 }, { name: null, hold: 1.0 },
 ]);
 add({
   kind: 'term', title: 'browser terminal', label: 'LIVE RUN', caption: 'Share a link. The reporter joins the same machine.',

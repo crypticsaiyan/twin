@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Scene 5: replay --keep + shell --web in a terminal, then a real headless Chrome on the link,
 # then twin list / twin stop / twin list. Cleans up (twin stop) even on failure.
-# env: DEMO_WORK (scratch dir with keep.json, close.json, work/), DEMO_SUFFIX (raw file suffix)
+# env: WORK (durable folder with keep.json, close.json, work/), DEMO_SUFFIX (raw file suffix)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-W="${DEMO_WORK:?}"; SUF="${DEMO_SUFFIX:-}"
+W="${WORK:-/home/cryptosaiyan/Documents/solaribuild/demo-raw}"; SUF="${DEMO_SUFFIX:-}"
 export PATH="$W/prefix/bin:$PATH"
 cleanup() { (. "$W/keyenv.sh"; cd "$W/work/date-fns-2068" && twin stop >/dev/null 2>&1; twin list); }
 trap cleanup EXIT
