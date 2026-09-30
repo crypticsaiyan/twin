@@ -94,20 +94,6 @@ function report(log: string): Line[] {
   });
 }
 
-// Hero: the three verdicts, verbatim from the recorded runs.
-const bisectResult = lines(bisectLog);
-const minimalAt = bisectResult.findIndex((line) => line.startsWith('Minimal failing difference'));
-const heroLines: Line[] = [
-  command('$ twin replay new-york.json'),
-  { html: paint(lineStarting(replayLog, 'REPRODUCED')), verdict: true },
-  blank(),
-  command('$ twin bisect new-york.json --good kolkata.json'),
-  ...bisectResult.slice(minimalAt, minimalAt + 2).map((raw) => ({ html: paint(raw) })),
-  blank(),
-  command('$ twin verify new-york.json --patch fix.patch'),
-  { html: paint(lineStarting(verifyLog, 'FIXED')), verdict: true },
-];
-
 // Step 1, capture: the reporter's capsule, field by field, straight from new-york.json.
 type EnvEntry = { state: string; value?: string };
 const ny = newYorkCapsule as typeof newYorkCapsule & { env: Record<string, EnvEntry> };
@@ -345,12 +331,6 @@ const lineClass = (line: Line) =>
           stored = localStorage.getItem('starlight-theme');
         } catch {}
         if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
-        // The hero terminal is in view on load, so it starts blank instead of flashing its
-        // final state first. If the demo script has not taken over within 2.5 s, it shows as is.
-        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-          root.classList.add('hero-armed');
-          setTimeout(() => root.classList.remove('hero-armed'), 2500);
-        }
       })();
     </script>
   </head>
@@ -388,24 +368,8 @@ const lineClass = (line: Line) =>
             </p>
           </div>
           <div class="hero-demo split">
-            <figure class="term" data-demo="hero">
-              <figcaption>
-                <span><a href={ISSUE}>apache/echarts#21538</a>, recorded on Solari</span>
-                <button type="button" class="again" hidden>Play again</button>
-              </figcaption>
-              <pre><code>{heroLines.map((line) => <span class={lineClass(line)} data-type={line.type} set:html={line.html} />)}</code></pre>
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="band" aria-labelledby="demo">
-        <div class="col sec">
-          <div class="rail"><p><span>01</span> Demo</p></div>
-          <div class="body split">
-            <h2 id="demo">See it work on a real bug</h2>
             <figure class="film">
-              <video controls preload="none" playsinline poster={link('demo/twin-demo-poster.jpg')}>
+              <video controls preload="metadata" playsinline poster={link('demo/twin-demo-poster.jpg')}>
                 <source src={link('demo/twin-demo.mp4')} type="video/mp4" />
               </video>
             </figure>
@@ -415,7 +379,7 @@ const lineClass = (line: Line) =>
 
       <section class="band" aria-labelledby="commands">
         <div class="col sec">
-          <div class="rail"><p><span>02</span> Synopsis</p></div>
+          <div class="rail"><p><span>01</span> Synopsis</p></div>
           <div class="body split">
             <h2 id="commands">Ten commands, one file between them</h2>
             <dl class="synopsis">
@@ -437,7 +401,7 @@ const lineClass = (line: Line) =>
 
       <section class="band" id="example" aria-labelledby="example-title">
         <div class="col sec">
-          <div class="rail"><p><span>03</span> Example</p></div>
+          <div class="rail"><p><span>02</span> Example</p></div>
           <div class="body split">
             <h2 id="example-title">A real bug, start to finish</h2>
             <p class="intro">
@@ -580,7 +544,7 @@ const lineClass = (line: Line) =>
 
       <section class="band" aria-labelledby="agents">
         <div class="col sec">
-          <div class="rail"><p><span>04</span> Agents</p></div>
+          <div class="rail"><p><span>03</span> Agents</p></div>
           <div class="body split">
             <h2 id="agents">Give coding agents the reporter’s machine</h2>
             <div class="pair">
@@ -664,7 +628,7 @@ jobs:
 
       <section class="band" aria-labelledby="files">
         <div class="col sec">
-          <div class="rail"><p><span>05</span> Files</p></div>
+          <div class="rail"><p><span>04</span> Files</p></div>
           <div class="body split">
             <h2 id="files">What a capsule holds</h2>
             <p class="intro">
@@ -761,8 +725,8 @@ jobs:
 
   :root {
     /* The page column: its hairline frame sits --inset from the viewport edge. */
-    --col-max: 80rem;
-    --inset: clamp(0.5rem, 2vw, 2.5rem);
+    --col-max: 120rem;
+    --inset: clamp(0.5rem, 1.5vw, 2rem);
     --pad: 1rem;
     --ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
@@ -775,7 +739,13 @@ jobs:
 
   @media (min-width: 80rem) {
     :root {
-      --pad: 3rem;
+      --pad: 4rem;
+    }
+  }
+
+  @media (min-width: 100rem) {
+    :root {
+      --pad: 6rem;
     }
   }
 
@@ -1011,7 +981,7 @@ jobs:
   .hero {
     display: grid;
     gap: 4rem;
-    padding-block: 6rem;
+    padding-block: 7rem;
   }
 
   .hero-text > * + * {
@@ -1074,7 +1044,7 @@ jobs:
   .sec {
     display: grid;
     gap: 1.5rem;
-    padding-block: 6rem;
+    padding-block: 7rem;
   }
 
   .rail p {
@@ -1112,7 +1082,7 @@ jobs:
     }
 
     .hero {
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
       align-items: stretch;
       gap: 0;
       padding: 0;
@@ -1120,7 +1090,7 @@ jobs:
 
     .hero-text,
     .hero-demo {
-      padding: 4.5rem var(--pad);
+      padding: 7rem var(--pad);
     }
 
     .hero-text {
@@ -1132,7 +1102,7 @@ jobs:
       align-items: center;
     }
 
-    .hero-demo > .term {
+    .hero-demo > .film {
       flex: 1;
     }
 
@@ -1143,13 +1113,13 @@ jobs:
 
   @media (min-width: 80rem) {
     .sec {
-      grid-template-columns: 12rem minmax(0, 1fr);
+      grid-template-columns: 14rem minmax(0, 1fr);
       gap: 0;
       padding: 0;
     }
 
     .rail {
-      padding: 4.5rem 1.5rem;
+      padding: 6rem 2rem;
     }
 
     .rail p {
@@ -1159,7 +1129,7 @@ jobs:
     }
 
     .sec > .body {
-      padding: 4.5rem var(--pad);
+      padding: 6rem var(--pad);
       border-left: 1px solid var(--twin-rule);
     }
   }
@@ -1245,12 +1215,6 @@ jobs:
     display: block;
   }
 
-  [data-demo='hero'] pre {
-    font-size: 0.82rem;
-    line-height: 1.85;
-    padding-block: 1.75rem;
-  }
-
   .t-cmd {
     color: var(--twin-text);
     font-weight: 600;
@@ -1292,10 +1256,6 @@ jobs:
     margin-left: 1px;
     vertical-align: text-bottom;
     background: var(--twin-text-muted);
-  }
-
-  .hero-armed [data-demo='hero'] pre .ln {
-    opacity: 0;
   }
 
   /* Tabs inside a demo: capsule sections, bisect stages. */
@@ -1751,11 +1711,7 @@ jobs:
       padding: 0.85rem;
     }
 
-    [data-demo='hero'] pre {
-      font-size: 0.74rem;
-    }
-
-    .cap-row {
+      .cap-row {
       grid-template-columns: 5.5rem minmax(0, 1fr);
       gap: 0 0.75rem;
       padding-inline: 0.85rem;

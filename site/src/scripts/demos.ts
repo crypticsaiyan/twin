@@ -145,19 +145,6 @@ async function playLine(run: Run, element: HTMLElement, onStep?: (phase: 'start'
   await run.wait(element.classList.contains('blank') ? 40 : 75);
 }
 
-/* Hero: three commands and their verdicts. */
-const hero: Demo = {
-  reset(figure) {
-    outputLines(figure).forEach(conceal);
-  },
-  async play(figure, run) {
-    for (const line of outputLines(figure)) await playLine(run, line);
-  },
-  finish(figure) {
-    outputLines(figure).forEach(restore);
-  },
-};
-
 /* Replay and verify: a report streamed step by step; verify also applies the patch. */
 const patchStates: Record<string, string> = {
   waiting: 'not applied',
@@ -358,7 +345,7 @@ const agents: Demo = {
   },
 };
 
-const demos: Record<string, Demo> = { hero, stream, capture, bisect, agents };
+const demos: Record<string, Demo> = { stream, capture, bisect, agents };
 
 for (const figure of all(document, '[data-demo]')) {
   const demo = demos[figure.dataset.demo ?? ''];
@@ -392,12 +379,6 @@ for (const figure of all(document, '[data-demo]')) {
       touched = true;
       play();
     });
-  }
-
-  if (figure.dataset.demo === 'hero') {
-    play();
-    document.documentElement.classList.remove('hero-armed');
-    continue;
   }
 
   // Blank the demo just before it scrolls into view, then play it once it is well in view.
