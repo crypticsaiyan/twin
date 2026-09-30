@@ -8,8 +8,8 @@ import { mkdirSync, rmSync, writeFileSync, linkSync } from 'node:fs';
 import { launch, sleep } from './cdp.mjs';
 
 const [out, base = 'http://127.0.0.1:4321'] = process.argv.slice(2);
-const W = 1500;
-const H = 820;
+const W = 1584;
+const H = 810;
 const FPS = 30;
 rmSync(out, { recursive: true, force: true });
 mkdirSync(`${out}/raw`, { recursive: true });

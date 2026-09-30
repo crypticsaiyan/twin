@@ -22,7 +22,31 @@ only needs `assemble.sh`; it never needs a new live run.
 | `vendor/` | xterm.js, xterm.css, Doto 900 woff2 |
 | `assets/` | the GitHub issue screenshot (`issue-raw.png`, cropped `issue.png`) |
 | `keyenv.sh` | one line that exports `SOLARI_API_KEY` from the twin `.env`. It contains no key. |
+| `piper-venv/`, `piper-voices/` | Piper TTS (pip in a venv, no sudo) and the voice models: `en_US-ryan-high` (used), `en_US-lessac-high`, `en_GB-alan-medium` (auditioned) |
+| `audio/` | `clips/` one wav per narration section, `clips.json` (measured durations), `cues.json` (start times on the timeline) |
+| `audio-out/` | voiceover.wav, music.wav, mix.wav (copied to demo-out/audio/) |
 | `*.json` | rec.py run specs written by `specs.py`; `data.js` is the built timeline |
+
+## Audio
+
+- Narration source: `voiceover.md` (one `## clip-id` or `## scene@offset` section per clip). `tts.py` synthesizes
+  each with Piper (`--length-scale 1.22`, about 160 words per minute while speaking). The audio drives the timeline:
+  `build.mjs` makes every scene last at least its narration plus 0.7 s; speed chips stay honest because the extra
+  time is a 1x hold.
+- Voice: `en_US-ryan-high` (Piper, offline neural). I auditioned `en_US-lessac-high` and `en_GB-alan-medium` on a
+  sample sentence; I cannot listen, so the choice rests on the model rating (high quality), steady pacing and
+  the shortest, cleanest output. Swap with `VOICE=en_US-lessac-high demo/assemble.sh`.
+- Music: an original instrumental generated in `audio.py` (numpy/scipy): A minor, Am F C G, detuned-sine pad with
+  a slow harmonic sweep, sub bass, a sparse plucked arpeggio, synthetic reverb. Nothing is downloaded or licensed.
+- Mix: music about 20 dB under the voice in the gaps and ducked to about 28 dB under speech, sidechain ducking (`sidechaincompress`), `loudnorm` to -16 LUFS,
+  48 kHz stereo AAC 192k. Stems are in `demo-out/audio/` so you can drop in your own voice.
+- `sync-check.py` measures each clip's real onset in voiceover.wav against its scene and prints the table.
+
+## Design system and layout check
+
+`player.html` has one `DS` object (safe margin 120 px, content column 168 to 1752, window 854 px tall, caption/result
+card slot, 250 ms fade, one easing, terminal font 20 px). `render.mjs --check` samples every scene every 0.5 s and
+fails on overlapping blocks, overflowing text or anything outside the safe margin.
 
 ## Re-render (no machines)
 

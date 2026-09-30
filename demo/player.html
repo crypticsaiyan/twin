@@ -6,71 +6,78 @@
 <link rel="stylesheet" href="vendor/xterm.css">
 <style>
 @font-face { font-family: 'Doto'; font-weight: 900; src: url(vendor/doto-latin-900-normal.woff2) format('woff2'); }
+/* The design system lives in the DS object below; these variables are generated from it. */
 :root {
-  --bg: #fafaf8; --text: #17181a; --muted: #62636a; --rule: #e3e2dc;
+  --bg: #fafaf8; --text: #17181a; --muted: #62636a; --rule: #d9d8d1;
   --fail: #c3362b; --pass: #1d7a49;
   --t-bg: #141517; --t-head: #1e1f23; --t-rule: #2a2b30; --t-text: #ececea; --t-muted: #9d9ea5;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --mono: 'JetBrains Mono', ui-monospace, monospace; --doto: 'Doto', var(--mono);
 }
 html, body { margin: 0; background: var(--bg); }
 #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); font-family: var(--mono); color: var(--text); }
 .scene { position: absolute; inset: 0; opacity: 0; }
-.stitle { position: absolute; left: 173px; top: 28px; font-family: 'Doto'; font-weight: 900; font-size: 42px; letter-spacing: 0.02em; line-height: 1; }
-.caption { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 30px; letter-spacing: -0.01em; }
-.win { position: absolute; left: 50%; transform: translateX(-50%); top: 92px; background: var(--t-bg); border: 1px solid var(--t-rule); }
-.whead { height: 40px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; background: var(--t-head); border-bottom: 1px solid var(--t-rule); font-size: 15px; color: var(--t-muted); letter-spacing: 0.04em; white-space: nowrap; }
-.whead .r { display: flex; gap: 18px; align-items: center; }
-.chip { border: 1px solid var(--t-muted); padding: 1px 8px; color: var(--t-text); letter-spacing: 0.04em; }
+/* scene title: one place, one style */
+.stitle { position: absolute; left: var(--mx); top: var(--titleY); height: 48px; font-family: var(--doto); font-weight: 900; font-size: 40px; line-height: 48px; white-space: nowrap; }
+/* caption and result card share one slot */
+.slot { position: absolute; left: var(--mx); width: var(--colW); top: var(--capY); height: var(--capH); box-sizing: border-box; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
+.caption { font-size: var(--capSize); letter-spacing: -0.01em; }
+.card { font-size: var(--capSize); border-top: 1px solid var(--rule); letter-spacing: -0.01em; display: none; }
+.card b { font-weight: 700; margin-right: 16px; }
+.card .fail { color: var(--fail); } .card .pass { color: var(--pass); }
+/* content area shared by every non-window scene */
+.area { position: absolute; left: var(--mx); width: var(--colW); top: var(--areaTop); height: var(--areaH); display: flex; flex-direction: column; justify-content: center; }
+/* window frame: terminals, browser, website */
+.win { position: absolute; left: var(--mx); width: var(--colW); top: var(--areaTop); height: var(--areaH); box-sizing: border-box; background: var(--t-bg); border: 1px solid var(--t-rule); overflow: hidden; }
+.win.narrow { left: calc(var(--mx) + (var(--colW) - 1400px) / 2); width: 1400px; }
+.whead { height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 18px; background: var(--t-head); border-bottom: 1px solid var(--t-rule); font-size: 18px; color: var(--t-muted); letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; }
+.whead .l { flex: none; }
+.whead .r { display: flex; gap: 18px; align-items: center; flex: none; }
+.whead .url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--t-text); letter-spacing: 0; }
+.chip { border: 1px solid var(--t-muted); padding: 1px 9px; color: var(--t-text); letter-spacing: 0.04em; }
 .chip.fast { background: var(--t-text); color: #111214; border-color: var(--t-text); font-weight: 700; }
 .done { color: var(--t-text); }
-.tbody { padding: 14px 18px 18px 18px; }
+.tbody { padding: 14px 18px; }
 .xterm .xterm-viewport { overflow: hidden !important; background: transparent !important; }
 .xterm-cursor-block { background: #f0695c !important; color: #111214 !important; }
 .blinkoff .xterm-cursor-block { background: transparent !important; color: inherit !important; }
 .xterm-rows { font-variant-ligatures: none; }
-/* title */
-.wordmark { font-family: 'Doto'; font-weight: 900; line-height: 1; display: inline-flex; align-items: flex-end; }
+.bpage { position: relative; background: #fff; overflow: hidden; height: calc(var(--areaH) - 46px); }
+.bpage img { display: block; margin: 0 auto; }
+.auth { position: absolute; left: 50%; top: 44px; transform: translateX(-50%); width: 520px; background: #fff; color: #17181a; border: 1px solid #b9b9b3; padding: 26px 30px; font-size: 20px; }
+.auth h4 { margin: 0 0 4px; font-size: 26px; }
+.auth .s { color: #62636a; font-size: 18px; margin-bottom: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth .f { margin-bottom: 14px; }
+.auth .f b { display: block; font-weight: 400; font-size: 18px; color: #62636a; margin-bottom: 6px; }
+.auth .f i { display: block; font-style: normal; border: 1px solid #b9b9b3; padding: 8px 12px; height: 26px; }
+/* type scale */
+.h1 { font-family: var(--doto); font-weight: 900; font-size: 108px; line-height: 1.04; letter-spacing: 0.01em; }
+.num { font-family: var(--doto); font-weight: 900; }
+.rule { border-top: 1px solid var(--text); }
+.muted { color: var(--muted); }
+.fail { color: var(--fail); } .pass { color: var(--pass); }
+.mono-l { font-size: 44px; line-height: 1.45; white-space: pre; }
+.wordmark { font-family: var(--doto); font-weight: 900; line-height: 1; display: inline-flex; align-items: flex-end; }
 .wordmark .cur { display: inline-block; background: var(--fail); }
-.tagline { font-size: 34px; color: var(--muted); letter-spacing: -0.01em; }
-/* issue */
-.shot { position: absolute; left: 50%; top: 300px; transform: translateX(-50%); border: 1px solid var(--rule); background: #fff; }
-.shot img { display: block; width: 1400px; }
-/* browser */
-.bwin { position: absolute; left: 50%; transform: translateX(-50%); top: 92px; border: 1px solid var(--t-rule); background: var(--t-bg); }
-.bbar { height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 14px; background: var(--t-head); border-bottom: 1px solid var(--t-rule); font-size: 15px; color: var(--t-muted); }
-.bbar .r { display: flex; gap: 14px; white-space: nowrap; align-items: center; }
-.url { flex: 1; min-width: 0; background: var(--t-bg); border: 1px solid var(--t-rule); padding: 6px 12px; color: var(--t-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bpage { position: relative; background: #fff; overflow: hidden; }
-.bpage img { display: block; }
-.auth { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 460px; background: #fff; color: #17181a; border: 1px solid #b9b9b3; padding: 22px 26px; font-size: 16px; }
-.auth h4 { margin: 0 0 4px; font-size: 20px; }
-.auth .s { color: #62636a; font-size: 14px; margin-bottom: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.auth .f { margin-bottom: 12px; }
-.auth .f b { display: block; font-weight: 400; font-size: 13px; color: #62636a; margin-bottom: 4px; }
-.auth .f i { display: block; font-style: normal; border: 1px solid #b9b9b3; padding: 7px 10px; height: 20px; }
-/* close */
-.install { position: absolute; left: 50%; transform: translateX(-50%); background: #141517; color: #ececea; border: 1px solid #2a2b30; padding: 18px 34px; font-size: 34px; white-space: nowrap; }
-.install span { color: #9d9ea5; }
-.center { position: absolute; left: 0; right: 0; text-align: center; }
-
-.card { position: absolute; left: 50%; transform: translateX(-50%); bottom: 22px; background: #fff; border: 1px solid var(--rule); padding: 14px 30px; font-size: 30px; white-space: nowrap; letter-spacing: -0.01em; display: none; }
-.card b { font-weight: 700; margin-right: 14px; }
-.card .fail { color: var(--fail); } .card .pass { color: var(--pass); }
-.item { position: absolute; opacity: 0; }
-.box { position: absolute; border: 1px solid #b9b9b3; background: #fff; padding: 24px 26px; width: 360px; height: 210px; box-sizing: border-box; }
-.box .k { font-size: 18px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
-.box .t { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
-.box .s { font-size: 23px; color: var(--muted); line-height: 1.35; }
-.box .f { color: var(--fail); } .box .p { color: var(--pass); }
-.arrow { position: absolute; font-size: 44px; color: var(--muted); width: 80px; text-align: center; opacity: 0; }
-.out { position: absolute; left: 1410px; width: 450px; height: 92px; border-left: 3px solid var(--text); padding: 6px 0 0 20px; box-sizing: border-box; opacity: 0; }
-.out .t { font-size: 34px; font-weight: 700; } .out .s { font-size: 22px; color: var(--muted); margin-top: 4px; }
-.strip { position: absolute; left: 0; right: 0; top: 300px; text-align: center; }
-.strip .n { font-family: 'Doto'; font-weight: 900; font-size: 230px; line-height: 1; }
-.strip .v { font-family: 'Doto'; font-weight: 900; font-size: 110px; line-height: 1.1; margin-top: 10px; }
-.strip .x { font-size: 40px; color: var(--muted); margin-top: 22px; }
-.sum { position: absolute; left: 240px; width: 1440px; font-size: 46px; letter-spacing: -0.01em; opacity: 0; line-height: 1.25; }
-.sum .n { font-family: 'Doto'; font-weight: 900; font-size: 64px; margin-right: 28px; }
+/* scenes */
+.strip .row { display: flex; align-items: flex-end; gap: 64px; padding-top: 56px; }
+.strip .n { font-size: 270px; line-height: 0.85; }
+.strip .v { font-size: 120px; line-height: 1.05; }
+.strip .x { font-size: 38px; margin-top: 18px; }
+.issue-img { width: var(--colW); display: block; border: 1px solid var(--rule); background: #fff; }
+.issue-who { font-size: 30px; margin-top: 72px; }
+.issue-say { font-size: 76px; line-height: 1.2; margin-top: 18px; min-height: 92px; white-space: nowrap; }
+.diff .h1 { margin-bottom: 64px; }
+.jsonbox { height: 540px; overflow: hidden; border-left: 3px solid var(--text); padding-left: 32px; }
+.jsonbox pre { margin: 0; font-family: var(--mono); font-size: 30px; line-height: 1.5; }
+.jsonbox .k { color: var(--text); } .jsonbox .s { color: var(--muted); } .jsonbox .e { color: var(--muted); }
+.flowline { font-size: 32px; white-space: nowrap; margin-top: 56px; min-height: 40px; }
+.sum .row { display: flex; align-items: baseline; gap: 44px; margin-top: 44px; }
+.sum .n { font-size: 110px; line-height: 1; width: 70px; }
+.sum .t { font-size: 46px; line-height: 1.25; }
+.close .install { font-size: 42px; margin-top: 70px; }
+.close .lines { font-size: 34px; margin-top: 26px; line-height: 1.5; }
+.close .note { font-size: 22px; margin-top: 30px; }
+.close .mini { width: 820px; height: 210px; position: relative; margin-top: 34px; border: 1px solid var(--t-rule); background: var(--t-bg); overflow: hidden; }
 </style>
 </head>
 <body>
@@ -78,36 +85,53 @@ html, body { margin: 0; background: var(--bg); }
 <script src="vendor/xterm.js"></script>
 <script src="data.js"></script>
 <script>
+// ---- design system: the single source of truth for layout, type, motion ----
+const DS = {
+  W: 1920, H: 1080, mx: 168, safe: 120, colW: 1584,          // content column and safe margin
+  titleY: 36, areaTop: 100, areaH: 854,                       // window and content area (bottom 954)
+  capY: 972, capH: 72, capSize: 28,                           // caption / result card slot
+  fade: 0.25,                                                 // the one transition: fade in and out
+  ease: (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2), // the one easing
+  term: { font: 20, line: 1.0 },
+};
+for (const [k, v] of Object.entries({ mx: DS.mx + 'px', colW: DS.colW + 'px', titleY: DS.titleY + 'px', areaTop: DS.areaTop + 'px', areaH: DS.areaH + 'px', capY: DS.capY + 'px', capH: DS.capH + 'px', capSize: DS.capSize + 'px' })) document.documentElement.style.setProperty('--' + k, v);
+
 const D = window.DATA;
 const stage = document.getElementById('stage');
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const blk = (e, name) => { e.dataset.block = name || e.className.split(' ')[0]; return e; };
 const THEME = {
   background: '#141517', foreground: '#ececea', cursor: '#f0695c', cursorAccent: '#111214', selectionBackground: '#2a2b30',
   black: '#141517', red: '#f0695c', green: '#5ec98d', yellow: '#d9c47a', blue: '#7d9dff', magenta: '#b79cf0', cyan: '#6fc4c9', white: '#ececea',
   brightBlack: '#9d9ea5', brightRed: '#f0695c', brightGreen: '#5ec98d', brightYellow: '#d9c47a', brightBlue: '#7d9dff', brightMagenta: '#b79cf0', brightCyan: '#6fc4c9', brightWhite: '#ffffff',
 };
-const R = { images: {} };
-
-function mkWordmark(size, curBlink) {
+function mkWordmark(size) {
   const w = el('div', 'wordmark');
   w.style.fontSize = size + 'px';
   w.innerHTML = '<span>twin</span><span class="cur"></span>';
   const c = w.querySelector('.cur');
-  c.style.width = (size * 0.3) + 'px';
-  c.style.height = (size * 0.5) + 'px';
-  c.style.marginLeft = (size * 0.1) + 'px';
-  c.style.marginBottom = (size * 0.155) + 'px';
+  c.style.width = size * 0.3 + 'px'; c.style.height = size * 0.5 + 'px'; c.style.marginLeft = size * 0.1 + 'px'; c.style.marginBottom = size * 0.155 + 'px';
   return w;
 }
-
 function mkTerm(host, cols, rows) {
   const term = new Terminal({
-    cols, rows, fontFamily: "'JetBrains Mono'", fontSize: 20, lineHeight: 1.0, letterSpacing: 0,
+    cols, rows, fontFamily: "'JetBrains Mono'", fontSize: DS.term.font, lineHeight: DS.term.line, letterSpacing: 0,
     theme: THEME, cursorStyle: 'block', cursorBlink: false, disableStdin: true, scrollback: 0, allowProposedApi: true,
-    convertEol: false,
   });
   term.open(host);
   return term;
+}
+function mkWindow(s, { label, narrow, url }) {
+  const win = blk(el('div', 'win' + (narrow ? ' narrow' : '')), 'win');
+  const head = blk(el('div', 'whead'), 'whead');
+  const l = el('span', 'l', label);
+  const r = el('div', 'r');
+  head.append(l);
+  if (url != null) { s.urlEl = el('span', 'url', url); head.append(s.urlEl); }
+  head.append(r);
+  win.append(head);
+  s.right = r; s.win = win;
+  return win;
 }
 
 async function init() {
@@ -116,132 +140,107 @@ async function init() {
   for (const s of D.scenes) {
     const root = el('div', 'scene');
     s.root = root;
-    if (s.title) root.appendChild(el('div', 'stitle', s.title));
-    if (s.caption) root.appendChild(el('div', 'caption', s.caption));
-    if (s.caps) { s.capEl = el('div', 'caption', ''); root.appendChild(s.capEl); }
-    if (s.card) { s.cardEl = el('div', 'card', `<b class="${s.card.tone}">${s.card.status}</b>${s.card.text}`); root.appendChild(s.cardEl); }
+    if (s.title) root.appendChild(blk(el('div', 'stitle', s.title), 'stitle'));
+    const addSlot = () => {
+      s.capEl = blk(el('div', 'slot caption', ''), 'caption'); root.appendChild(s.capEl);
+      if (s.card) { s.cardEl = blk(el('div', 'slot card', `<span><b class="${s.card.tone}">${s.card.status}</b>${s.card.text}</span>`), 'card'); root.appendChild(s.cardEl); }
+    };
+    s.items = [];
+    const item = (node, at, until) => { node.at = at; node.until = until; node.style.opacity = 0; s.items.push(node); return node; };
+
     if (s.kind === 'title') {
-      const c = el('div', 'center'); c.style.top = '330px';
-      const w = mkWordmark(300); c.appendChild(w);
-      const t = el('div', 'tagline', 'Turns “cannot reproduce” into a verified fix.');
-      t.style.marginTop = '46px';
-      c.appendChild(t);
-      s.cur = w.querySelector('.cur');
-      root.appendChild(c);
-    } else if (s.kind === 'strip') {
-      root.appendChild(el('div', 'strip', `<div class="n">${s.num}</div><div class="v">${s.verb}</div><div class="x">${s.text}</div>`));
-    } else if (s.kind === 'summary') {
-      const rows = [['1', 'A failure you can reproduce, on a clean machine.'], ['2', 'The one difference that causes it.'], ['3', 'A fix checked where it failed, by you or by an agent.']];
-      s.items = rows.map(([n, t], i) => { const d = el('div', 'sum', `<span class="n">${n}</span>${t}`); d.style.top = (330 + i * 150) + 'px'; d.at = 0.5 + i * 1.5; root.appendChild(d); return d; });
-    } else if (s.kind === 'explain') {
-      const add = (node, at, until) => { node.at = at; node.until = until; root.appendChild(node); (s.items ||= []).push(node); return node; };
-      const say = (text, top, at, until, size, color) => { const d = el('div', 'item center', text); d.style.top = top + 'px'; d.style.fontSize = size + 'px'; if (color) d.style.color = color; return add(d, at, until); };
-      say('A bug report says: \u201Cworks on my machine.\u201D', 250, 0.3, 6.4, 54);
-      say('The maintainer cannot reproduce it.', 340, 2.6, 6.4, 54);
-      const mk = (left, top, k, t, sub, at, until) => { const d = el('div', 'box item', `<div class="k">${k}</div><div class="t">${t}</div><div class="s">${sub}</div>`); d.style.left = left + 'px'; d.style.top = top + 'px'; return add(d, at, until); };
-      mk(470, 500, 'reporter', "Reporter\u2019s machine", 'the test <span class="f">fails</span>', 3.4, 6.4);
-      mk(1090, 500, 'maintainer', "Maintainer\u2019s machine", 'the same test <span class="p">passes</span>', 3.8, 6.4);
-      const ay = 470;
-      mk(90, ay - 105, '1 reporter', "Reporter\u2019s machine", 'the failing test <span class="f">fails</span> here', 6.9);
-      const arrow = (left, at) => { const d = el('div', 'arrow', '\u2192'); d.style.left = left + 'px'; d.style.top = (ay - 34) + 'px'; return add(d, at); };
-      arrow(450, 9.0);
-      mk(530, ay - 105, '2 capsule', 'capsule.json', 'a small file: OS, runtimes, commit, time zone, variable names', 9.2);
-      arrow(890, 11.5);
-      mk(970, ay - 105, '3 sandbox', 'Clean Solari sandbox', 'the same environment, rebuilt from the capsule', 11.7);
-      arrow(1330, 14.2);
-      const outs = [['Reproduced', 'fails the same way'], ['Cause found', 'the exact difference'], ['Fix verified', 'passes with the patch'], ['Agent ready', 'Claude Code can debug in it']];
-      outs.forEach(([t, sub], i) => { const d = el('div', 'out', `<div class="t">${t}</div><div class="s">${sub}</div>`); d.style.top = (240 + i * 108) + 'px'; add(d, 14.4 + i * 1.5); });
-      s.caps = [
-        { t: 0.3, text: 'Some bugs only happen in the reporter\u2019s environment.' },
-        { t: 2.6, text: 'So the maintainer cannot see the failure, and cannot fix it.' },
-        { t: 6.9, text: 'The reporter\u2019s machine has the failing test.' },
-        { t: 9.0, text: 'twin records its environment into a small file: the capsule.' },
-        { t: 11.5, text: 'The maintainer rebuilds that environment on a clean Solari sandbox.' },
-        { t: 14.2, text: 'Then twin gives you four answers.' },
-        { t: 20.4, text: 'That is the whole loop. Now let\u2019s watch it run.' },
-      ];
-      s.capEl = el('div', 'caption', ''); root.appendChild(s.capEl);
+      const a = blk(el('div', 'area'), 'area');
+      a.appendChild(mkWordmark(300));
+      const t = el('div', 'muted', 'Turns “cannot reproduce” into a verified fix.'); t.style.fontSize = '40px'; t.style.marginTop = '48px';
+      a.appendChild(t);
+      s.cur = a.querySelector('.cur');
+      root.appendChild(a);
     } else if (s.kind === 'issue') {
-      const sh = el('div', 'shot'); const im = new Image(); im.src = 'assets/issue.png'; sh.appendChild(im); root.appendChild(sh);
+      const a = blk(el('div', 'area'), 'area');
+      const im = el('img', 'issue-img'); im.src = 'assets/issue.png'; item(im, 0.2);
+      const who = el('div', 'issue-who muted', s.who); item(who, s.sayAt - 0.5);
+      const say = el('div', 'issue-say', ''); say.dataset.full = s.say; say.dataset.at = s.sayAt; say.dataset.cps = 26; s.typed = [say];
+      say.at = s.sayAt; say.until = null;
+      a.append(im, who, say); root.appendChild(a);
       await im.decode();
-    } else if (s.kind === 'term' || s.kind === 'close') {
-      const win = el('div', 'win');
-      const head = el('div', 'whead');
-      const left = el('span', '', s.label || 'LIVE RUN');
-      const right = el('div', 'r');
-      head.append(left, right);
-      const body = el('div', 'tbody');
-      const host = el('div'); body.appendChild(host);
-      win.append(head, body);
-      s.term = mkTerm(host, s.cols, s.rows);
-      s.win = win; s.right = right; s.idx = 0; s.lastU = -1;
-      if (s.kind === 'close') {
-        win.style.top = '660px';
-        left.textContent = 'LIVE RUN';
-        const c = el('div', 'center'); c.style.top = '84px';
-        c.appendChild(mkWordmark(190));
-        s.cur = c.querySelector('.cur');
-        const ins = el('div', 'install', '<span>$</span> npm install -g @crypticsaiyan/twincli'); ins.style.top = '390px';
-        const repo = el('div', 'center', 'github.com/crypticsaiyan/twin'); repo.style.top = '510px'; repo.style.fontSize = '30px'; repo.style.color = 'var(--muted)';
-        const site = el('div', 'center', 'twincli.vercel.app'); site.style.top = '568px'; site.style.fontSize = '30px'; site.style.color = 'var(--muted)';
-        const cap = el('div', 'caption', 'no machines left running'); cap.style.bottom = '40px';
-        const note = el('div', 'center', 'date-fns #2068 is still open upstream; PR #4140 covers the same function. This demo shows the workflow.');
-        note.style.bottom = '104px'; note.style.fontSize = '20px'; note.style.color = 'var(--muted)'; note.style.display = 'none';
-        root.append(c, ins, repo, site, note, cap);
-        s.noteEl = note;
-      }
-      if (s.kind === 'term' && s.rows > 20) { /* full size window */ }
+      s.items.push(say); say.style.opacity = 1;
+    } else if (s.kind === 'diff') {
+      const a = blk(el('div', 'area diff'), 'area');
+      const h = el('div', 'h1', 'Same commit.<br>Different environment.'); item(h, 0.3);
+      const pre = el('div', 'mono-l');
+      s.rows = s.rowsData.map((r, i) => {
+        const line = el('div', '', ''); line.style.whiteSpace = 'pre';
+        const pad = (x, n) => x.padEnd(n);
+        line.innerHTML = `<span class="muted">${pad(r[0], 12)}</span>${pad(r[1], 18)}<span class="${r[3] || ''}">${r[2]}</span>`;
+        return item(line, s.rowAt + i * 0.45);
+      });
+      const head = el('div', 'muted'); head.style.whiteSpace = 'pre';
+      head.textContent = ''.padEnd(12) + s.head[0].padEnd(18) + s.head[1];
+      item(head, s.rowAt - 0.4);
+      const rule = el('div', 'rule'); rule.style.margin = '10px 0'; item(rule, s.rowAt - 0.4);
+      pre.append(head, rule, ...s.rows);
+      a.append(h, pre); root.appendChild(a);
+    } else if (s.kind === 'capsule') {
+      const a = blk(el('div', 'area'), 'area');
+      const lab = el('div', 'muted', s.file); lab.style.fontSize = '26px'; lab.style.marginBottom = '22px'; item(lab, 0.2);
+      const box = el('div', 'jsonbox'); box.dataset.allow = 1;
+      const pre = el('pre', '', s.json); box.appendChild(pre); s.pre = pre; item(box, 0.3);
+      const flow = el('div', 'flowline', ''); s.flowEl = flow; s.flowAt = s.flowAt;
+      a.append(lab, box, flow); root.appendChild(a);
+    } else if (s.kind === 'strip') {
+      const a = blk(el('div', 'area strip'), 'area');
+      const row = el('div', 'row rule');
+      row.append(el('div', 'n num', s.num), (() => { const c = el('div', ''); c.append(el('div', 'v num', s.verb), el('div', 'x muted', s.text)); return c; })());
+      a.appendChild(row); root.appendChild(a);
+    } else if (s.kind === 'summary') {
+      const a = blk(el('div', 'area sum'), 'area');
+      a.appendChild(el('div', 'rule'));
+      s.rows.forEach(([n, t], i) => { const r = el('div', 'row', `<div class="n num">${n}</div><div class="t">${t}</div>`); item(r, 0.4 + i * 1.5); a.appendChild(r); });
+      root.appendChild(a);
+    } else if (s.kind === 'close') {
+      const a = blk(el('div', 'area close'), 'area');
+      a.appendChild(mkWordmark(200));
+      a.appendChild(el('div', 'install', '<span class="muted">$</span> npm install -g @crypticsaiyan/twincli'));
+      a.appendChild(el('div', 'lines muted', 'github.com/crypticsaiyan/twin<br>twincli.vercel.app'));
+      const mini = el('div', 'mini'); const host = el('div'); host.style.padding = '12px 16px'; mini.appendChild(host);
+      s.term = new Terminal({ cols: 64, rows: 5, fontFamily: "'JetBrains Mono'", fontSize: 20, lineHeight: 1.0, theme: THEME, cursorStyle: 'block', disableStdin: true, scrollback: 0 });
+      s.term.open(host); s.idx = 0; s.lastU = -1;
+      a.appendChild(mini);
+      a.appendChild(el('div', 'note muted', 'date-fns #2068 is still open upstream; PR #4140 covers the same function. This demo shows the workflow.'));
+      root.appendChild(a); s.cur = a.querySelector('.cur');
+    } else if (s.kind === 'term') {
+      const win = mkWindow(s, { label: s.label });
+      const body = el('div', 'tbody'); const host = el('div'); body.appendChild(host); win.appendChild(body);
+      s.term = mkTerm(host, s.cols, s.rows); s.idx = 0; s.lastU = -1;
       root.appendChild(win);
     } else if (s.kind === 'site') {
-      const bw = el('div', 'bwin');
-      bw.style.width = s.W + 'px';
-      const bar = el('div', 'bbar');
-      const lab = el('span', '', 'REAL SITE, LOCAL BUILD');
-      const url = el('div', 'url', '');
-      s.urlEl = url;
-      bar.append(lab, url);
-      const page = el('div', 'bpage'); page.style.height = s.H + 'px';
-      const img = el('img'); img.width = s.W; img.height = s.H; page.appendChild(img);
-      s.img = img;
-      bw.append(bar, page);
-      root.appendChild(bw);
-      s.capEl = root.querySelector('.caption');
+      const win = mkWindow(s, { label: 'REAL SITE, LOCAL BUILD', url: '' });
+      const page = el('div', 'bpage'); const img = el('img'); img.width = s.W; img.height = s.H; page.appendChild(img); s.img = img; win.appendChild(page);
+      root.appendChild(win);
     } else if (s.kind === 'browser') {
-      const bw = el('div', 'bwin');
-      bw.style.width = s.W + 'px';
-      const bar = el('div', 'bbar');
-      const lab = el('span', '', 'LIVE RUN');
-      const url = el('div', 'url', s.url);
-      const right = el('span', 'r');
-      s.right = right;
-      bar.append(lab, url, right);
-      const page = el('div', 'bpage'); page.style.height = s.H + 'px';
-      const img = el('img'); img.width = s.W; img.height = s.H; page.appendChild(img);
-      s.img = img;
+      const win = mkWindow(s, { label: 'LIVE RUN', url: s.url });
+      const page = el('div', 'bpage'); const img = el('img'); img.width = s.W; img.height = s.H; page.appendChild(img); s.img = img; s.page = page;
       const host = s.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
       const auth = el('div', 'auth', `<h4>Sign in</h4><div class="s">${host}</div><div class="f"><b>Username</b><i class="u"></i></div><div class="f"><b>Password</b><i class="p"></i></div>`);
-      auth.style.display = 'none';
-      s.auth_el = auth; page.appendChild(auth);
-      bw.append(bar, page);
-      root.appendChild(bw);
+      auth.style.display = 'none'; s.auth_el = auth; page.appendChild(auth); win.appendChild(page);
       s.images = s.frames.map((f) => { const i = new Image(); i.src = `file://${s.dir}/${f.file}`; return i; });
       await Promise.all(s.images.map((i) => i.decode().catch(() => {})));
+      root.appendChild(win);
     }
+    if (s.caps || s.captions || s.card) addSlot();
     stage.appendChild(root);
   }
   window.READY = true;
 }
 
-const fmt = (x) => Math.max(0, Math.floor(x));
+const fmtSpeed = (x) => (x < 2 ? x.toFixed(1) : String(Math.round(x)));
 function tagFor(s, u) {
   const seg = s.segs.find((g) => u <= g.v1 + 1e-9) || s.segs[s.segs.length - 1];
-  let chip, real = '';
-  if (s.fixedTag) chip = `<span class="chip fast">${s.fixedTag}</span>`;
-  else if (seg.speed > 1.06 && !seg.real && seg.v1 - seg.v0 < 1.0) { chip = ''; }
+  let chip = '', real = '';
+  if (seg.speed > 1.06 && !seg.real && seg.v1 - seg.v0 < 1.0) chip = '';
   else if (seg.speed > 1.06) {
-    const x = seg.speed < 2 ? seg.speed.toFixed(1) : Math.round(seg.speed);
-    chip = `<span class="chip fast">${x}x</span>`;
-    const total = seg.real ?? (seg.r1 - seg.r0);
+    chip = `<span class="chip fast">${fmtSpeed(seg.speed)}x</span>`;
+    const total = seg.real ?? seg.r1 - seg.r0;
     if (total >= 1) real = `<span>real ${Math.round(total)} s</span>`;
   } else chip = '<span class="chip">1x</span>';
   const done = (s.marks || []).filter((m) => m.v <= u + 1e-9).map((m) => `<span class="done">${m.text}</span>`).join('');
@@ -253,10 +252,10 @@ async function seek(t) {
   for (const s of D.scenes) {
     const u = t - s.start;
     const vis = u >= -1e-9 && u <= s.dur + 1e-9;
-    const op = vis ? Math.max(0, Math.min(1, u / 0.25, (s.dur - u) / 0.25)) : 0;
+    const op = vis ? Math.max(0, Math.min(1, u / DS.fade, (s.dur - u) / DS.fade)) : 0;
     s.root.style.opacity = op.toFixed(3);
     s.root.style.visibility = vis ? 'visible' : 'hidden';
-    if (!vis) { s.lastU = -1; continue; }
+    if (!vis) { s.lastU = -1; s.started = false; continue; }
     let key = op.toFixed(2);
     const blink = Math.floor(u * 1.8) % 2 === 0;
     if (s.term) {
@@ -265,23 +264,35 @@ async function seek(t) {
       let chunk = '';
       while (s.idx < s.events.length && s.events[s.idx].v <= u + 1e-9) chunk += s.events[s.idx++].d;
       if (chunk) await new Promise((r) => s.term.write(chunk, r));
-      s.win.classList.toggle('blinkoff', !blink);
-      const tag = tagFor(s, u);
-      if (s.right.innerHTML !== tag) s.right.innerHTML = tag;
-      if (s.noteEl) s.noteEl.style.display = u > 1.0 ? 'block' : 'none';
-      key += `|${s.idx}|${blink}|${tag}`;
+      if (s.win) s.win.classList.toggle('blinkoff', !blink);
+      if (s.right) { const tag = tagFor(s, u); if (s.right.innerHTML !== tag) s.right.innerHTML = tag; key += tag; }
+      key += `|${s.idx}|${blink}`;
     }
-    if (s.cur) { s.cur.style.opacity = 1; }
     if (s.items) {
       const cl = (x) => Math.max(0, Math.min(1, x));
-      for (const d of s.items) { const o = cl((u - d.at) / 0.35) * (d.until != null ? cl((d.until - u) / 0.35) : 1); d.style.opacity = o.toFixed(2); key += '|' + o.toFixed(2); }
+      for (const d of s.items) {
+        if (d.dataset && d.dataset.full !== undefined) continue;
+        const o = DS.ease(cl((u - d.at) / 0.35)) * (d.until != null ? cl((d.until - u) / 0.35) : 1);
+        d.style.opacity = o.toFixed(2); key += '|' + o.toFixed(2);
+      }
     }
-    if (s.caps && s.kind !== 'site') {
+    if (s.typed) for (const d of s.typed) {
+      const n = Math.max(0, Math.min(d.dataset.full.length, Math.floor((u - d.at) * d.dataset.cps)));
+      const txt = d.dataset.full.slice(0, n); if (d.textContent !== txt) d.textContent = txt; key += '|t' + n;
+    }
+    if (s.kind === 'capsule') {
+      const y = Math.floor(Math.max(0, (u - 0.6) * s.scrollSpeed) / 45) * 45;
+      s.pre.style.transform = `translateY(${-y}px)`; key += '|y' + Math.round(y);
+      const segs = s.flow; let txt = '';
+      segs.forEach((f, i) => { if (u >= s.flowAt + i * 0.7) txt += (i ? '  ->  ' : '') + f; });
+      if (s.flowEl.textContent !== txt) s.flowEl.textContent = txt; key += '|f' + txt.length;
+    }
+    if (s.caps && s.capEl) {
       let cap = ''; for (const c of s.caps) if (c.t <= u) cap = c.text;
       const showCard = s.card && u >= s.card.t0 && u <= s.card.t1;
       if (s.capEl.textContent !== cap) s.capEl.textContent = cap;
       s.capEl.style.visibility = showCard ? 'hidden' : 'visible';
-      if (s.cardEl) s.cardEl.style.display = showCard ? 'block' : 'none';
+      if (s.cardEl) s.cardEl.style.display = showCard ? 'flex' : 'none';
       key += `|c${cap.length}${showCard}`;
     }
     if (s.kind === 'site') {
@@ -290,7 +301,7 @@ async function seek(t) {
       if (s.img.getAttribute('src') !== file) { s.img.src = file; try { await s.img.decode(); } catch {} }
       let cap = ''; for (const c of s.captions) if (c.t <= u) cap = c.text;
       if (s.capEl.textContent !== cap) s.capEl.textContent = cap;
-      let uu = ''; for (const c of s.urls) if (c.t <= u) uu = c.url;
+      let uu = ''; for (const c of s.urls) if (c.t <= u) uu = c.url.replace(/^https?:\/\//, '');
       if (s.urlEl.textContent !== uu) s.urlEl.textContent = uu;
       key += `|s${k}`;
     }
@@ -300,19 +311,18 @@ async function seek(t) {
       let k = 0;
       for (let i = 0; i < s.frames.length; i++) if (s.frames[i].r <= raw) k = i;
       s.img.src = s.images[k].src;
-      const showAuth = u >= s.auth.v0 - 0.7 + 0.0 && u <= s.auth.v1;
-      const a = s.auth_el;
-      a.style.display = showAuth ? 'block' : 'none';
+      const showAuth = u >= s.auth.v0 - 0.7 && u <= s.auth.v1;
+      s.page.style.background = u > s.auth.v1 + 0.3 ? '#2b2b2b' : '#fff';
+      s.auth_el.style.display = showAuth ? 'block' : 'none';
       if (showAuth) {
-        const p = u - (s.auth.v0);
+        const p = u - s.auth.v0;
         const nu = Math.max(0, Math.min(4, Math.floor((p - 0.5) / 0.15)));
         const np = Math.max(0, Math.min(16, Math.floor((p - 1.1) / 0.05)));
-        a.querySelector('.u').textContent = 'twin'.slice(0, nu);
-        a.querySelector('.p').textContent = '•'.repeat(np);
+        s.auth_el.querySelector('.u').textContent = 'twin'.slice(0, nu);
+        s.auth_el.querySelector('.p').textContent = '•'.repeat(np);
         key += `|a${nu}.${np}`;
       }
-      const tag = tagFor(s, u);
-      if (s.right.innerHTML !== tag) s.right.innerHTML = tag;
+      const tag = tagFor(s, u); if (s.right.innerHTML !== tag) s.right.innerHTML = tag;
       key += `|f${k}|${tag}`;
     }
     parts.push(s.kind + ':' + key);
@@ -320,6 +330,45 @@ async function seek(t) {
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return parts.join(';');
 }
+
+// ---- automated layout check: overlap, overflow, safe margin ----
+function effOpacity(e) { let o = 1; for (let n = e; n && n !== document.body; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.visibility === 'hidden' || cs.display === 'none') return 0; o *= parseFloat(cs.opacity); } return o; }
+window.checkLayout = () => {
+  const issues = [];
+  for (const s of D.scenes) {
+    if (parseFloat(s.root.style.opacity) < 0.95) continue;
+    const blocks = [...s.root.querySelectorAll('[data-block]')].filter((b) => effOpacity(b) > 0.05);
+    const items = [...s.root.querySelectorAll('.item, .row, .issue-img, .issue-who, .issue-say, .h1, .mono-l, .jsonbox, .flowline, .install, .lines, .note, .mini, .wordmark')].filter((b) => effOpacity(b) > 0.05);
+    const R = (e) => e.getBoundingClientRect();
+    for (const b of [...blocks, ...items]) {
+      const r = R(b);
+      if (r.width === 0 || r.height === 0) continue;
+      const nm = `${s.kind}:${s.id || s.title || ''}:${b.dataset.block || b.className}`;
+      if (r.left < DS.safe - 1 || r.right > DS.W - DS.safe + 1 || r.top < 24 || r.bottom > DS.H - 24) issues.push({ scene: s.id, what: 'outside safe margin', el: nm, r: [r.left, r.top, r.right, r.bottom].map(Math.round) });
+      if (!b.dataset.allow && (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) && b.clientWidth > 0 && getComputedStyle(b).overflow !== 'visible') issues.push({ scene: s.id, what: 'overflow', el: nm, sw: b.scrollWidth, cw: b.clientWidth, sh: b.scrollHeight, ch: b.clientHeight });
+    }
+    const top = [...blocks];
+    for (let i = 0; i < top.length; i++) for (let j = i + 1; j < top.length; j++) {
+      if (top[i].contains(top[j]) || top[j].contains(top[i])) continue;
+      const a = R(top[i]), c = R(top[j]);
+      const ox = Math.min(a.right, c.right) - Math.max(a.left, c.left), oy = Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top);
+      if (ox > 2 && oy > 2) issues.push({ scene: s.id, what: 'overlap', a: top[i].dataset.block, b: top[j].dataset.block, ox: Math.round(ox), oy: Math.round(oy) });
+    }
+    // content must stay inside its area (and so clear of the title and caption slot)
+    for (const ar of s.root.querySelectorAll('.area')) {
+      const A = R(ar);
+      for (const ch of ar.children) { if (effOpacity(ch) < 0.05) continue; const c = R(ch); if (c.top < A.top - 1 || c.bottom > A.bottom + 1) issues.push({ scene: s.id, what: 'content leaves its area', el: ch.className, top: Math.round(c.top), bottom: Math.round(c.bottom) }); }
+    }
+    // items inside the content area must not overlap each other (siblings only)
+    const rows = [...s.root.querySelectorAll('.area > *')].filter((b) => effOpacity(b) > 0.05);
+    for (let i = 0; i < rows.length; i++) for (let j = i + 1; j < rows.length; j++) {
+      const a = R(rows[i]), c = R(rows[j]);
+      const oy = Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top), ox = Math.min(a.right, c.right) - Math.max(a.left, c.left);
+      if (ox > 2 && oy > 2) issues.push({ scene: s.id, what: 'overlap (content rows)', a: rows[i].className, b: rows[j].className });
+    }
+  }
+  return issues;
+};
 window.seek = seek;
 init();
 </script>

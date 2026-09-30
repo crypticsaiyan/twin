@@ -8,6 +8,7 @@ const [work, out, ...rest] = process.argv.slice(2);
 const opt = (n, d) => { const i = rest.indexOf(n); return i >= 0 ? rest[i + 1] : d; };
 const fps = Number(opt('--fps', 30));
 const at = opt('--at', null);
+const check = rest.includes('--check');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const PORT = 9800 + Math.floor(Math.random() * 100);
@@ -34,6 +35,21 @@ await send('Page.navigate', { url: `file://${work}/player.html` });
 for (let i = 0; i < 200 && !(await ev('window.READY === true')); i++) await sleep(250);
 if (!(await ev('window.READY === true'))) throw new Error('player not ready');
 const total = await ev('DATA.total');
+if (check) {
+  const scenes = JSON.parse(await ev('JSON.stringify(DATA.scenes.map((s) => ({ id: s.id, start: s.start, dur: s.dur })))'));
+  const seen = new Map();
+  let n = 0;
+  for (const sc of scenes) for (let u = DS_FADE(); u <= sc.dur - DS_FADE(); u += 0.5) {
+    await ev(`seek(${sc.start + u})`);
+    const issues = JSON.parse(await ev('JSON.stringify(checkLayout())'));
+    n++;
+    for (const i of issues) { const k = JSON.stringify({ ...i, ox: undefined, oy: undefined, r: undefined, sw: undefined, sh: undefined }); const e = seen.get(k) || { i, first: sc.start + u, last: sc.start + u, count: 0 }; e.last = sc.start + u; e.count++; seen.set(k, e); }
+  }
+  console.log('checked', n, 'timestamps;', seen.size, 'distinct issues');
+  for (const e of seen.values()) console.log(JSON.stringify(e.i), `t=${e.first.toFixed(1)}..${e.last.toFixed(1)} (${e.count}x)`);
+  ws.close(); chrome.kill(); process.exit(seen.size ? 1 : 0);
+}
+function DS_FADE() { return 0.5; }
 const times = at ? at.split(',').map(Number) : Array.from({ length: Math.ceil(total * fps) + 1 }, (_, i) => Math.min(i / fps, total));
 let prevKey = null, prevFile = null, shots = 0;
 for (let n = 0; n < times.length; n++) {
