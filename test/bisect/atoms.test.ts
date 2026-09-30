@@ -120,16 +120,29 @@ describe('deriveAtoms', () => {
 
   it('varies single-version npm dependencies', () => {
     const { good, bad } = pair(
-      { resolved: { node: { a: ['1.0.0'], b: ['1.0.0'], c: ['1.0.0'] } } },
-      { resolved: { node: { a: ['1.1.0'], b: ['1.0.0', '2.0.0'] } } },
+      { resolved: { node: { a: ['1.0.0'], c: ['1.0.0'] } } },
+      { resolved: { node: { a: ['1.1.0'] } } },
     );
     const { atoms, skipped } = deriveAtoms(good, bad);
     expect(atoms).toEqual([
       { kind: 'dependency', id: 'dep:a', label: 'a@1.1.0', name: 'a', version: '1.1.0' },
     ]);
     expect(skipped.map((s) => `${s.key}: ${s.reason}`)).toEqual([
-      'b: several versions installed on the failing machine',
       'c: not installed on the failing machine',
+    ]);
+  });
+
+  it('varies the one new copy when several versions are installed', () => {
+    const { good, bad } = pair(
+      { resolved: { node: { lru: ['5.1.1', '7.18.3'], b: ['1.0.0'] } } },
+      { resolved: { node: { lru: ['5.1.1', '7.18.3', '11.3.0'], b: ['2.0.0', '3.0.0'] } } },
+    );
+    const { atoms, skipped } = deriveAtoms(good, bad);
+    expect(atoms).toEqual([
+      { kind: 'dependency', id: 'dep:lru', label: 'lru@11.3.0', name: 'lru', version: '11.3.0' },
+    ]);
+    expect(skipped.map((s) => `${s.key}: ${s.reason}`)).toEqual([
+      'b: several new versions installed on the failing machine',
     ]);
   });
 

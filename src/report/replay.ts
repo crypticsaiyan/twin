@@ -15,7 +15,7 @@ const VERDICT_TEXT: Record<Verdict, string> = {
   reproduced: 'REPRODUCED: every attempt failed exactly as the capsule recorded.',
   'different-failure': 'DIFFERENT FAILURE: it fails here, but not the way the capsule recorded.',
   'not-reproduced':
-    'NOT REPRODUCED: the same versions pass on this Linux machine. The difference is likely in what replay cannot copy (OS, unset env values, local files).',
+    'NOT REPRODUCED: the command passes on this Linux machine. Replay installs from the repo\'s lockfile, so a failure that needs freshly resolved dependency versions, the OS, unset env values or local files does not show; `twin bisect` applies the capsule\'s recorded package versions.',
   flaky: 'FLAKY: attempts disagreed with each other.',
   inconclusive: 'INCONCLUSIVE: setup failed or an attempt timed out.',
 };

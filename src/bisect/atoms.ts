@@ -132,8 +132,20 @@ export function deriveAtoms(good: Capsule, bad: Capsule): AtomSet {
         const versions = bad.resolved.node?.[key];
         if (!npmProject) skip('dependency versions are varied only for npm projects so far');
         else if (!versions || versions.length === 0) skip('not installed on the failing machine');
-        else if (versions.length > 1) skip('several versions installed on the failing machine');
-        else
+        else if (versions.length > 1) {
+          // Several copies are installed (for example lru-cache 5 for babel and 11 for jsdom): vary
+          // the one copy that is new on the failing side, if there is exactly one.
+          const added = versions.filter((v) => !(good.resolved.node?.[key] ?? []).includes(v));
+          if (added.length === 1)
+            atoms.push({
+              kind: 'dependency',
+              id: `dep:${key}`,
+              label: `${key}@${added[0]}`,
+              name: key,
+              version: added[0] as string,
+            });
+          else skip('several new versions installed on the failing machine');
+        } else
           atoms.push({
             kind: 'dependency',
             id: `dep:${key}`,

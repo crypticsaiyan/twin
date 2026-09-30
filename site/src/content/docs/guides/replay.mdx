@@ -57,7 +57,7 @@ That run used two attempts. The default is three.
 |---|---|---|
 | `REPRODUCED` | Every attempt failed exactly as the capsule recorded. | Keep the machine (`--keep`) and open a shell, bisect against a passing capsule, or verify a fix. |
 | `DIFFERENT FAILURE` | It fails here, but not the way the capsule recorded. | Compare the "Key lines here" and "Key lines in capsule" sections the report prints. Often a missing environment value (see Notes) or a runtime that formats the error differently. |
-| `NOT REPRODUCED` | The same versions pass on this Linux machine. | The difference is likely in what replay cannot copy: the OS, variables recorded by name only, untracked local files. Check the Notes; supply values with `--env`. |
+| `NOT REPRODUCED` | The command passes on this Linux machine. | Replay installs from the lockfile, so it cannot copy freshly resolved dependency versions, the OS, variables recorded by name only or untracked local files. Check the Notes; supply values with `--env`, or run `twin bisect`, which applies the capsule's recorded package versions. |
 | `FLAKY` | Attempts disagreed with each other. | Raise `--attempts` to see how often it fails. |
 | `INCONCLUSIVE` | Setup failed or an attempt timed out. | The failed step is marked `✗` with its exit code and the last 30 lines of its output. See [Troubleshooting](../../reference/troubleshooting/). |
 

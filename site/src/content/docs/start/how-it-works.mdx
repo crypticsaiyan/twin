@@ -77,7 +77,7 @@ The command runs three times by default (`--attempts`). Each attempt gets a sign
 |---|---|
 | `REPRODUCED` | Every attempt ended exactly as the capsule recorded. |
 | `DIFFERENT FAILURE` | Every attempt failed the same way, but not the captured way. |
-| `NOT REPRODUCED` | The capsule recorded a failure; every attempt passed. The difference is likely in what replay cannot copy (OS, unset values, local files). |
+| `NOT REPRODUCED` | The capsule recorded a failure; every attempt passed. Replay installs from the lockfile, so it cannot copy freshly resolved dependency versions, the OS, unset values or local files; `twin bisect` applies the capsule's recorded package versions. |
 | `FLAKY` | Attempts disagreed with each other. |
 | `INCONCLUSIVE` | A setup step failed, or an attempt timed out. |
 
