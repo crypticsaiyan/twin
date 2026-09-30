@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Account errors, INCONCLUSIVE replays, unknown environment values, leftover machines, and the exact messages twin prints.
+description: "Account errors, INCONCLUSIVE replays, unknown environment values, leftover machines, and the exact messages twin prints."
 sidebar:
   order: 8
 ---

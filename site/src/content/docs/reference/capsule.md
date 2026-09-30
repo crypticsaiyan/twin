@@ -1,6 +1,6 @@
 ---
 title: Capsule format
-description: The twin capsule (format v1), field by field, with a trimmed real example.
+description: "The twin capsule (format v1), field by field, with a trimmed real example."
 sidebar:
   order: 2
 ---

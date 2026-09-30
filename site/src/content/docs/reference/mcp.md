@@ -1,6 +1,6 @@
 ---
 title: MCP server reference
-description: The tools twin mcp exposes to AI coding agents, with every argument and default.
+description: "The tools twin mcp exposes to AI coding agents, with every argument and default."
 sidebar:
   order: 3
 ---

@@ -1,6 +1,6 @@
 ---
 title: Privacy and redaction
-description: What a capsule records, what it never records, the environment allowlist, and every secret rule.
+description: "What a capsule records, what it never records, the environment allowlist, and every secret rule."
 sidebar:
   order: 5
 ---
@@ -26,7 +26,7 @@ Redaction is pattern based. It cannot know every secret format. twin shows you a
 
 - Values of environment variables outside the allowlist, unless you name them with `--include-env`.
 - Contents of untracked files.
-- File contents, other than the `git diff HEAD` of tracked files. twin never puts `.env` files, your config files or your home directory into the capsule. (It reads only `SOLARI_API_KEY` and `SOLARI_BASE_URL` from a `.env`, for its own use, and never passes them to the command.) (If a tracked file with secrets has uncommitted changes, those changes are in the diff, scrubbed by the rules below.)
+- File contents, other than the `git diff HEAD` of tracked files. twin never puts `.env` files, your config files or your home directory into the capsule. It reads only `SOLARI_API_KEY` and `SOLARI_BASE_URL` from a `.env`, for its own use, and never passes them to the command. If a tracked file with secrets has uncommitted changes, those changes are in the diff, scrubbed by the rules below.
 - Credentials in the git remote URL.
 - Your home directory path: occurrences become `~`.
 

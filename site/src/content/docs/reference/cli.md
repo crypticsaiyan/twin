@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: Every twin command, flag, default and exit code.
+description: "Every twin command, flag, default and exit code."
 sidebar:
   order: 1
 ---
@@ -21,7 +21,7 @@ Run `twin <command> --help` (or `twin help <command>`) for the same details in t
 | [`verify`](#twin-verify) | yes | Check a candidate fix in the reporter's environment. |
 | [`shell`](#twin-shell) | yes | Open a terminal on a machine kept by `replay --keep`. |
 | [`list`](#twin-list) | yes | Show machines twin has running. |
-| [`stop`](#twin-stop) | yes | Stop machines twin left running (`gc` still works as an alias). |
+| [`stop`](#twin-stop) | yes | Stop machines twin left running (`gc` is an alias). |
 | [`mcp`](#twin-mcp) | yes, except `inspect` | Serve twin's tools to AI coding agents over MCP (stdio). |
 
 ## Conventions
@@ -225,7 +225,7 @@ Lists machines twin started that are still running (and billing): machines kept 
 Usage: twin stop [machine]
 ```
 
-Stops machines twin started that are still running. Without `[machine]`, stops all of them; with it (the start of an id from `twin list`), only that one. Each stop is confirmed with the gateway, so nothing keeps billing. Prints `Stopped N machines` and their ids, or `No twin machines running.` `twin stop`, the old name, still works. Exit `0`; `1` when no running machine matches; `2` when several do.
+Stops machines twin started that are still running. Without `[machine]`, stops all of them; with it (the start of an id from `twin list`), only that one. Each stop is confirmed with the gateway, so nothing keeps billing. Prints `Stopped N machines` and their ids, or `No twin machines running.` `twin gc`, the old name, still works. Exit `0`; `1` when no running machine matches; `2` when several do.
 
 ## twin mcp
 

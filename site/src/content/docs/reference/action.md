@@ -1,6 +1,6 @@
 ---
 title: GitHub Action reference
-description: Inputs, outputs, permissions and behavior of the crypticsaiyan/twin@main action.
+description: "Inputs, outputs, permissions and behavior of the crypticsaiyan/twin@main action."
 sidebar:
   order: 4
 ---

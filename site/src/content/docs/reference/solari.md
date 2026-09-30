@@ -1,6 +1,6 @@
 ---
 title: How twin uses Solari
-description: The Solari primitives twin uses and why, what it costs, and platform behavior measured while building it.
+description: "The Solari primitives twin uses and why, what it costs, and platform behavior measured while building it."
 sidebar:
   order: 6
 ---
@@ -39,7 +39,7 @@ The expensive mistake is a machine left running. A kept machine is billed until 
 
 ## Measured on the platform
 
-These were measured live on 2026-09-28 (SDK 0.1.4, template `base`) while building twin. They are written up in [DESIGN.md §11](https://github.com/crypticsaiyan/twin/blob/main/DESIGN.md).
+These were measured live on 2026-09-28 (SDK 0.1.4, template `base`) while building twin.
 
 ### Timings
 
