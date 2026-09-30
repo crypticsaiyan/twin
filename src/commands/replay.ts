@@ -44,7 +44,9 @@ export function replayProgress(
 ): (event: ReplayEvent) => void {
   const progress = (text: string) => io.stderr.write(style.dim(`twin: ${text}\n`));
   return (event) => {
-    if (event.type === 'machine') progress(`machine ${shortId(event.id)} ready`);
+    if (event.type === 'baseline-start')
+      progress('first run without the fix, to check the failure reproduces');
+    else if (event.type === 'machine') progress(`machine ${shortId(event.id)} ready`);
     else if (event.type === 'step-start') progress(event.step.title);
     else if (event.type === 'attempt-start') progress(`attempt ${event.index + 1}/${event.total}`);
     else if (event.type === 'output' && verbose) io.stderr.write(event.chunk);

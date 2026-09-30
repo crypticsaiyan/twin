@@ -107,7 +107,7 @@ Check a candidate fix in the reporter's environment on a **fresh** machine, like
 | `attempts` | integer, 1 to 10 | no | `3` | Runs of the command. |
 | `env` | object | no | | Values for variables the capsule recorded by name only. |
 
-Returns the verify report: `FIXED`, `STILL FAILING`, `DIFFERENT FAILURE`, `FLAKY` or `INCONCLUSIVE`.
+The command first runs once without the fix on its own machine; if it does not fail the captured way, the report is `INCONCLUSIVE` and the fix is not tried. Returns the verify report: `FIXED`, `STILL FAILING`, `DIFFERENT FAILURE`, `FLAKY` or `INCONCLUSIVE`.
 
 ## bisect
 

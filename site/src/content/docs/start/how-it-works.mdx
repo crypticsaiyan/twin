@@ -124,7 +124,7 @@ Bisect originally forked trials from a snapshot. Measured on Solari, snapshot an
 
 ## 5. Verify reads the same verdicts from the other side
 
-`twin verify` is replay plus one extra step: apply your patch after the checkout (`--patch`), or check out a different commit (`--ref`, optionally from `--repo`). A verify run hopes the failure is gone:
+`twin verify` is replay plus one extra step: it first runs the command once without the fix, to be sure the failure reproduces, then applies your patch after the checkout (`--patch`), or check out a different commit (`--ref`, optionally from `--repo`). A verify run hopes the failure is gone:
 
 | Replay verdict | Verify reports |
 |---|---|

@@ -29,6 +29,9 @@ const VERIFY_TEXT: Record<Verdict, string> = {
   inconclusive: 'INCONCLUSIVE: setup failed (does the fix apply?) or an attempt timed out.',
 };
 
+const LOCKFILE_ERROR =
+  /package-lock\.json|npm-shrinkwrap|yarn\.lock|pnpm-lock|frozen-lockfile|lockfile/i;
+
 /** Names what went wrong, so a patch that does not apply is not mistaken for a timeout. */
 function inconclusiveText(
   report: ReplayReport,
@@ -40,12 +43,22 @@ function inconclusiveText(
     if (verify && failed.title === APPLY_FIX_TITLE) {
       return "INCONCLUSIVE: the fix did not apply to the capsule's tree (git apply error above).";
     }
-    return `INCONCLUSIVE: "${failed.title}" failed, so the command never ran (output above).`;
+    const text = `INCONCLUSIVE: "${failed.title}" failed, so the command never ran (output above).`;
+    // A lockfile that exists only on the reporter's machine (untracked or ignored) cannot be replayed.
+    if (failed.id === 'dependencies' && LOCKFILE_ERROR.test(failed.outputTail ?? '')) {
+      return `${text} The repository has no committed lockfile, and replay installs from the committed one.`;
+    }
+    return text;
   }
   const timedOut = report.attempts.findIndex((attempt) => attempt.timedOut);
   // Agents replay over MCP, which has no timeout option to raise.
   const hint = agent ? '' : ' (raise --timeout)';
   if (timedOut >= 0) return `INCONCLUSIVE: attempt ${timedOut + 1} timed out${hint}.`;
+  if (verify && report.baseline) {
+    const seen =
+      report.baseline.verdict === 'not-reproduced' ? 'it passed' : 'it failed differently';
+    return `INCONCLUSIVE: the failure did not reproduce without the fix (${seen}), so the fix cannot be verified. Replay installs from the lockfile; for a failure that needs freshly resolved dependency versions, use twin bisect.`;
+  }
   return undefined;
 }
 

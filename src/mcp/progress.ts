@@ -28,7 +28,8 @@ export function progressReporter(extra: ToolExtra): (message: string) => void {
 /** The same milestones the CLI prints on stderr; guest output is left out. */
 export function describeEvent(report: (message: string) => void): (event: BisectEvent) => void {
   return (event) => {
-    if (event.type === 'machine') report(`machine ${shortId(event.id)} ready`);
+    if (event.type === 'baseline-start') report('first run without the fix');
+    else if (event.type === 'machine') report(`machine ${shortId(event.id)} ready`);
     else if (event.type === 'step-start') report(event.step.title);
     else if (event.type === 'attempt-start') report(`attempt ${event.index + 1}/${event.total}`);
     else if (event.type === 'trial-start') {

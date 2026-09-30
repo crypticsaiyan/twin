@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCapsule } from '../capsule/source.ts';
 import { TwinError } from '../errors.ts';
-import { replay } from '../replay/replay.ts';
+import { verifyFix } from '../replay/replay.ts';
 import { renderVerifyMarkdown } from '../report/markdown.ts';
 import { renderReplay } from '../report/replay.ts';
 import {
@@ -20,7 +20,9 @@ const USAGE = `Usage: twin verify <capsule> (--patch <file> | --ref <sha>) [opti
 
 Checks a candidate fix in the reporter's environment: rebuilds it on a Solari
 sandbox like replay, applies the fix, reruns the command and reports whether
-the captured failure is gone. With --patch nothing has to be pushed first.
+the captured failure is gone. First it runs the command once without the fix,
+so a failure that replay cannot reproduce is INCONCLUSIVE, never FIXED.
+With --patch nothing has to be pushed first.
 Capsules can be file paths or https URLs, such as GitHub issue attachments.
 
 Needs SOLARI_API_KEY in the environment.
@@ -95,7 +97,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   }
   const backend = await context.getBackend();
 
-  const report = await replay(capsule, backend, {
+  const report = await verifyFix(capsule, backend, {
     attempts,
     env,
     commandTimeoutMs: timeoutMinutes * 60_000,

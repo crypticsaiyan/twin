@@ -180,6 +180,8 @@ Checks a candidate fix in the reporter's environment: rebuilds it on a Solari sa
 
 Exactly one of `--patch` and `--ref` is required. The capsule must record a failing run.
 
+Before the fix is applied the command runs once without it; if that run does not fail the captured way the verdict is `INCONCLUSIVE` and the fix is not tried. The JSON report then has a `baseline` field.
+
 Verdicts: `FIXED`, `STILL FAILING`, `DIFFERENT FAILURE`, `FLAKY`, `INCONCLUSIVE`. In JSON the `verdict` field keeps replay's names (`not-reproduced` is `FIXED`, `reproduced` is `STILL FAILING`).
 
 `--comment <file>` writes the pull request comment the [GitHub Action](../action/) posts. Its first line is a hidden marker, `<!-- twin-verify verdict=<outcome> -->`, where the outcome is `fixed`, `still-failing`, `different-failure`, `flaky` or `inconclusive`. Then a headline, a table (command, the reporter's environment, the checked ref or `patch`, attempts passed, a link to the capsule when it was a URL) and the verify log in a collapsed `<details>` block.

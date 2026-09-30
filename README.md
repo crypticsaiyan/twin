@@ -116,7 +116,7 @@ and attach the file it writes (it records versions and variable names, never sec
 | `twin replay <capsule>` | Rebuild the environment on a Solari sandbox, run the command 3 times, report `REPRODUCED`, `DIFFERENT FAILURE`, `NOT REPRODUCED`, `FLAKY` or `INCONCLUSIVE` |
 | `twin replay <capsule> --keep` | Same, and leave a reproduced failure running for `twin shell` |
 | `twin bisect <bad> --good <good>` | Smallest set of differences (env values, time zone, node version, npm dependency versions, working tree diff) that turns the passing environment into the failing one |
-| `twin verify <capsule> --patch <file>` | Apply a candidate fix in the reporter's environment: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE`. `--ref <sha> --repo <url>` checks a pushed branch instead |
+| `twin verify <capsule> --patch <file>` | Apply a candidate fix in the reporter's environment: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE` (after a first run without the fix, so a failure that does not reproduce is `INCONCLUSIVE`). `--ref <sha> --repo <url>` checks a pushed branch instead |
 | `twin shell [id]` | Terminal on a kept machine, in the reporter's environment. Ctrl-] detaches |
 | `twin shell [id] --web` | Browser terminal link plus a password, to share with the reporter |
 | `twin list` | Show machines twin has running (kept replays, leftovers) |
@@ -146,7 +146,7 @@ Redaction is pattern based; review the capsule before posting it publicly.
 | An agent working inside the reporter's machine | `connect` once per session, then `commands.start` and `files.write` on the kept sandbox (`twin mcp`) |
 | No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C mid-run releases live machines before exiting; `listAll({ metadata })` reaper in `twin stop` |
 
-Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent. Bisect runs every trial on one machine, so it fits a single concurrent slot.
+Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent (verify runs the command once without the fix first, on a second machine). Bisect runs every trial on one machine, so it fits a single concurrent slot.
 
 Building this turned up platform behavior worth knowing, all measured and written up in [DESIGN.md §11](DESIGN.md): `kill()` that returned success while the sandbox kept running and billing for two hours; snapshot and revert taking 14 to 35 s; revert consuming its snapshot and sometimes failing with `Snapshot not found`; the control channel dropping after revert; listings that report dead sandboxes as live. twin works around each of them.
 

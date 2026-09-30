@@ -35,9 +35,12 @@ export interface ReplayReport {
   steps: StepResult[];
   attempts: AttemptResult[];
   notes: string[];
+  /** Set by a verify run: the command was first run without the fix, on its own machine. */
+  baseline?: { verdict: Verdict; machineId: string | null };
 }
 
 export type ReplayEvent =
+  | { type: 'baseline-start' }
   | { type: 'machine'; id: string }
   | { type: 'step-start'; step: Step }
   | { type: 'step-end'; result: StepResult }
@@ -185,4 +188,25 @@ export async function replay(
       });
     }
   }
+}
+
+/**
+ * Verifies a candidate fix. The command first runs once WITHOUT the fix on its own machine: replay
+ * installs from the repo's lockfile, so a failure that came from freshly resolved dependency
+ * versions does not appear, and a passing run with the fix would then prove nothing.
+ */
+export async function verifyFix(
+  capsule: Capsule,
+  backend: Backend,
+  options: ReplayOptions,
+): Promise<ReplayReport> {
+  options.onEvent?.({ type: 'baseline-start' });
+  const { patch: _patch, ref: _ref, repoUrl: _repoUrl, keep: _keep, ...plain } = options;
+  const before = await replay(capsule, backend, { ...plain, attempts: 1 });
+  const baseline = { verdict: before.verdict, machineId: before.machineId };
+  if (before.verdict !== 'reproduced') return { ...before, verdict: 'inconclusive', baseline };
+
+  const report = await replay(capsule, backend, options);
+  report.baseline = baseline;
+  return report;
 }

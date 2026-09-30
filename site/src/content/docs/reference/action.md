@@ -59,7 +59,7 @@ It is a composite action with three steps:
 
 ## Job summary and comment
 
-Every run that reaches a verdict appends the comment's Markdown to the job summary. The comment has the hidden marker line, a headline (`✅ FIXED in the reporter's environment`, `❌ STILL FAILING in the reporter's environment`, `❌ DIFFERENT FAILURE in the reporter's environment`, `⚠️ FLAKY: attempts disagreed` or `⚠️ INCONCLUSIVE: setup failed or an attempt timed out`), a one-line explanation, a table (command, reporter's environment, checked commit, attempts passed, capsule link) and the verify log in a collapsed `<details>` section.
+Every run that reaches a verdict appends the comment's Markdown to the job summary. The comment has the hidden marker line, a headline (`✅ FIXED in the reporter's environment`, `❌ STILL FAILING in the reporter's environment`, `❌ DIFFERENT FAILURE in the reporter's environment`, `⚠️ FLAKY: attempts disagreed` or `⚠️ INCONCLUSIVE: setup failed or an attempt timed out`, or `⚠️ INCONCLUSIVE: the failure did not reproduce without the fix`), a one-line explanation, a table (command, reporter's environment, checked commit, attempts passed, capsule link) and the verify log in a collapsed `<details>` section.
 
 ## Permissions
 

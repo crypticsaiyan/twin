@@ -7,7 +7,7 @@ import { bisect } from '../bisect/bisect.ts';
 import { diffCapsules } from '../capsule/diff.ts';
 import { type CapsuleSourceOptions, loadCapsule } from '../capsule/source.ts';
 import { TwinError } from '../errors.ts';
-import { replay } from '../replay/replay.ts';
+import { replay, verifyFix } from '../replay/replay.ts';
 import { renderBisect } from '../report/bisect.ts';
 import { renderDifferences } from '../report/differences.ts';
 import { renderReplay } from '../report/replay.ts';
@@ -205,7 +205,7 @@ export function createMcpServer(deps: McpDeps): TwinMcpServer {
     {
       title: 'Verify fix',
       description:
-        "Check a candidate fix in the reporter's environment on a fresh machine: apply a unified diff (or check out a ref) and rerun the failing command. FIXED means the captured failure is gone; STILL FAILING, DIFFERENT FAILURE, FLAKY or INCONCLUSIVE otherwise.",
+        "Check a candidate fix in the reporter's environment on a fresh machine: apply a unified diff (or check out a ref) and rerun the failing command. The command first runs once without the fix; if it does not fail the captured way there, the result is INCONCLUSIVE. FIXED means the captured failure is gone; STILL FAILING, DIFFERENT FAILURE, FLAKY or INCONCLUSIVE otherwise.",
       inputSchema: {
         capsule: capsuleArg,
         patch: z
@@ -228,7 +228,7 @@ export function createMcpServer(deps: McpDeps): TwinMcpServer {
         if (loaded.command.outcome !== 'fail') {
           throw new TwinError('the capsule recorded a passing run; there is no failure to fix');
         }
-        const report = await replay(loaded, await deps.getBackend(), {
+        const report = await verifyFix(loaded, await deps.getBackend(), {
           attempts: attempts ?? 3,
           env: env ?? {},
           ...(patch === undefined ? {} : { patch }),

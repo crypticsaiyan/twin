@@ -209,8 +209,10 @@ describe('twin MCP server', () => {
     const { call } = await connect(backend, { cwd: dir });
     const fixed = await call('verify', { capsule: 'bad.json', patch: FIX, attempts: 1 });
     expect(fixed.text).toContain('FIXED');
-    expect(backend.machines[0]?.files.get(FIX_PATCH_PATH)).toBe(FIX);
-    expect(backend.machines[0]?.killed).toBe(true);
+    // The first machine runs the command without the fix, the second with it.
+    expect(backend.machines[0]?.files.has(FIX_PATCH_PATH)).toBe(false);
+    expect(backend.machines[1]?.files.get(FIX_PATCH_PATH)).toBe(FIX);
+    expect(backend.machines.every((machine) => machine.killed)).toBe(true);
 
     const both = await call('verify', { capsule: 'bad.json', patch: FIX, ref: 'abc' });
     expect(both).toEqual({ text: 'twin: pass exactly one of patch or ref', isError: true });

@@ -74,6 +74,11 @@ export function renderVerifyMarkdown(
   options: VerifyCommentOptions,
 ): string {
   const outcome = verifyOutcome(report.verdict);
+  const noBaseline =
+    outcome === 'inconclusive' &&
+    report.baseline !== undefined &&
+    report.attempts.length > 0 &&
+    !report.attempts.some((attempt) => attempt.timedOut);
   const passed = report.attempts.filter((attempt) => attempt.outcome === 'pass').length;
   const capsuleLink = /^https:\/\//.test(options.source)
     ? `[capsule](${options.source})`
@@ -90,9 +95,11 @@ export function renderVerifyMarkdown(
   ];
   return [
     `${COMMENT_MARKER} verdict=${outcome} -->`,
-    `### twin: ${HEADLINE[outcome]}`,
+    `### twin: ${noBaseline ? '⚠️ INCONCLUSIVE: the failure did not reproduce without the fix' : HEADLINE[outcome]}`,
     '',
-    EXPLANATION[outcome],
+    noBaseline
+      ? 'The command was first run without the change and did not fail the way the reporter saw, so the change cannot be verified. Replay installs from the lockfile; a failure that needs freshly resolved dependency versions shows up in twin bisect.'
+      : EXPLANATION[outcome],
     '',
     '| | |',
     '|---|---|',

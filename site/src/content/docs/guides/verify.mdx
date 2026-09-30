@@ -62,7 +62,19 @@ Attempts
 FIXED: the command passes in the reporter's environment with the fix applied.
 ```
 
-The recorded transcript's header reads `Replay on solari`; the current code prints `Verify on solari` for verify runs.
+The recorded transcript's header reads `Replay on solari`; the current code prints `Verify on solari` for verify runs. It was also recorded before the check described next was added: verify now runs the command once without the fix first, so the same run would show one more machine.
+
+## The run without the fix comes first
+
+Before it applies your fix, `twin verify` runs the command once on its own machine, exactly like a replay of the capsule. If that run does not fail the way the capsule recorded, the verdict is `INCONCLUSIVE` and the fix is never tried, because a passing run with the fix would prove nothing.
+
+The usual reason is a failure that replay cannot copy. Replay installs dependencies from the repository's lockfile, so a failure that appears only on a fresh install (a newer transitive package, for example) passes here. Use [`twin bisect`](../bisect/) for that kind of failure: it applies the package versions the capsule recorded.
+
+```text
+INCONCLUSIVE: the failure did not reproduce without the fix (it passed), so the fix cannot be verified. Replay installs from the lockfile; for a failure that needs freshly resolved dependency versions, use twin bisect.
+```
+
+The extra run costs one more machine and about as long as one replay attempt plus setup.
 
 ## Verdicts
 
@@ -72,7 +84,7 @@ The recorded transcript's header reads `Replay on solari`; the current code prin
 | `STILL FAILING` | The fix does not change the captured failure. | 1 |
 | `DIFFERENT FAILURE` | With the fix it still fails, but differently. | 1 |
 | `FLAKY` | Attempts disagreed with each other. | 1 |
-| `INCONCLUSIVE` | Setup failed (does the fix apply?) or an attempt timed out. | 1 |
+| `INCONCLUSIVE` | The failure did not reproduce without the fix, setup failed (does the fix apply?) or an attempt timed out. | 1 |
 
 A patch that does not apply fails the `apply candidate fix` step, which makes the run `INCONCLUSIVE` and prints `git apply`'s error.
 

@@ -283,6 +283,19 @@ describe('renderReplay', () => {
       'INCONCLUSIVE: attempt 1 timed out (raise --timeout).',
     );
     expect(render({}, true)).toContain('INCONCLUSIVE: setup failed (does the fix apply?)');
+
+    const install = {
+      ...step('install dependencies (npm ci)'),
+      id: 'dependencies',
+      outputTail:
+        'npm error The `npm ci` command can only install with an existing package-lock.json',
+    };
+    expect(render({ steps: [install] })).toContain(
+      'The repository has no committed lockfile, and replay installs from the committed one.',
+    );
+    expect(render({ steps: [{ ...install, outputTail: 'ENOSPC' }] })).not.toContain(
+      'committed lockfile',
+    );
   });
 
   it('explains kept machines and passing attempts', () => {

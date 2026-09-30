@@ -77,7 +77,39 @@ describe('twin verify', () => {
     ).toBe(0);
     expect(stdout.text).toContain("FIXED: the command passes in the reporter's environment");
     expect(stdout.text).toMatch(/^Verify on fake/);
-    expect(backend.machines[0]?.files.get(FIX_PATCH_PATH)).toBe(FIX);
+    // One machine runs the command without the fix first, another with it.
+    expect(backend.machines).toHaveLength(2);
+    expect(backend.machines[0]?.files.has(FIX_PATCH_PATH)).toBe(false);
+    expect(backend.machines[1]?.files.get(FIX_PATCH_PATH)).toBe(FIX);
+  });
+
+  it('is inconclusive when the failure does not reproduce without the fix', async () => {
+    // Replay installs from the lockfile, so a fresh-install failure passes here, fix or not.
+    const backend = new FakeBackend((spec) =>
+      spec.argv.includes('exec "$@"') ? { exitCode: 0 } : undefined,
+    );
+    const { context, stdout } = await setup(backend);
+    expect(
+      await main(['verify', 'bug.json', '--patch', 'fix.patch', '--comment', 'c.md'], context),
+    ).toBe(1);
+    expect(stdout.text).toContain('INCONCLUSIVE: the failure did not reproduce without the fix');
+    expect(stdout.text).toContain('twin bisect');
+    expect(stdout.text).not.toContain('FIXED');
+    // No second machine and no fix upload: the fix was never tried.
+    expect(backend.machines).toHaveLength(1);
+    expect(backend.machines[0]?.files.has(FIX_PATCH_PATH)).toBe(false);
+    const comment = await readFile(join(context.cwd, 'c.md'), 'utf8');
+    expect(comment.startsWith('<!-- twin-verify verdict=inconclusive -->\n')).toBe(true);
+    expect(comment).toContain('did not reproduce without the fix');
+  });
+
+  it('is inconclusive when the failure without the fix is a different one', async () => {
+    const backend = new FakeBackend((spec) =>
+      spec.argv.includes('exec "$@"') ? { exitCode: 1, output: 'TypeError: other' } : undefined,
+    );
+    const { context, stdout } = await setup(backend);
+    expect(await main(['verify', 'bug.json', '--patch', 'fix.patch'], context)).toBe(1);
+    expect(stdout.text).toContain('it failed differently');
   });
 
   it('writes a pull request comment when asked', async () => {
@@ -102,25 +134,32 @@ describe('twin verify', () => {
   });
 
   it('checks out a fix ref from a fork and prints JSON', async () => {
-    const backend = new FakeBackend((spec) =>
-      spec.argv.includes('exec "$@"') ? { exitCode: 0 } : undefined,
-    );
+    let fixed = false;
+    const backend = new FakeBackend((spec) => {
+      if (spec.argv.join(' ').includes('origin fix123')) fixed = true;
+      if (!spec.argv.includes('exec "$@"')) return undefined;
+      return fixed ? { exitCode: 0 } : { exitCode: 1, output: FAILURE };
+    });
     const { context, stdout } = await setup(backend);
     const code = await main(
       ['verify', 'bug.json', '--ref', 'fix123', '--repo', 'https://e.com/fork.git', '--json'],
       context,
     );
     expect(code).toBe(0);
-    expect(JSON.parse(stdout.text)).toMatchObject({ verdict: 'not-reproduced' });
-    const checkout = backend.machines[0]?.runs.find((r) => r.argv.join(' ').includes('git fetch'));
+    expect(JSON.parse(stdout.text)).toMatchObject({
+      verdict: 'not-reproduced',
+      baseline: { verdict: 'reproduced' },
+    });
+    const checkout = backend.machines[1]?.runs.find((r) => r.argv.join(' ').includes('git fetch'));
     expect(checkout?.argv.join(' ')).toContain('https://e.com/fork.git');
     expect(checkout?.argv.join(' ')).toContain('origin fix123');
   });
 
   it('explains a patch that does not apply', async () => {
-    const backend = new FakeBackend((spec) =>
-      spec.argv[1] === 'apply' ? { exitCode: 1, output: 'patch does not apply' } : undefined,
-    );
+    const backend = new FakeBackend((spec) => {
+      if (spec.argv[1] === 'apply') return { exitCode: 1, output: 'patch does not apply' };
+      return spec.argv.includes('exec "$@"') ? { exitCode: 1, output: FAILURE } : undefined;
+    });
     const { context, stdout } = await setup(backend);
     expect(await main(['verify', 'bug.json', '--patch', 'fix.patch'], context)).toBe(1);
     expect(stdout.text).toContain('patch does not apply');
