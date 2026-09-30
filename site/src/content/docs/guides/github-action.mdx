@@ -1,45 +1,25 @@
 ---
 title: Check fix PRs in CI
-description: A GitHub Action that verifies pull requests claiming to fix an issue, in the reporter's environment.
+description: "A GitHub Action that verifies pull requests claiming to fix an issue, in the reporter's environment."
 sidebar:
   order: 7
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Pull requests that say "Fixes #123" (increasingly opened by coding agents) usually pass CI on a machine where the bug never reproduced in the first place. The `crypticsaiyan/twin@main` action checks them where the bug does reproduce: in the reporter's environment, rebuilt from the capsule attached to the issue.
+A pull request that says "Fixes #123", increasingly one opened by a coding agent, usually passes CI on a machine where the bug never reproduced. The `crypticsaiyan/twin@main` action checks it where the bug does reproduce: in the reporter's environment, rebuilt from the capsule attached to the issue.
 
-## What it does on each pull request
+## What it does
 
-The action is a composite action ([`action.yml`](https://github.com/crypticsaiyan/twin/blob/main/action.yml), scripts in [`scripts/action/`](https://github.com/crypticsaiyan/twin/tree/main/scripts/action)).
+On each pull request the action finds the issues the PR closes, looks in each issue's body and comments for a capsule link, and runs `twin verify` against the PR's head commit. It posts the verdict as a comment, or updates its earlier comment, so each push changes one comment instead of adding another. The job passes only when the verdict is `fixed`, so you can require the check before merging.
 
-<Steps>
-
-1. Sets up Node 22 and installs twin itself (`npx --yes pnpm@10.20.0 install --frozen-lockfile` in the action's own directory, which also builds it).
-2. Finds the issues the PR closes, from the PR's closing issue references on GitHub (for example `Fixes #123` in the description).
-3. Looks for a capsule in each of those issues, the body first and then its comments, and takes the first link that matches: a GitHub attachment `https://github.com/user-attachments/files/<number>/<name>.json`, or any `https://` link to a `.json` file with `capsule` in its URL.
-4. Runs `twin verify <capsule> --ref <PR head sha> --repo <PR head repo clone URL> --attempts <attempts> --comment <file>`. The sandbox clones the PR's head commit and runs the captured command there.
-5. Writes the comment to the job summary, and posts it on the PR, or edits the comment it posted before, so each push updates one comment instead of adding another.
-6. Sets the `verdict` output and passes only when it is `fixed`. Any other verdict fails the job with `twin: <verdict> in the reporter's environment.`, so the check can be required before merging.
-
-</Steps>
-
-The action skips, sets `verdict` to `skipped` and passes in two cases:
-
-- **No Solari key**, as on pull requests from forks: it prints the notice `No Solari API key (secrets are not passed to pull requests from forks); nothing to verify.` This check comes first.
-- **No capsule**: the PR closes no issue with a capsule attached, and no `capsule` input is set. It prints the notice `No twin capsule is attached to an issue this pull request closes; nothing to verify.`
-
-If `twin verify` stops before reaching a verdict (for example the capsule cannot be downloaded), the job fails with `twin verify stopped before reaching a verdict (exit <code>).` Run outside a `pull_request` event, the action fails with `twin verify checks pull requests; run it on pull_request events.`
-
-### The comment
-
-The comment is the Markdown that [`twin verify --comment <file>`](../verify/#a-comment-for-the-pull-request) writes: a headline such as `✅ FIXED in the reporter's environment` or `❌ STILL FAILING in the reporter's environment`, one sentence of explanation, a table (the command, the reporter's environment as runtimes, OS and time zone, the checked commit, how many attempts passed, a link to the capsule), and the full verify log in a collapsed section. It starts with a hidden `<!-- twin-verify verdict=… -->` line, which is how the action finds its own earlier comment. The same Markdown is appended to the job summary, so the result is visible on the run page even with `comment: false`.
+The action skips and passes, with `verdict=skipped`, in two cases: there is no Solari key (pull requests from forks get no secrets), or the PR closes no issue with a capsule attached. The step-by-step behavior and every message are in the [Action reference](../../reference/action/).
 
 ## Setup
 
 <Steps>
 
-1. Add your Solari key as a repository secret named `SOLARI_API_KEY` (Settings → Secrets and variables → Actions).
+1. Add your Solari key as a repository secret named `SOLARI_API_KEY` (Settings, then Secrets and variables, then Actions).
 
 2. Add `.github/workflows/twin.yml`:
 
@@ -59,13 +39,13 @@ The comment is the Markdown that [`twin verify --comment <file>`](../verify/#a-c
              solari-api-key: ${{ secrets.SOLARI_API_KEY }}
    ```
 
-3. Ask reporters for capsules, so issues have one attached. See [Issue template](../issue-template/).
+3. Ask reporters for capsules so issues have one attached. See [Issue template](../issue-template/).
 
 </Steps>
 
-The permissions are the minimum: `issues: read` to find the capsule on the issue, `pull-requests: write` to post the comment. The repository must be **public**: the sandbox clones the PR's head commit without credentials.
+These are the minimum permissions: `issues: read` to find the capsule and `pull-requests: write` to post the comment. The repository must be public, because the sandbox clones the PR's head commit without credentials.
 
-## Inputs
+## Inputs and output
 
 | Input | Required | Default | What it does |
 |---|---|---|---|
@@ -75,11 +55,9 @@ The permissions are the minimum: `issues: read` to find the capsule on the issue
 | `comment` | no | `true` | Post or update the PR comment. |
 | `github-token` | no | `github.token` | Token used to read issues and write the comment. |
 
-The action sets one output, `verdict`: `fixed`, `still-failing`, `different-failure`, `flaky`, `inconclusive`, or `skipped` when there was no key or no capsule. Later steps can use it, for example to label the PR (give such a step `if: always()`, since the twin step fails on any verdict but `fixed`). Full details in the [Action reference](../../reference/action/).
+The `verdict` output is `fixed`, `still-failing`, `different-failure`, `flaky`, `inconclusive` or `skipped`. A later step can use it, for example to label the PR. Give that step `if: always()`, because the twin step fails on any verdict except `fixed`.
 
-## Using a fixed capsule
-
-To check every PR against one capsule, pass its URL, or commit it and pass its path (check the repository out first so the file is on the runner):
+To check every pull request against one capsule, pass its URL, or commit it and pass its path after checking the repository out:
 
 ```yaml
 steps:
@@ -93,11 +71,11 @@ steps:
 ## Security
 
 <Aside type="note" title="Where the PR code runs">
-The pull request's code runs **only inside the Solari sandbox**, never on the Actions runner. The runner installs and runs twin itself, which calls the GitHub and Solari APIs; it never checks out or executes the PR's code. The PR's head commit is cloned inside the sandbox. The Solari key stays on the runner and is never copied into the sandbox.
+The pull request's code runs only inside the Solari sandbox, never on the Actions runner. The runner installs and runs twin, which calls the GitHub and Solari APIs, and never checks out or executes the PR's code. The Solari key stays on the runner and is never copied into the sandbox.
 </Aside>
 
-With the plain `pull_request` trigger, GitHub does not give secrets to workflows running for pull requests from forks. The check therefore works for branches in the same repository, which is how coding agents usually open their PRs. On a fork PR the key is empty, so the action skips with a notice (`verdict=skipped`) and passes rather than failing the contributor's PR. Do not switch to `pull_request_target` to get around this without understanding the risk: it runs with secrets in the context of the base repository.
+With the plain `pull_request` trigger, GitHub gives no secrets to workflows for pull requests from forks. The check therefore works for branches in the same repository, which is how coding agents usually open their PRs. On a fork PR the key is empty and the action skips instead of failing the contributor's PR. Do not switch to `pull_request_target` to get around this without understanding the risk, because it runs with secrets in the context of the base repository.
 
 ## Cost
 
-Each check is one verify: one sandbox for about as long as a replay of the capsule takes. The echarts capsule verifies in about 71 seconds, a fraction of a cent at about $0.125 per sandbox-hour. See [Solari](../../reference/solari/).
+Each check is one verify, which runs two sandboxes for about as long as a replay of the capsule takes. The echarts capsule verifies in under two minutes, a fraction of a cent at about $0.125 per sandbox hour. See [How twin uses Solari](../../reference/solari/).

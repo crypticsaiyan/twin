@@ -1,13 +1,11 @@
 ---
 title: Bisect the environment
-description: Find the smallest set of environment differences that turns a passing environment into the failing one.
+description: "Find the smallest set of environment differences that turns a passing environment into the failing one."
 sidebar:
   order: 3
 ---
 
-import { Aside } from '@astrojs/starlight/components';
-
-`twin bisect` answers "which difference breaks it?". Given a capsule where the command fails and one where it passes, it finds the smallest set of differences (environment values, time zone, Node version, npm dependency versions, working-tree diff) that turns the passing environment into the failing one.
+`twin bisect` answers "which difference breaks it?". Given a capsule where the command fails and one where it passes, it finds the smallest set of differences that turns the passing environment into the failing one. It can vary environment values, the time zone, the Node version, npm dependency versions and the working-tree diff.
 
 ## You need two capsules
 
@@ -22,7 +20,7 @@ import { Aside } from '@astrojs/starlight/components';
 
   The reporter's `argv` and commit are in `twin inspect bad.json`.
 
-Either capsule can be a file path or an `https://` URL (such as the issue attachment). Look at what differs before spending sandbox time:
+Either capsule can be a file path or an `https://` URL. Look at what differs before spending sandbox time:
 
 ```sh
 twin diff good.json bad.json
@@ -46,7 +44,7 @@ Locale (1)
 twin bisect bad.json --good good.json
 ```
 
-Bisect creates one sandbox, builds the good environment on it (the same steps as a replay of the good capsule), pre-installs any other Node version it may need, and then runs trials. The echarts bisect, recorded on Solari:
+Bisect creates one sandbox, builds the good environment on it as a replay of the good capsule would, installs any other Node version it may need, and runs trials. The echarts bisect, recorded on Solari:
 
 ```text
 Bisect on solari (machine AvubsvqLazIY9m-5…, run 98e18221)
@@ -64,7 +62,7 @@ Minimal failing difference:
 Applying it to the good environment fails the captured way; without it, it passes.
 ```
 
-Trial 1 is the good environment alone; it must pass. Trial 2 applies every candidate; it must fail the captured way. With one candidate, that is already the answer. With more, ddmin keeps shrinking the set until removing any single remaining difference makes the command pass.
+Trial 1 is the good environment alone and must pass. Trial 2 applies every candidate and must fail the captured way. With one candidate that is already the answer. With more, ddmin shrinks the set until removing any single remaining difference makes the command pass. It reports one such set. If two independent differences each break the command, it reports only one of them.
 
 ## What gets varied
 
@@ -87,12 +85,12 @@ Everything else is reported under **Not varied** with the reason, so nothing is 
 | Runtimes other than Node | `<runtime>` versions are not varied yet |
 | A variable set on the failing machine with no recorded value | value not captured on the failing machine (capture with --include-env) |
 | Dependencies in non-npm projects | dependency versions are varied only for npm projects so far |
-| A dependency with several installed versions | several versions installed on the failing machine |
+| A dependency with several new versions installed | several new versions installed on the failing machine |
 | A variable unset on the failing machine whose good value is unknown | unset in the failing environment and not set in replay |
 
-<Aside>
-If the variable you suspect shows up as "value not captured", ask the reporter to capture again with `--include-env NAME`, or compare it without disclosure using `--salt` (both sides need the same salt).
-</Aside>
+If a variable you suspect shows up as "value not captured", ask the reporter to capture again with `--include-env NAME`, or compare it without disclosure using `--salt` (both sides need the same salt).
+
+A dependency installed in several versions is varied when exactly one of those versions is new on the failing side. That is the case for the [lru-cache case study](../../examples/lru-cache-397/), where five copies of the package are installed.
 
 ## Options
 
@@ -120,7 +118,7 @@ Exit status: `0` minimal difference found, `1` otherwise, `2` usage error.
 
 ### "Also failing, but not the captured way"
 
-Some trials fail consistently with a *different* signature. They do not count as the bug, but bisect lists the smallest of them, because they often point at the right cause with a cosmetic difference. In one live run the time-zone bug also failed on Node 22, but the assertion message was formatted differently there, so the exact captured failure needed Node 26 and the time zone together; the Node 22 trial showed up in this section.
+Some trials fail consistently with a different signature. They do not count as the bug, but bisect lists the smallest of them, because they often point at the right cause with a cosmetic difference. In one run a time-zone bug also failed on Node 22 with a differently formatted assertion message, so the exact captured failure needed Node 26 and the time zone together, and the Node 22 trial appeared in this section.
 
 ## Errors before any sandbox starts
 
@@ -132,6 +130,6 @@ Bisect checks the capsules first and exits with status 2 when:
 
 ## Cost and scope
 
-Everything runs on **one** sandbox, so bisect fits a single concurrent slot. Environment, time zone and Node trials need no reset (0.3 to 0.7 s each in the live measurements, for a fast command); dependency trials cost a reinstall to undo. The echarts bisect took 69 s end to end.
+Everything runs on one sandbox. Environment, time zone and Node trials need no reset (0.3 to 0.7 s each for a fast command), and dependency trials cost a reinstall to undo. The echarts bisect took 69 s. The [lru-cache](../../examples/lru-cache-397/) bisect took 245 s for 10 trials.
 
-The result is scoped to the captured differences and the captured command. It is the smallest set of *recorded* differences that flips the outcome, not a proof of root cause.
+The result is the smallest set of recorded differences that flips the outcome for the captured command. It is not a proof of root cause.

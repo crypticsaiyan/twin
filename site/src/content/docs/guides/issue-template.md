@@ -1,11 +1,11 @@
 ---
 title: Ask for capsules in your issue template
-description: Snippets for maintainers to request a twin capsule in bug reports.
+description: "Snippets for maintainers to request a twin capsule in bug reports."
 sidebar:
   order: 8
 ---
 
-The cheapest time to get a capsule is when the issue is filed. Add a short request to your bug report template.
+The easiest time to get a capsule is when the issue is filed. Add a short request to your bug report template.
 
 ## Markdown template
 
@@ -40,7 +40,7 @@ For YAML issue forms (`.github/ISSUE_TEMPLATE/bug_report.yml`), add a field:
       description: Drag twin-capsule.json here.
 ```
 
-A file dragged into an issue becomes a `https://github.com/user-attachments/files/…` link. The [GitHub Action](../github-action/) and the [MCP server](../ai-agents/) both find and read capsules from those links.
+A file dragged into an issue becomes a `https://github.com/user-attachments/files/…` link. The [GitHub Action](../github-action/) and the [MCP server](../ai-agents/) read capsules from those links.
 
 ## Asking in a comment
 
@@ -60,6 +60,4 @@ If the value of an environment variable might matter and it's not secret, add
 
 ## Tips
 
-- Name the command you want captured if you know it. A single test file gives a faster replay and a sharper signature than the whole suite.
-- Capture your own passing run at the same commit (`twin capture -- <same command>`). With both capsules you can run [bisect](../bisect/) right away.
-- Link reporters to [Privacy](../../reference/privacy/) if they ask what is recorded.
+Name the command you want captured if you know it, because a single test file replays faster than the whole suite. Capture your own passing run at the same commit, so you can run [bisect](../bisect/) as soon as the reporter's capsule arrives. If reporters ask what is recorded, link them to [Privacy and redaction](../../reference/privacy/).

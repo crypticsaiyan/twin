@@ -1,24 +1,24 @@
 ---
 title: Replay a capsule
-description: Rebuild the reporter's environment on a fresh Solari sandbox, rerun the command, and read the verdict.
+description: "Rebuild the reporter's environment on a fresh Solari sandbox, rerun the command, and read the verdict."
 sidebar:
   order: 2
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-`twin replay` rebuilds a capsule's environment on a fresh Solari sandbox (same runtime, package manager and lockfile, same commit and diff, same environment values and time zone), runs the command, and reports whether the failure reproduces.
+`twin replay` rebuilds a capsule's environment on a fresh Solari sandbox, runs the command, and reports whether the failure reproduces. The sandbox gets the same runtime, package manager and lockfile, the same commit and diff, and the same environment values and time zone.
 
 ## Before you start
 
 - Node 22 or newer.
-- A Solari key in the environment. Get one at [console.getsolari.com](https://console.getsolari.com):
+- A Solari key. Get one at [console.getsolari.com](https://console.getsolari.com):
 
   ```sh
   export SOLARI_API_KEY=slr_live_...
   ```
 
-- The capsule: a file path, or an `https://` URL such as the issue attachment link. Before replaying, `twin inspect` shows what it contains without any key:
+- The capsule, as a file path or an `https://` URL such as the issue attachment link. `twin inspect` shows what it contains and needs no key:
 
   ```sh
   twin inspect twin-capsule.json
@@ -31,7 +31,7 @@ import { Aside } from '@astrojs/starlight/components';
 twin replay twin-capsule.json
 ```
 
-Progress goes to stderr as each step starts (`twin: install node 22.23.3`, `twin: attempt 1/3`, …). The report goes to stdout. The echarts replay, recorded on Solari:
+Progress goes to stderr as each step starts. The report goes to stdout. The echarts replay, recorded on Solari:
 
 ```text
 Replay on solari (machine AlDq8esMs1x4vuzv…, run fd0c959a)
@@ -49,23 +49,21 @@ Attempts
 REPRODUCED: every attempt failed exactly as the capsule recorded.
 ```
 
-That run used two attempts. The default is three.
+That run used two attempts; the default is three.
 
 ## Reading the verdict
 
 | Verdict | Meaning | What to do next |
 |---|---|---|
 | `REPRODUCED` | Every attempt failed exactly as the capsule recorded. | Keep the machine (`--keep`) and open a shell, bisect against a passing capsule, or verify a fix. |
-| `DIFFERENT FAILURE` | It fails here, but not the way the capsule recorded. | Compare the "Key lines here" and "Key lines in capsule" sections the report prints. Often a missing environment value (see Notes) or a runtime that formats the error differently. |
-| `NOT REPRODUCED` | The command passes on this Linux machine. | Replay cannot copy the OS, variables recorded by name only, untracked local files, or packages that are not npm packages. Check the Notes; supply values with `--env`, or run `twin bisect` against a passing capsule. |
+| `DIFFERENT FAILURE` | It fails here, but not the way the capsule recorded. | Compare the "Key lines here" and "Key lines in capsule" sections of the report. The usual causes are a missing environment value (see Notes) or a runtime that formats the error differently. |
+| `NOT REPRODUCED` | The command passes on this Linux machine. | Replay cannot copy the OS, variables recorded by name only, untracked files or packages outside npm. Check the Notes, supply values with `--env`, or run `twin bisect` against a passing capsule. |
 | `FLAKY` | Attempts disagreed with each other. | Raise `--attempts` to see how often it fails. |
 | `INCONCLUSIVE` | Setup failed or an attempt timed out. | The failed step is marked `✗` with its exit code and the last 30 lines of its output. See [Troubleshooting](../../reference/troubleshooting/). |
 
-When attempts do not match the capsule, the report also prints the key lines from the first mismatching attempt next to the key lines in the capsule, so you can see what changed.
-
 ### Notes
 
-After the verdict, twin lists differences between the reporter's machine and the replay that it could not remove. The messages look like this (names and counts vary):
+After the verdict, twin lists the differences between the reporter's machine and the replay that it could not remove. Examples, with names and counts that vary:
 
 - `Captured on darwin (macos); replayed on Linux with the same versions.`
 - `3 variables were set on the reporter's machine with unknown values and are left unset (API_URL, DATABASE_URL, SENTRY_DSN). Provide any that matter with --env NAME=value.`
@@ -75,21 +73,18 @@ After the verdict, twin lists differences between the reporter's machine and the
 
 ## Pinned packages
 
-Replay installs dependencies from the repository's lockfile. A failure can still come from versions the reporter's install resolved differently, for example a fresh install that picked a newer transitive release. So for npm projects, after the install, replay lists the packages on the machine, compares them with the versions the capsule recorded and installs the ones that differ in one extra step:
+Replay installs dependencies from the repository's lockfile. A failure can still come from versions the reporter's install resolved differently, such as a fresh install that picked a newer transitive release. So for npm projects, replay lists the installed packages after the install, compares them with the versions the capsule recorded, and installs the ones that differ in one extra step:
 
 ```text
   ✓ install dependencies (npm ci)  9.7s
   ✓ pin 32 packages to the capsule's versions (@asamuzakjp/css-color@5.1.5, ...)  5.7s
 ```
 
-- Only packages that are installed at other versions are pinned. A package missing from the machine is left alone (usually a platform or optional difference).
-- When a package has several new versions recorded, there is no single version to install, so it is skipped and named in the Notes.
-- When nothing differs there is no extra step, and every other package manager is unchanged.
-- `--ref` runs do not pin, because the capsule's packages describe another commit.
-- If a pinned version cannot be installed, the pin step fails and the verdict is `INCONCLUSIVE`; the output above it names the package.
-- `--no-pin` skips it. The report (`--json`) lists the packages under `pinned`.
+Only packages installed at other versions are pinned. A package missing from the machine is left alone, since that is usually a platform or optional difference. If a package has several new versions recorded, there is no single version to install, so it is skipped and named in the Notes. When nothing differs there is no extra step. Other package managers are unchanged, and `--ref` runs do not pin because the capsule's packages describe another commit.
 
-The [lru-cache case study](../../examples/lru-cache-397/) is a failure that only reproduces with pinning: 32 packages differ from the lockfile install, and replay reproduces it 3 of 3.
+If a pinned version cannot be installed, the pin step fails and the verdict is `INCONCLUSIVE`. `--no-pin` skips the step, and `--json` lists the packages under `pinned`.
+
+The [lru-cache case study](../../examples/lru-cache-397/) only reproduces with pinning: 32 packages differ from the lockfile install, and replay reproduces the failure 3 of 3.
 
 ## Options
 
@@ -109,13 +104,13 @@ Exit status: `0` reproduced, `1` anything else, `2` usage error.
 
 ## Supplying values with `--env`
 
-A capsule records most variables by name only. If replay notes that a variable was set with an unknown value and you think it matters, give it one:
+A capsule records most variables by name only. If the Notes say a variable was set with an unknown value and you think it matters, give it one:
 
 ```sh
 twin replay twin-capsule.json --env API_URL=http://localhost:3000 --env FEATURE_X=1
 ```
 
-`--env` also tests a hypothesis. On the first live check, a time-zone bug replayed as `REPRODUCED`, and the same capsule with `--env TZ=UTC` was `NOT REPRODUCED`, as expected.
+`--env` also tests a hypothesis. A time-zone capsule replays as `REPRODUCED`, and the same capsule with `--env TZ=UTC` is `NOT REPRODUCED`.
 
 ## Replaying a fork or a different commit
 
@@ -125,7 +120,7 @@ The sandbox fetches one commit by SHA from the capsule's `origin` remote. If the
 twin replay twin-capsule.json --repo https://github.com/reporter/project
 ```
 
-To replay the captured environment against a different commit (for example, current `main`), pass its full SHA with `--ref`. The commit is fetched by SHA, which GitHub and GitLab allow for full SHAs. The capsule's uncommitted diff is not applied in that case, since it was made against the captured commit.
+To replay the captured environment against another commit, such as current `main`, pass its full SHA with `--ref`. The commit is fetched by SHA, which GitHub and GitLab allow for full SHAs. The capsule's uncommitted diff is not applied, since it was made against the captured commit.
 
 ```sh
 twin replay twin-capsule.json --ref "$(git rev-parse origin/main)"
@@ -154,4 +149,4 @@ A kept machine is billed until it has been idle for 15 minutes, or until `twin s
 
 ## JSON output
 
-`--json` prints the full report on stdout: `verdict` (`reproduced`, `different-failure`, `not-reproduced`, `flaky` or `inconclusive`), `runId`, `backend`, `machineId`, `kept`, `expected` (outcome, signature, key lines), `steps` (id, title, ok, optional, duration, exit code, output tail for failed steps), `attempts` (exit code, timed out, duration, outcome, signature, key lines) and `notes`. Progress still goes to stderr, so stdout stays parseable.
+`--json` prints the full report on stdout: `verdict` (`reproduced`, `different-failure`, `not-reproduced`, `flaky` or `inconclusive`), `runId`, `backend`, `machineId`, `kept`, `expected`, `steps`, `attempts`, `pinned` and `notes`. Progress stays on stderr, so stdout can be piped.

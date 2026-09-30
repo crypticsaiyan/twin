@@ -1,20 +1,20 @@
 ---
 title: Verify a fix
-description: Check a candidate fix in the reporter's environment before pushing, or check a pushed branch.
+description: "Check a candidate fix in the reporter's environment before pushing, or check a pushed branch."
 sidebar:
   order: 4
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-`twin verify` rebuilds the reporter's environment like [replay](../replay/), applies your fix, reruns the command and reports whether the captured failure is gone. With `--patch`, nothing has to be pushed first.
+`twin verify` rebuilds the reporter's environment as [replay](../replay/) does, applies your fix, reruns the command and reports whether the captured failure is gone. With `--patch` nothing has to be pushed first.
 
 ## Two ways to supply the fix
 
 <Tabs>
 <TabItem label="A local patch">
 
-Write the fix in your clone, export it as a unified diff, verify:
+Write the fix in your clone, export it as a unified diff, and verify it:
 
 ```sh
 git diff > fix.patch
@@ -26,7 +26,7 @@ The sandbox checks out the capsule's commit, applies the reporter's working-tree
 </TabItem>
 <TabItem label="A pushed commit">
 
-Check a fix branch or a PR head instead. `--ref` takes a full commit SHA; `--repo` points at a fork:
+To check a fix branch or a PR head, pass its full commit SHA as `--ref`. `--repo` points at a fork:
 
 ```sh
 twin verify twin-capsule.json --ref <full-commit-sha>
@@ -38,14 +38,14 @@ With `--ref`, the capsule's working-tree diff is not applied: the commit is take
 </TabItem>
 </Tabs>
 
-The capsule can be a file path or an `https://` URL, such as the issue attachment itself. Pass exactly one of `--patch` and `--ref`; twin exits with status 2 otherwise. The capsule must record a failure (`the capsule recorded a passing run; there is no failure to verify a fix for`).
+The capsule can be a file path or an `https://` URL. Pass exactly one of `--patch` and `--ref`, or twin exits with status 2. The capsule must record a failure; otherwise twin stops with `the capsule recorded a passing run; there is no failure to verify a fix for`.
 
 ## The echarts fix, verified before pushing
 
-The recorded run from the [case study](../../examples/echarts-21538/):
+The run recorded for the [case study](../../examples/echarts-21538/). It predates the baseline run described below, which adds one more machine.
 
 ```text
-Replay on solari (machine AkhV_ntXHJrec7VZ…, run e179d260)
+Verify on solari (machine AkhV_ntXHJrec7VZ…, run e179d260)
   ✓ prepare workspace  0.3s
   ✓ install node 22.23.3  2.1s
   ✓ check out 984bf46b2f90  4.2s
@@ -62,29 +62,27 @@ Attempts
 FIXED: the command passes in the reporter's environment with the fix applied.
 ```
 
-The recorded transcript's header reads `Replay on solari`; the current code prints `Verify on solari` for verify runs. It was also recorded before the check described next was added: verify now runs the command once without the fix first, so the same run would show one more machine.
-
 ## The run without the fix comes first
 
-Before it applies your fix, `twin verify` runs the command once on its own machine, exactly like a replay of the capsule (including [pinning npm packages](../replay/#pinned-packages) to the capsule's versions). If that run does not fail the way the capsule recorded, the verdict is `INCONCLUSIVE` and the fix is never tried, because a passing run with the fix would prove nothing.
+Before it applies your fix, `twin verify` runs the command once on its own machine, exactly as a replay of the capsule would, including [pinning npm packages](../replay/#pinned-packages) to the capsule's versions. If that run does not fail the way the capsule recorded, the verdict is `INCONCLUSIVE` and the fix is never tried, because a pass with the fix would prove nothing.
 
-The usual reason is a failure that replay cannot copy: the OS, a variable recorded by name only, or a dependency manager other than npm. Check the Notes, or run `twin bisect` against a passing capsule.
+The usual reason is a failure that replay cannot copy: the OS, a variable recorded by name only, or a package manager other than npm. Check the Notes, or run `twin bisect` against a passing capsule.
 
 ```text
 INCONCLUSIVE: the failure did not reproduce without the fix (it passed), so the fix cannot be verified. Replay installs from the lockfile; for a failure that needs freshly resolved dependency versions, use twin bisect.
 ```
 
-The extra run costs one more machine and about as long as one replay attempt plus setup.
+The baseline run costs one more machine and about as long as a replay.
 
 ## Fixes that change dependencies
 
-The capsule's packages are pinned after the fix is applied and its dependencies are installed. A package the fix names inside `package.json` (an `overrides` entry, a changed dependency range) keeps the version the fix resolves, so a fix like this one verifies as `FIXED`:
+The capsule's packages are pinned after the fix is applied and its dependencies are installed. A package that the fix names in `package.json`, through an `overrides` entry or a changed range, keeps the version the fix resolves. That lets a fix like this one verify as `FIXED`:
 
 ```json
 "overrides": { "jsdom": { "lru-cache": "^11.3.2" } }
 ```
 
-Every other package is still pinned to the capsule, so a patch that does not touch the cause reports `STILL FAILING`. The [lru-cache case study](../../examples/lru-cache-397/) shows both.
+Every other package is still pinned to the capsule, so a patch that does not touch the cause reports `STILL FAILING`. The [lru-cache case study](../../examples/lru-cache-397/) shows both results.
 
 ## Verdicts
 
@@ -96,7 +94,7 @@ Every other package is still pinned to the capsule, so a patch that does not tou
 | `FLAKY` | Attempts disagreed with each other. | 1 |
 | `INCONCLUSIVE` | The failure did not reproduce without the fix, setup failed (does the fix apply?) or an attempt timed out. | 1 |
 
-A patch that does not apply fails the `apply candidate fix` step, which makes the run `INCONCLUSIVE` and prints `git apply`'s error.
+A patch that does not apply fails the `apply candidate fix` step. The run is `INCONCLUSIVE` and twin prints the error from `git apply`.
 
 ## Options
 
@@ -116,12 +114,12 @@ A patch that does not apply fails the `apply candidate fix` step, which makes th
 Exit status: `0` fixed, `1` otherwise, `2` usage error.
 
 <Aside>
-`FIXED` means the captured command passes in the captured environment. It says nothing about other tests or other environments. For the echarts fix, the patch was also run locally under seven time zones before verifying.
+`FIXED` means the captured command passes in the captured environment. It says nothing about other tests or other environments.
 </Aside>
 
 ## A comment for the pull request
 
-`--comment <file>` also writes the verdict as Markdown, ready to post on a PR:
+`--comment <file>` also writes the verdict as Markdown that you can post on a PR:
 
 ```sh
 twin verify https://github.com/user-attachments/files/<id>/twin-capsule.json \
@@ -129,7 +127,7 @@ twin verify https://github.com/user-attachments/files/<id>/twin-capsule.json \
 gh pr comment --body-file verdict.md
 ```
 
-The comment has a headline (for example `✅ FIXED in the reporter's environment` or `❌ STILL FAILING in the reporter's environment`), a table with the command, the reporter's environment, the checked commit, how many attempts passed and a link to the capsule, and the full log in a collapsed section. It starts with a hidden `<!-- twin-verify verdict=… -->` marker so a CI job can find and update its own comment.
+The comment has a headline such as `✅ FIXED in the reporter's environment`, a table with the command, the reporter's environment, the checked commit, the attempts that passed and a link to the capsule, and the full log in a collapsed section. It starts with a hidden `<!-- twin-verify verdict=… -->` marker so a CI job can find and update its own comment.
 
 ## In CI
 
