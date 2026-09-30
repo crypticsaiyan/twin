@@ -1,6 +1,6 @@
 {
   "name": "@crypticsaiyan/twincli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Capture a failing environment on one machine, replay it on a Solari sandbox, and find the difference that breaks it.",
   "type": "module",
   "license": "MIT",
