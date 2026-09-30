@@ -1,67 +1,97 @@
 # twin
 
-Website and docs: https://twincli.vercel.app
+Reproduce a bug in the environment where it was reported, find the difference that causes it, and check the fix there.
 
-**Turns "cannot reproduce" into a verified fix.** A reporter captures the environment their command failed in, as a small scrubbed file attached to the issue. twin rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox, finds the difference that breaks it, and checks a fix there, whether a maintainer or a coding agent wrote it.
+![npm](https://img.shields.io/npm/v/@crypticsaiyan/twincli)
+![Node](https://img.shields.io/badge/node-22%2B-339933)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-Most "works on my machine" bugs are not in the code. The commit is the same; what differs is a runtime version, a dependency the lockfile resolved differently, an environment variable, the time zone. Today the maintainer gets, at best, a pasted list of versions that nobody can run, and the issue sits at "cannot reproduce".
+Website and docs: [twincli.vercel.app](https://twincli.vercel.app)
 
-| Step | Who | Command | Needs a Solari key |
-|---|---|---|---|
-| Capture the failing environment | reporter | `twin capture -- npm test` | no |
-| Rebuild it and rerun | maintainer | `twin replay twin-capsule.json` | yes |
-| Find the difference that breaks it | maintainer | `twin bisect bad.json --good good.json` | yes |
-| Check a fix in the reporter's environment | maintainer | `twin verify bad.json --patch fix.patch` | yes |
-| Open a shell in it, or share one | maintainer | `twin replay … --keep`, then `twin shell --web` | yes |
-| Let a coding agent debug in it | agent | `twin mcp` (MCP server) | yes |
-| Check that a pull request really fixes it | CI | `uses: crypticsaiyan/twin@main` | yes |
+## Why
 
-## Proof on a real issue
+"Works on my machine" is usually not a code bug. The commit is the same. What differs is a runtime version, a dependency the lockfile resolved differently, an environment variable, the time zone. The maintainer gets a pasted list of versions nobody can run, and the issue sits at "cannot reproduce".
 
-[apache/echarts#21538](https://github.com/apache/echarts/issues/21538) (open) reports a test that fails only in time zones with daylight saving time. [`examples/echarts-21538`](examples/echarts-21538) holds capsules from New York (fails) and Kolkata (passes) and the recorded Solari runs:
+twin makes the reporter's environment runnable:
 
-| Run on Solari | Result | Time |
-|---|---|---|
-| `twin replay new-york.json` | `REPRODUCED`, identical failure signature | 72 s |
-| `twin bisect new-york.json --good kolkata.json` | minimal difference `TZ=America/New_York` | 69 s |
-| `twin verify new-york.json --patch fix.patch` | `FIXED` in the reporter's environment, nothing pushed | 71 s |
+1. The reporter runs the failing command through `twin capture`. twin writes a small scrubbed file, a capsule, to attach to the issue.
+2. The maintainer runs `twin replay`. twin rebuilds that environment on a clean [Solari](https://getsolari.com) sandbox and runs the command three times.
+3. `twin bisect` finds the smallest set of differences between a failing and a passing capsule that turns the pass into a fail.
+4. `twin verify` applies a fix in the reporter's environment, so "fixed" means fixed where the bug happened.
 
-Opening the kept machine with `twin shell --web` gave a browser terminal in `/tmp/twin/repo` with `TZ=America/New_York` and Node 22.23.3, where the test fails with the issue's exact numbers.
+## Install
 
-A second case where the cause is not a single setting: [`examples/lru-cache-397`](examples/lru-cache-397) is a fresh install that resolved a broken `lru-cache` release buried under `jsdom`. 32 packages differ from the lockfile install; replay installs them at the capsule's versions and reproduces the failure (`REPRODUCED` 3 of 3, 28 s), bisect isolates `lru-cache@11.3.0` (245 s), and `twin verify` reports `FIXED` for a real `overrides` patch and `STILL FAILING` for one that does not touch the cause.
+Node 22 or newer.
 
-## For AI coding agents
+```sh
+npm install -g @crypticsaiyan/twincli
+```
 
-Coding agents can't fix bugs they can't reproduce, and they report "fixed" after tests pass in their own sandbox, which is not where the bug happens. twin closes both gaps.
+Or prefix any command with `npx @crypticsaiyan/twincli`.
 
-**`twin mcp`** gives an agent the reporter's machine. Add it to Claude Code (or any MCP client):
+## Quickstart
+
+**Reporter**, in the project where the command fails. No account needed, nothing is uploaded:
+
+```sh
+twin capture -- npm test
+```
+
+twin runs the command as usual, shows what it recorded, and writes `twin-capsule.json` after you confirm. Attach the file to the issue.
+
+**Maintainer**, with a [Solari key](https://console.getsolari.com):
+
+```sh
+export SOLARI_API_KEY=slr_live_...
+twin replay twin-capsule.json
+twin bisect twin-capsule.json --good mine.json
+twin verify twin-capsule.json --patch fix.patch
+```
+
+`replay` ends in `REPRODUCED` when every attempt fails the way the capsule recorded. Add `--keep` to leave the machine running, then `twin shell` for a terminal on it or `twin shell --web` for a browser terminal you can share with the reporter.
+
+## Examples
+
+Each example has the capsules, the recorded Solari runs and a write-up in [`examples/`](examples).
+
+| Issue | Cause | Replay | Bisect | Verify |
+|---|---|---|---|---|
+| [`lru-cache` 11.3.0, through DOMPurify](examples/lru-cache-397) | one broken package among 32 that differ from the lockfile | `REPRODUCED` 28 s | `lru-cache@11.3.0` 245 s | `FIXED` |
+| [apache/echarts#21538](examples/echarts-21538) | `TZ=America/New_York` | `REPRODUCED` 72 s | 69 s | `FIXED` 71 s |
+| [date-fns#2068](examples/date-fns-2068) | `TZ=America/New_York` | `REPRODUCED` | found | `FIXED` |
+| [dayjs `localizedFormat` test](examples/dayjs-localizedformat-tz) | `TZ=America/New_York` | `REPRODUCED` | found | `FIXED` |
+| [click `test_custom_parser`](examples/click-test-columns) | `COLUMNS=40` | `REPRODUCED` | found | `FIXED` |
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `twin capture -- <cmd>` | Run `<cmd>`, record its environment, write a capsule after review |
+| `twin inspect <capsule>` | Summarize a capsule |
+| `twin diff <a> <b>` | List every environment difference between two capsules |
+| `twin replay <capsule>` | Rebuild the environment on Solari and run the command three times |
+| `twin bisect <bad> --good <good>` | Find the smallest failing set of differences |
+| `twin verify <capsule> --patch <file>` | Check a fix in the reporter's environment |
+| `twin shell [machine] [--web]` | Terminal on a kept machine, or a shareable browser terminal |
+| `twin list` | Machines twin has running |
+| `twin stop [machine]` | Stop one machine, or all of them |
+| `twin mcp` | Serve the commands to coding agents over MCP |
+
+Every command has `--help`. Capsules can be paths or https URLs, such as issue attachments. `replay`, `bisect` and `verify` take `--json`. Full reference: [twincli.vercel.app/reference/cli](https://twincli.vercel.app/reference/cli/).
+
+## Coding agents
+
+`twin mcp` gives an agent the reporter's machine: replay the failure, run commands there, write a file, verify a diff on a fresh machine, release the machine.
 
 ```sh
 claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twincli mcp
 ```
 
-| Tool | What the agent gets |
-|---|---|
-| `inspect` | the reporter's runtimes, dependencies, env and failure, or every difference between two capsules (offline) |
-| `replay` | the failure rebuilt on a fresh machine, kept running when it reproduces |
-| `run` | a command run in that machine, with the reporter's env, PATH, time zone and working directory |
-| `write_file` | a file written there, to try a change |
-| `verify` | a unified diff checked on a fresh machine: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE` |
-| `bisect` | the minimal environment difference between a failing and a passing capsule |
-| `release` | the machine stopped (machines kept in a session are also released when it ends) |
-
-A capsule argument can be a path or the issue attachment's URL, so "fix #21538" is enough for the agent to start.
-
-**The GitHub Action** checks a pull request (from an agent or a person) where the bug happens. When a pull request says `Fixes #123` and #123 has a capsule attached, it runs `twin verify` with the pull request's head commit and comments the verdict; the check fails unless it is `FIXED`.
+The [GitHub Action](action.yml) runs `twin verify` on a pull request that says `Fixes #123` when issue 123 has a capsule attached, and fails the check unless the verdict is `FIXED`:
 
 ```yaml
-# .github/workflows/twin.yml
-name: twin
 on: pull_request
-permissions:
-  contents: read
-  issues: read
-  pull-requests: write
+permissions: { contents: read, issues: read, pull-requests: write }
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -71,101 +101,34 @@ jobs:
           solari-api-key: ${{ secrets.SOLARI_API_KEY }}
 ```
 
-The pull request's code runs only inside the Solari sandbox, never on the runner, and the key stays on the runner. Fork pull requests get no secrets under `pull_request`, so the check runs for branches in the repository, which is how agents usually open them. The sandbox clones the repository without credentials, so this needs a public repository.
+## What a capsule records
 
-## Quickstart
+OS and libc, runtimes, package managers and lockfile hashes, installed package versions, git remote, commit and `git diff HEAD`, time zone and locale, and the exit status with a fingerprint of the failure.
 
-Node 22 or newer.
-
-```sh
-npm install -g @crypticsaiyan/twincli
-```
-
-**Reporter**, in the project where the command fails. Nothing is uploaded, no account needed:
-
-```sh
-twin capture -- npm test
-```
-
-twin runs the command as usual, shows what it recorded, and writes `twin-capsule.json` after you confirm. Attach that file to the issue.
-
-**Maintainer**:
-
-```sh
-export SOLARI_API_KEY=slr_live_...     # https://console.getsolari.com, or put it in a .env file
-twin replay twin-capsule.json
-```
-
-To try it without installing, prefix a command with `npx @crypticsaiyan/twincli`. To work from a clone instead: `pnpm install`, then `pnpm dev <command>` (or `pnpm build` and `node dist/bin.js <command>`).
-
-### Ask for capsules in your issue template
-
-```md
-If the bug does not reproduce for us, please run the failing command through twin
-and attach the file it writes (it records versions and variable names, never secrets):
-
-    npm install -g @crypticsaiyan/twincli
-    twin capture -- <your failing command>
-```
-
-## Commands
-
-| Command | What it does |
-|---|---|
-| `twin capture -- <cmd>` | Run `<cmd>`, record its environment, write a capsule after review |
-| `twin inspect <capsule>` | Summarize what a capsule recorded |
-| `twin diff <capsule> <other>` | List every environment difference between two capsules |
-| `twin replay <capsule>` | Rebuild the environment on a Solari sandbox, run the command 3 times, report `REPRODUCED`, `DIFFERENT FAILURE`, `NOT REPRODUCED`, `FLAKY` or `INCONCLUSIVE` |
-| `twin replay <capsule> --keep` | Same, and leave a reproduced failure running for `twin shell` |
-| `twin replay <capsule> --no-pin` | Skip installing the capsule's recorded npm package versions over the lockfile install (on by default for npm projects) |
-| `twin bisect <bad> --good <good>` | Smallest set of differences (env values, time zone, node version, npm dependency versions, working tree diff) that turns the passing environment into the failing one |
-| `twin verify <capsule> --patch <file>` | Apply a candidate fix in the reporter's environment: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE` (after a first run without the fix, so a failure that does not reproduce is `INCONCLUSIVE`). `--ref <sha> --repo <url>` checks a pushed branch instead |
-| `twin shell [id]` | Terminal on a kept machine, in the reporter's environment. Ctrl-] detaches |
-| `twin shell [id] --web` | Browser terminal link plus a password, to share with the reporter |
-| `twin list` | Show machines twin has running (kept replays, leftovers) |
-| `twin stop [id]` | Stop one machine, or all twin left running; each stop confirmed |
-| `twin mcp` | Serve these commands to AI coding agents over MCP (stdio) |
-
-Every command has `--help` (or `twin help <command>`); `twin --help` lists them by task. Capsules can be paths or https URLs (such as issue attachments). `replay`, `bisect` and `verify` take `--json` for machine-readable reports and `-v` to stream the sandbox's output; `verify --comment <file>` also writes a pull request comment.
-
-## What a capsule contains, and what it never does
-
-- **The environment that matters**: OS and libc, runtimes (Node, Python from the project's venv, Go, Rust, and others), package managers and a hash of each lockfile, installed Node and Python package versions, git remote, commit, branch and `git diff HEAD`, time zone and locale, and the command's exit status with a fingerprint of its failure.
-- **Env vars: names only.** Values are kept only for a short allowlist of behavior-changing, non-secret variables (`NODE_ENV`, `TZ`, `LANG`, `LC_*`, `CI`, `NODE_OPTIONS`, ...) or ones you name with `--include-env`. `--salt` records salted hashes instead, so two capsules can be compared without revealing values.
-- **Scrubbed text**: the output tail, diff, argv and kept values pass through secret rules (private keys; GitHub, AWS, Stripe, Slack, npm, Google, OpenAI/Anthropic and Solari tokens; JWTs; bearer tokens; URL credentials; `password=`-style assignments; random-looking strings). Home directory paths become `~`. The capsule counts every replacement.
-- **Untracked files: names only**, never contents.
-- **You review it first**: a summary is shown and the full JSON can be viewed before anything is written.
-
-Redaction is pattern based; review the capsule before posting it publicly.
+Environment variables are recorded by name only. Values are kept for a short allowlist (`NODE_ENV`, `TZ`, `LANG`, `CI`, and a few more) or for names you pass to `--include-env`. The output tail, diff and arguments pass through secret rules, home paths become `~`, and untracked files are recorded by name only. twin shows a summary and lets you read the full JSON before anything is written. Redaction is pattern based, so read the capsule before posting it publicly. Details: [privacy](https://twincli.vercel.app/reference/privacy/).
 
 ## How it uses Solari
 
-| Need | Solari primitive |
-|---|---|
-| A clean Linux machine per run | `sandboxes.create` with run-scoped `metadata` and a rolling `idleTimeoutMs` |
-| Setup and the command, streamed, with a real timeout | `commands.start` + `onData`, twin's own timer and `kill(9)` |
-| A shell at the failure point | `pty.create` (`twin shell`), and `previewUrl` in front of a guest web terminal behind a password (`twin shell --web`) |
-| Re-attach from any computer, then let go | `sandboxes.connect(id)`, `close()` to detach without releasing |
-| An agent working inside the reporter's machine | `connect` once per session, then `commands.start` and `files.write` on the kept sandbox (`twin mcp`) |
-| No leaked, billing machines | `kill()` confirmed with `get()` and repeated until gone; Ctrl-C mid-run releases live machines before exiting; `listAll({ metadata })` reaper in `twin stop` |
+- One clean Linux sandbox per run, labelled so `twin list` and `twin stop` can find it.
+- Setup and the command stream through `commands.start` with twin's own timeout.
+- `pty.create` for `twin shell`, and `previewUrl` in front of a password-protected web terminal for `--web`.
+- `sandboxes.connect` to re-attach from any computer, and to give an agent a kept machine.
+- Every `kill()` is confirmed with `get()` before it counts, and Ctrl-C releases live machines before exiting.
 
-Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent (verify runs the command once without the fix first, on a second machine). Bisect runs every trial on one machine, so it fits a single concurrent slot.
-
-Building this turned up platform behavior worth knowing, all measured and written up in [DESIGN.md §11](DESIGN.md): `kill()` that returned success while the sandbox kept running and billing for two hours; snapshot and revert taking 14 to 35 s; revert consuming its snapshot and sometimes failing with `Snapshot not found`; the control channel dropping after revert; listings that report dead sandboxes as live. twin works around each of them.
-
+A replay costs a fraction of a cent. Platform behavior measured while building twin is in [DESIGN.md](DESIGN.md).
 
 ## Development
 
 ```sh
 pnpm install
-pnpm check        # typecheck + lint + tests
-pnpm coverage     # tests with coverage thresholds
-pnpm dev capture -- npm test     # run from source (Node 22.18+)
-pnpm build        # compile to dist/
-pnpm e2e:docker <capsule.json>                  # replay in a local Docker container (no key)
-pnpm e2e:docker:bisect <bad.json> <good.json>   # bisect in a local Docker container
+pnpm check                      # typecheck, lint and tests
+pnpm dev capture -- npm test    # run from source
+pnpm build                      # compile to dist/
+pnpm e2e:docker <capsule.json>  # replay in a local Docker container, no key needed
 ```
 
-The website and documentation live in [`site/`](site) (Astro Starlight): `cd site && pnpm install && pnpm dev`.
+Every Solari call goes through a small `Backend` interface, so the unit tests run against an in-memory fake. The website lives in [`site/`](site).
 
-Every Solari call goes through a small `Backend` interface, so the unit tests run against an in-memory fake and the Docker harness runs the real guest scripts without a key. Layout and design decisions are in [DESIGN.md](DESIGN.md).
+## License
+
+MIT

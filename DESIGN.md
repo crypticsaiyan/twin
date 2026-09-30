@@ -1,7 +1,5 @@
 # twin: design
 
-> Working name. Final name TBD; everything here is renamed in one pass before launch.
-
 ## 1. Problem
 
 A user reports "`npm test` fails on my machine". The maintainer runs it and it passes. The issue sits at "cannot reproduce" until someone gives up. The difference is almost never the code (same commit). It is the environment: a runtime version, a transitive dependency the lockfile resolved differently, an env var, the timezone, a stale cache, the OS.
@@ -68,15 +66,7 @@ npx twin bisect ./twin-capsule.json --good ./good.json  # a capsule where the co
 
 Finds the smallest set of environment differences that turns the good world into the failing one (section 7).
 
-### 3.4 CI mode: "passes locally, fails in CI" (not built yet)
-
-```
-npx twin ci https://github.com/o/r/actions/runs/123/job/456
-```
-
-The CI side needs no capture: GitHub Actions logs state the runner image and version, and `setup-node` / `setup-python` log the exact runtime installed. twin builds a capsule from the job log, replays it, and bisects against the developer's local capsule.
-
-### 3.5 Verify a fix, then guard it
+### 3.4 Verify a fix, then guard it
 
 ```
 npx twin verify ./twin-capsule.json --patch fix.patch   # nothing pushed yet
@@ -85,7 +75,7 @@ npx twin verify ./twin-capsule.json --ref <sha> --repo <fork-url>
 
 Rebuilds the reporter's environment, applies the fix and reports `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE`. A GitHub Action that reruns stored capsules nightly as regression guards is not built yet.
 
-### 3.7 Coding agents
+### 3.5 Coding agents
 
 Agents are the new source of both fixes and false "fixed" claims: they run the tests in their own sandbox, which is exactly where the bug does not happen. twin serves them in two places.
 
@@ -240,24 +230,7 @@ test/               mirrors src/, fakes in test/helpers
 
 Every collector takes its dependencies (an `Exec`, a `Host`, a `Redactor`) as arguments, so unit tests use fakes and a few integration tests use real git and real processes in temp dirs.
 
-## 10. Cookbook submission shape
-
-- Lives in `applications/twin/` of the fork with one row in `applications/README.md`. Nothing else in the fork changes.
-- Synced from this standalone repo by `scripts/sync-fork.sh` (rsync with an exclude list: `.github/`, videos, `node_modules/`, build output, `.env`).
-- Quickstart uses `export SOLARI_API_KEY=...`, not a `.env` the code does not read.
-- `.env.example` lists exactly the variables the code reads.
-- A possible small extracted example as a separate PR: `sandbox-runtime-matrix-ts` (same command across runtime versions on one sandbox).
-
-## 11. Open questions for the first live check
-
-1. What does the `base` template ship (Node version, python3, git, curl, tar, build-essential, apt)? Issue #34 says Node 18.
-2. Outbound network on `dedicated` for nodejs.org / PyPI / npm registry downloads: speed?
-3. `snapshot()` and `create({ fromSnapshot })` timings for a sandbox with `node_modules` (docs say about 1 s; desktop measurements in forks were 20 s+).
-4. Are unpromoted snapshots durable enough for a bisect session (fork reports say they can vanish on gateway restart)?
-5. Does `pty.create` stream well enough for an interactive shell? Is `previewUrl` plus a guest web terminal (ttyd or a small xterm.js server) viable, and how is the preview token shared safely?
-6. Free-plan concurrency, session lifetime and disk size.
-
-Each answer that contradicts the docs becomes a precise issue on the cookbook repo.
+## 10. Solari behavior measured live
 
 ### Live check, 2026-09-28 (SDK 0.1.4, template `base`, dedicated isolation)
 
@@ -303,13 +276,3 @@ Because of 3 to 5, bisect uses no snapshots. Env, time zone and runtime trials n
 Final live run on a pair with five differences (node version, an npm dependency, two env unsets, time zone): 66 s end to end, 15 trials, result identical to the Docker harness. It also showed why trials that fail with a different signature are reported separately: on node 22 the time zone bug fails too, but the assertion message is formatted differently, so the exact captured failure needs node 26 and the time zone together.
 
 Guest runs as root (npm logs under `/root/.npm`). `pty.create` and `previewUrl` both work for interactive use: a ttyd browser terminal behind basic auth answered through the preview proxy (401 without the password, a working WebSocket session with it), and a PTY session ended cleanly on an exit marker (the SDK's PTY has no exit event).
-
-## 12. Milestones
-
-1. **Capture + inspect** (offline). Done.
-2. **Replay** on Solari, `--keep`, `shell`, browser terminal. Done, verified live.
-3. **Bisect** (atoms, ddmin, in-place undo). Done, verified live. Version sweep not built.
-4. **Proof** on a real issue: apache/echarts#21538 reproduced, bisected and fix-verified (`examples/echarts-21538`). Done.
-5. **Verify** done; CI mode and a nightly guard Action not built.
-6. Web-app bugs via the browser and GUI bugs via desktops: not built.
-7. Packaging, README, fork sync, PRs, launch: in progress.

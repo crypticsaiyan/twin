@@ -20,17 +20,13 @@ pnpm preview   # serve dist/ (Astro 7 runs it in the background; stop it with `p
 |---|---|
 | `src/pages/index.astro` | Landing page (not a Starlight page) |
 | `src/pages/404.astro` | Branded 404 page (Starlight's own 404 route is disabled) |
-| `src/components/Terminal.astro` | Typed terminal that replays the recorded echarts runs |
-| `src/components/AgentSession.astro` | Timeline of the recorded MCP session |
-| `src/components/CopyCommand.astro` | Command with a copy button |
 | `src/content/docs/` | Docs pages (Markdown/MDX), one folder per sidebar group |
 | `src/content/i18n/en.json` | Starlight UI string overrides (empty) |
 | `src/styles/tokens.css` | Brand colors and fonts, shared by the landing page and the docs |
 | `src/styles/starlight.css` | Maps the brand tokens onto Starlight's variables |
-| `src/assets/logo-*.svg`, `public/favicon.svg` | Logo and favicon |
+| `public/favicon.svg` | Favicon |
 | `astro.config.mjs` | Site URL, base path, sidebar, Starlight options |
 
-The terminal and the agent session read `../examples/echarts-21538/{replay,bisect,verify,mcp}.txt` at build time, so the landing page always shows the real recorded output. Update those files and rebuild to change it.
 
 ### Docs
 
