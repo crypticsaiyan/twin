@@ -6,7 +6,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 W="${WORK:-/home/cryptosaiyan/Documents/solaribuild/demo-raw}"; REPO="${REPO:-/home/cryptosaiyan/Documents/solaribuild/twin}"; OUT="${OUT:-/home/cryptosaiyan/Documents/solaribuild/demo-out}"; SUF="${1:-}"
 mkdir -p "$OUT"
 cp "$HERE/player.html" "$W/player.html"
-node "$HERE/build.mjs" "$W" "$SUF" "$REPO"
+node "$HERE/build.mjs" "$W" "$REPO"
 node "$HERE/render.mjs" "$W" "$W/frames" --fps 30
 ffmpeg -loglevel error -y -framerate 30 -i "$W/frames/%05d.png" -c:v libx264 -preset slow -crf 17 \
   -pix_fmt yuv420p -movflags +faststart "$OUT/twin-demo.mp4"

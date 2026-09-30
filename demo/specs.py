@@ -3,7 +3,7 @@
 import json, sys, os
 W, CORE = sys.argv[1], sys.argv[2]
 MAINT = f"{W}/work/date-fns-2068"
-base_env = {"HOME": f"{W}/home", "PATH": f"{W}/prefix/bin:/usr/local/bin:/usr/bin",
+base_env = {"HOME": "/tmp/twin-demo/home", "PATH": f"{W}/prefix/bin:/usr/local/bin:/usr/bin",
             "LANG": "C.UTF-8", "TERM": "xterm-256color", "USER": os.environ.get("USER", "dev")}
 key = [f". {W}/keyenv.sh"]   # keyenv.sh exports SOLARI_API_KEY; never printed, never recorded
 def dump(name, d):

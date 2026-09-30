@@ -52,6 +52,25 @@ html, body { margin: 0; background: var(--bg); }
 .install { position: absolute; left: 50%; transform: translateX(-50%); background: #141517; color: #ececea; border: 1px solid #2a2b30; padding: 18px 34px; font-size: 34px; white-space: nowrap; }
 .install span { color: #9d9ea5; }
 .center { position: absolute; left: 0; right: 0; text-align: center; }
+
+.card { position: absolute; left: 50%; transform: translateX(-50%); bottom: 22px; background: #fff; border: 1px solid var(--rule); padding: 14px 30px; font-size: 30px; white-space: nowrap; letter-spacing: -0.01em; display: none; }
+.card b { font-weight: 700; margin-right: 14px; }
+.card .fail { color: var(--fail); } .card .pass { color: var(--pass); }
+.item { position: absolute; opacity: 0; }
+.box { position: absolute; border: 1px solid #b9b9b3; background: #fff; padding: 24px 26px; width: 360px; height: 210px; box-sizing: border-box; }
+.box .k { font-size: 18px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+.box .t { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.box .s { font-size: 23px; color: var(--muted); line-height: 1.35; }
+.box .f { color: var(--fail); } .box .p { color: var(--pass); }
+.arrow { position: absolute; font-size: 44px; color: var(--muted); width: 80px; text-align: center; opacity: 0; }
+.out { position: absolute; left: 1410px; width: 450px; height: 92px; border-left: 3px solid var(--text); padding: 6px 0 0 20px; box-sizing: border-box; opacity: 0; }
+.out .t { font-size: 34px; font-weight: 700; } .out .s { font-size: 22px; color: var(--muted); margin-top: 4px; }
+.strip { position: absolute; left: 0; right: 0; top: 300px; text-align: center; }
+.strip .n { font-family: 'Doto'; font-weight: 900; font-size: 230px; line-height: 1; }
+.strip .v { font-family: 'Doto'; font-weight: 900; font-size: 110px; line-height: 1.1; margin-top: 10px; }
+.strip .x { font-size: 40px; color: var(--muted); margin-top: 22px; }
+.sum { position: absolute; left: 240px; width: 1440px; font-size: 46px; letter-spacing: -0.01em; opacity: 0; line-height: 1.25; }
+.sum .n { font-family: 'Doto'; font-weight: 900; font-size: 64px; margin-right: 28px; }
 </style>
 </head>
 <body>
@@ -99,6 +118,8 @@ async function init() {
     s.root = root;
     if (s.title) root.appendChild(el('div', 'stitle', s.title));
     if (s.caption) root.appendChild(el('div', 'caption', s.caption));
+    if (s.caps) { s.capEl = el('div', 'caption', ''); root.appendChild(s.capEl); }
+    if (s.card) { s.cardEl = el('div', 'card', `<b class="${s.card.tone}">${s.card.status}</b>${s.card.text}`); root.appendChild(s.cardEl); }
     if (s.kind === 'title') {
       const c = el('div', 'center'); c.style.top = '330px';
       const w = mkWordmark(300); c.appendChild(w);
@@ -107,6 +128,39 @@ async function init() {
       c.appendChild(t);
       s.cur = w.querySelector('.cur');
       root.appendChild(c);
+    } else if (s.kind === 'strip') {
+      root.appendChild(el('div', 'strip', `<div class="n">${s.num}</div><div class="v">${s.verb}</div><div class="x">${s.text}</div>`));
+    } else if (s.kind === 'summary') {
+      const rows = [['1', 'A failure you can reproduce, on a clean machine.'], ['2', 'The one difference that causes it.'], ['3', 'A fix checked where it failed, by you or by an agent.']];
+      s.items = rows.map(([n, t], i) => { const d = el('div', 'sum', `<span class="n">${n}</span>${t}`); d.style.top = (330 + i * 150) + 'px'; d.at = 0.5 + i * 1.5; root.appendChild(d); return d; });
+    } else if (s.kind === 'explain') {
+      const add = (node, at, until) => { node.at = at; node.until = until; root.appendChild(node); (s.items ||= []).push(node); return node; };
+      const say = (text, top, at, until, size, color) => { const d = el('div', 'item center', text); d.style.top = top + 'px'; d.style.fontSize = size + 'px'; if (color) d.style.color = color; return add(d, at, until); };
+      say('A bug report says: \u201Cworks on my machine.\u201D', 250, 0.3, 6.4, 54);
+      say('The maintainer cannot reproduce it.', 340, 2.6, 6.4, 54);
+      const mk = (left, top, k, t, sub, at, until) => { const d = el('div', 'box item', `<div class="k">${k}</div><div class="t">${t}</div><div class="s">${sub}</div>`); d.style.left = left + 'px'; d.style.top = top + 'px'; return add(d, at, until); };
+      mk(470, 500, 'reporter', "Reporter\u2019s machine", 'the test <span class="f">fails</span>', 3.4, 6.4);
+      mk(1090, 500, 'maintainer', "Maintainer\u2019s machine", 'the same test <span class="p">passes</span>', 3.8, 6.4);
+      const ay = 470;
+      mk(90, ay - 105, '1 reporter', "Reporter\u2019s machine", 'the failing test <span class="f">fails</span> here', 6.9);
+      const arrow = (left, at) => { const d = el('div', 'arrow', '\u2192'); d.style.left = left + 'px'; d.style.top = (ay - 34) + 'px'; return add(d, at); };
+      arrow(450, 9.0);
+      mk(530, ay - 105, '2 capsule', 'capsule.json', 'a small file: OS, runtimes, commit, time zone, variable names', 9.2);
+      arrow(890, 11.5);
+      mk(970, ay - 105, '3 sandbox', 'Clean Solari sandbox', 'the same environment, rebuilt from the capsule', 11.7);
+      arrow(1330, 14.2);
+      const outs = [['Reproduced', 'fails the same way'], ['Cause found', 'the exact difference'], ['Fix verified', 'passes with the patch'], ['Agent ready', 'Claude Code can debug in it']];
+      outs.forEach(([t, sub], i) => { const d = el('div', 'out', `<div class="t">${t}</div><div class="s">${sub}</div>`); d.style.top = (240 + i * 108) + 'px'; add(d, 14.4 + i * 1.5); });
+      s.caps = [
+        { t: 0.3, text: 'Some bugs only happen in the reporter\u2019s environment.' },
+        { t: 2.6, text: 'So the maintainer cannot see the failure, and cannot fix it.' },
+        { t: 6.9, text: 'The reporter\u2019s machine has the failing test.' },
+        { t: 9.0, text: 'twin records its environment into a small file: the capsule.' },
+        { t: 11.5, text: 'The maintainer rebuilds that environment on a clean Solari sandbox.' },
+        { t: 14.2, text: 'Then twin gives you four answers.' },
+        { t: 20.4, text: 'That is the whole loop. Now let\u2019s watch it run.' },
+      ];
+      s.capEl = el('div', 'caption', ''); root.appendChild(s.capEl);
     } else if (s.kind === 'issue') {
       const sh = el('div', 'shot'); const im = new Image(); im.src = 'assets/issue.png'; sh.appendChild(im); root.appendChild(sh);
       await im.decode();
@@ -122,17 +176,18 @@ async function init() {
       s.term = mkTerm(host, s.cols, s.rows);
       s.win = win; s.right = right; s.idx = 0; s.lastU = -1;
       if (s.kind === 'close') {
-        win.style.top = '640px';
+        win.style.top = '660px';
         left.textContent = 'LIVE RUN';
         const c = el('div', 'center'); c.style.top = '84px';
         c.appendChild(mkWordmark(190));
         s.cur = c.querySelector('.cur');
-        const ins = el('div', 'install', '<span>$</span> npm install -g @crypticsaiyan/twincli'); ins.style.top = '400px';
-        const repo = el('div', 'center', 'github.com/crypticsaiyan/twin'); repo.style.top = '520px'; repo.style.fontSize = '30px'; repo.style.color = 'var(--muted)';
+        const ins = el('div', 'install', '<span>$</span> npm install -g @crypticsaiyan/twincli'); ins.style.top = '390px';
+        const repo = el('div', 'center', 'github.com/crypticsaiyan/twin'); repo.style.top = '510px'; repo.style.fontSize = '30px'; repo.style.color = 'var(--muted)';
+        const site = el('div', 'center', 'twincli.vercel.app'); site.style.top = '568px'; site.style.fontSize = '30px'; site.style.color = 'var(--muted)';
         const cap = el('div', 'caption', 'no machines left running'); cap.style.bottom = '40px';
         const note = el('div', 'center', 'date-fns #2068 is still open upstream; PR #4140 covers the same function. This demo shows the workflow.');
         note.style.bottom = '104px'; note.style.fontSize = '20px'; note.style.color = 'var(--muted)'; note.style.display = 'none';
-        root.append(c, ins, repo, note, cap);
+        root.append(c, ins, repo, site, note, cap);
         s.noteEl = note;
       }
       if (s.kind === 'term' && s.rows > 20) { /* full size window */ }
@@ -205,7 +260,7 @@ async function seek(t) {
     let key = op.toFixed(2);
     const blink = Math.floor(u * 1.8) % 2 === 0;
     if (s.term) {
-      if (u < s.lastU) { s.term.reset(); s.idx = 0; }
+      if (!s.started || u < s.lastU) { s.term.reset(); s.idx = 0; s.started = true; if (s.pre) await new Promise((r) => s.term.write(s.pre, r)); }
       s.lastU = u;
       let chunk = '';
       while (s.idx < s.events.length && s.events[s.idx].v <= u + 1e-9) chunk += s.events[s.idx++].d;
@@ -217,6 +272,18 @@ async function seek(t) {
       key += `|${s.idx}|${blink}|${tag}`;
     }
     if (s.cur) { s.cur.style.opacity = 1; }
+    if (s.items) {
+      const cl = (x) => Math.max(0, Math.min(1, x));
+      for (const d of s.items) { const o = cl((u - d.at) / 0.35) * (d.until != null ? cl((d.until - u) / 0.35) : 1); d.style.opacity = o.toFixed(2); key += '|' + o.toFixed(2); }
+    }
+    if (s.caps && s.kind !== 'site') {
+      let cap = ''; for (const c of s.caps) if (c.t <= u) cap = c.text;
+      const showCard = s.card && u >= s.card.t0 && u <= s.card.t1;
+      if (s.capEl.textContent !== cap) s.capEl.textContent = cap;
+      s.capEl.style.visibility = showCard ? 'hidden' : 'visible';
+      if (s.cardEl) s.cardEl.style.display = showCard ? 'block' : 'none';
+      key += `|c${cap.length}${showCard}`;
+    }
     if (s.kind === 'site') {
       const k = Math.min(s.nframes - 1, Math.max(0, Math.floor(u * 30)));
       const file = `file://${s.dir}/${String(k + 1).padStart(5, '0')}.jpg`;

@@ -12,7 +12,8 @@ only needs `assemble.sh`; it never needs a new live run.
 
 | Path | What |
 |---|---|
-| `raw/*-v3.jsonl` | timestamped terminal logs of the live runs (reporter, kolkata capture, maintainer, keep, close, final) |
+| `raw/*-v3.jsonl`, `raw/reporter-v4.jsonl` | timestamped terminal logs of the live runs (reporter capture from the neutral path /tmp/twin-demo, maintainer, keep, close, final) |
+| `raw/claude-v4b.jsonl` | the REAL interactive Claude Code session: tmux pane snapshots with colors and cursor, recorded by `claude-rec.py` |
 | `raw/browser-v3/` | headless Chrome screencast frames of the `twin shell --web` link, `frames.json` with real event times |
 | `site/` | 30 fps frames of the real website walkthrough (`site.json` has captions, zooms, clicks) |
 | `pack/`, `prefix/` | the packed `@crypticsaiyan/twincli` tarball and its temp install (puts `twin` on PATH) |
@@ -25,27 +26,32 @@ only needs `assemble.sh`; it never needs a new live run.
 
 ## Re-render (no machines)
 
-    demo/assemble.sh -v3                 # build.mjs -> render.mjs -> mp4 + gif in demo-out/
+    demo/assemble.sh                 # build.mjs -> render.mjs -> mp4 + gif in demo-out/
     demo/contact-sheet.sh 1.5,4,15,...   # 15 timestamps in seconds
 
 `build.mjs` maps raw times to the video clock (speed chips, holds, scene lengths) and writes `data.js`;
 `player.html` is drawn frame by frame by headless Chrome (`render.mjs`).
 
-## Re-record (uses machines, at most 5 commands)
+## Re-record (uses machines)
 
 1. Pack and install the current package into the temp prefix, no publish:
    `npm pack --pack-destination $WORK/pack` then
    `npm install -g --prefix $WORK/prefix $WORK/pack/crypticsaiyan-twincli-<version>.tgz`.
    The published package works too: `npx @crypticsaiyan/twincli --version`. The terminals use the `twin` command.
 2. Make sure `$WORK/date-fns` is at 717ce0a with only the regression test changed (`git apply test.patch`).
-3. `demo/record-all.sh -v3` records the reporter, kolkata capture, `replay`, `bisect`, `verify`,
+3. `demo/record-all.sh -v3` (machine-creating: replay, bisect, verify, replay --keep, shell --web) records the reporter, kolkata capture, `replay`, `bisect`, `verify`,
    `replay --keep`, `shell --web` (browser scene) and `twin list`/`twin stop`. It always ends with
    `twin stop` and `twin list`. Machine-creating commands: replay, bisect, verify, replay --keep,
    shell --web.
 4. Website scene, no machines: `cd site && pnpm build && pnpm preview --host 127.0.0.1 --port 4321`, then
    `node demo/site-record.mjs $WORK/site` (default base `http://127.0.0.1:4321`). Stop the preview server
    by PID afterwards.
-5. `demo/assemble.sh -v3`.
+5. Real Claude Code scene: copy the capsule to `/tmp/twin-demo/new-york.json` (neutral path, no username), then
+   `python3 demo/claude-rec.py $WORK $WORK/raw/claude-v4b.jsonl`. It runs `claude --model haiku` in tmux with
+   `--mcp-config` (published package via npx, key only from the environment through `${SOLARI_API_KEY}`),
+   `--strict-mcp-config`, `--allowedTools 'mcp__twin__*'`, types the prompt into the TUI and logs the pane.
+   `CLAUDE_CODE_HIDE_ACCOUNT_INFO=1` hides account details; `build.mjs` also strips the plan name from the banner.
+6. `demo/assemble.sh` (build.mjs -> render.mjs -> mp4 + gif).
 
 ## Files
 

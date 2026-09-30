@@ -1,22 +1,21 @@
-# twin demo storyboard (about 2:15, 1920x1080, 30 fps, no audio)
+# twin demo storyboard (about 3:14, 1920x1080, 30 fps, no audio)
 
-| # | Scene | Start | Length | Source | Caption |
+| # | Scene | Start | Length | Source | Purpose |
 |---|---|---|---|---|---|
-| 1 | Title: Doto wordmark, red block cursor, tagline | 0:00 | 3.0 s | drawn | Turns "cannot reproduce" into a verified fix. |
-| 2 | The problem: title and first paragraph of date-fns#2068 (real title "startOfHour / endOfHour issues with DST") | 0:03.2 | 5.6 s | headless Chrome screenshot | Passes for the maintainer. Fails in New York. |
-| 3 | Reporter: `twin capture` review screen, answer y | 0:09 | 11.5 s | LIVE (local pty) | Nothing is uploaded. Secrets scrubbed. You review it. |
-| 4 | Maintainer: replay, bisect, verify | 0:20.7 | 23.3 s | LIVE on Solari; progress phases sped up, tagged | Rebuild the reporter's machine. Find the difference. Verify the fix. |
-| 5 | Browser terminal (three parts under one title): `replay --keep` and `shell --web`; real headless Chrome on the link; `twin list`, `twin stop` | 0:44.2 | 30.8 s | LIVE; Chrome driven over CDP; the sign-in card is drawn (a native basic-auth dialog cannot be screenshotted) | Share a link. The reporter joins the same machine. |
-| 6 | Agents: examples/echarts-21538/mcp.txt replayed as animation | 1:15.6 | 9.3 s | RECORDED session, waits shortened (tagged) | recorded Claude Code session over MCP |
-| 7 | Website walkthrough of the real site (local build at 127.0.0.1:4321, labelled "REAL SITE, LOCAL BUILD"): hero, install and Copy click, synopsis, capsule privacy rows, replay, bisect stage tabs, verify, agents timeline, files, limits, footer, then the replay guide | 1:25.1 | 44.2 s | real site frames from `site-record.mjs`, 1x | one caption per beat |
-| 8 | Close: logo, `npm install -g @crypticsaiyan/twincli`, repo, `twin list` empty, note that date-fns#2068 is still open upstream and PR #4140 covers the same function | 2:09.5 | 5.6 s | LIVE `twin list` | no machines left running |
+| 1 | Explainer: "works on my machine", reporter vs maintainer, then the flow reporter's machine -> capsule -> clean Solari sandbox -> four outcomes | 0:00 | 22.6 s | drawn in player.html (animated) | a stranger learns what twin does before any terminal |
+| 2 | Title strip 1 Capture, then `twin capture` review screen, result card "Captured" | 0:22.8 | 14.3 s | LIVE (local pty, neutral path /tmp/twin-demo) | the reporter records the failing environment |
+| 3 | Strip 2 Replay + replay, card "Reproduced" | 0:37.5 | 8.6 s | LIVE on Solari, sped up (tagged) | rebuild it on a clean machine |
+| 4 | Strip 3 Bisect + bisect, card "Cause found" | 0:46.5 | 9.5 s | LIVE | find the one difference |
+| 5 | Strip 4 Verify + verify, card "Fixed" | 0:56.4 | 10.2 s | LIVE | check the fix where it failed |
+| 6 | Strip 5 Share: `replay --keep` + `shell --web`; real headless Chrome on the link; `twin stop`, `twin list` | 1:07.0 | 34.4 s | LIVE; Chrome over CDP; the sign-in card is drawn (a native basic-auth dialog cannot be screenshotted) | the reporter joins the same machine |
+| 7 | Strip 6 Agents + a REAL interactive Claude Code session (haiku, twin over MCP, published package) | 1:41.4 | 39.3 s | LIVE: tmux pane snapshots rendered as a terminal; waits sped up with chips | Claude Code does the same loop |
+| 8 | Website walkthrough of the real site, local build, with zooms and clicks | 2:21.1 | 39.9 s | real site frames, 1x | docs and demos exist |
+| 9 | Summary: what twin gives you, three lines | 3:01.3 | 6.2 s | drawn | recap |
+| 10 | Close: logo, `npm install -g @crypticsaiyan/twincli`, repo, twincli.vercel.app, `twin list` empty, note that date-fns#2068 is still open upstream and PR #4140 covers the same function | 3:07.7 | 6.0 s | LIVE `twin list` | install, no machines left |
 
-Placement of scene 7: after the agents scene and before the close, so the site tour leads into the install
-line. The site's own example is apache/echarts#21538, not the date-fns bug.
-
-Zooms in scene 7 (0.45 s ease in, hold, ease out, with a click ring): the install command
-`npx @crypticsaiyan/twincli capture -- npm test` and Copy (the button reads "Copied"), the capsule environment
-tab (value recorded, name only, not set), the bisect stage tabs 1 to 4, and the agent timeline.
+Captions during the commands are plain-language; each verdict gets a result card that replaces the caption
+for about 3 s. The Claude Code banner drops the plan name (`build.mjs` redaction), nothing else in the
+snapshots is altered.
 
 Honesty rules: every terminal line is real output; only the playback clock is mapped. Any stretch that is not
 1x carries a visible speed chip and a "real N s" counter, and the real wall time of each command stays in the
