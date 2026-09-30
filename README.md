@@ -2,6 +2,18 @@
 
 Reproduce a bug in the environment where it was reported, find the difference that causes it, and check the fix there.
 
+## Try it without capturing anything
+
+The repo holds capsules and recorded runs for real cases. Replay one (needs a [Solari key](https://console.getsolari.com)):
+
+```sh
+pnpm install
+export SOLARI_API_KEY=slr_live_...
+pnpm dev replay examples/lru-cache-397/bad.json
+```
+
+`capture`, `inspect` and `diff` work without a key. The other commands stop at once with a clear message when it is missing.
+
 ![npm](https://img.shields.io/npm/v/@crypticsaiyan/twincli)
 ![Node](https://img.shields.io/badge/node-22%2B-339933)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -54,13 +66,13 @@ twin verify twin-capsule.json --patch fix.patch
 
 Each example has the capsules, the recorded Solari runs and a write-up in [`examples/`](examples).
 
-| Issue | Cause | Replay | Bisect | Verify |
+| Case | Cause | Replay | Bisect | Verify |
 |---|---|---|---|---|
 | [`lru-cache` 11.3.0, through DOMPurify](examples/lru-cache-397) | one broken package among 32 that differ from the lockfile | `REPRODUCED` 28 s | `lru-cache@11.3.0` 245 s | `FIXED` |
 | [apache/echarts#21538](examples/echarts-21538) | `TZ=America/New_York` | `REPRODUCED` 72 s | 69 s | `FIXED` 71 s |
-| [date-fns#2068](examples/date-fns-2068) | `TZ=America/New_York` | `REPRODUCED` | found | `FIXED` |
-| [dayjs `localizedFormat` test](examples/dayjs-localizedformat-tz) | `TZ=America/New_York` | `REPRODUCED` | found | `FIXED` |
-| [click `test_custom_parser`](examples/click-test-columns) | `COLUMNS=40` | `REPRODUCED` | found | `FIXED` |
+| [date-fns#2068](https://github.com/crypticsaiyan/twin/tree/main/examples/date-fns-2068) | `TZ=America/New_York` | `REPRODUCED` | found | `FIXED` |
+| [dayjs `localizedFormat` test, found in the wild](https://github.com/crypticsaiyan/twin/tree/main/examples/dayjs-localizedformat-tz) | `TZ=America/New_York` | `REPRODUCED` | found | `FIXED` |
+| [click `test_custom_parser`, found in the wild](examples/click-test-columns) | `COLUMNS=40` | `REPRODUCED` | found | `FIXED` |
 
 ## Commands
 

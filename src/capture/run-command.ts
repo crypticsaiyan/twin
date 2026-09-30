@@ -42,6 +42,7 @@ export function runCommand(argv: readonly string[], options: RunOptions): Promis
   const onWindows = process.platform === 'win32';
 
   return new Promise((resolve, reject) => {
+    // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true -- Windows needs a shell to run .cmd shims; argv is quoted by toWindowsCommandLine
     const child = spawn(onWindows ? toWindowsCommandLine(argv) : file, onWindows ? [] : args, {
       cwd: options.cwd,
       env: options.env,
