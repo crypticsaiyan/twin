@@ -7,7 +7,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "deploy": "astro build && vercel deploy dist --prod --yes"
+    "deploy": "astro build && vercel deploy dist --prod --yes --name twincli"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.4",
