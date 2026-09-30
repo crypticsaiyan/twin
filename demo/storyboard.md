@@ -9,7 +9,7 @@
 | 5 | Strip 4 Verify + verify, card "Fixed" | 1:11.3 | 12.2 s | LIVE | check the fix where it failed |
 | 6 | Strip 5 Share: `replay --keep` + `shell --web`; real headless Chrome on the link; `twin stop`, `twin list` | 1:23.5 | 34.2 s | LIVE; Chrome over CDP; the sign-in card is drawn | the reporter joins the same machine |
 | 7 | Strip 6 Agents + a REAL interactive Claude Code session (haiku, twin over MCP) | 1:57.7 | 40.2 s | LIVE tmux snapshots; waits sped up with chips | Claude Code does the same loop |
-| 8 | Website walkthrough (local build): install and Copy, the demo section scrolled past (video not played), commands, capsule privacy rows, replay, bisect tabs, verify, agents timeline, files, footer, replay guide zoomed on its article | 2:37.9 | 42.0 s | real site frames | install, docs and demos exist |
+| 8 | Website walkthrough (local build): hero with the film, install and Copy, the four-command strip, the agent snippets, then docs pages: case study, privacy and redaction, CLI reference, agents guide | 2:37.9 | about 45 s | real site frames | install, docs and the full worked example live on the site |
 | 9 | Summary, three lines | 3:19.9 | 6.0 s | drawn | recap |
 | 10 | Close, centered: logo, `npm install -g @crypticsaiyan/twincli`, github.com/crypticsaiyan/twin, twincli.vercel.app | 3:25.9 | 9.1 s | drawn | install |
 

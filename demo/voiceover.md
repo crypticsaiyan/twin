@@ -68,22 +68,19 @@ This is the twin website.
 Install once with npm, then run twin.
 
 ## site@cap2
-There is a short video of the whole loop.
+Four commands, one file between them.
+
+## site@cap3
+For agents there is an MCP server and a GitHub Action.
 
 ## site@cap4
-Every variable in a capsule is marked: value recorded, name only, or not set.
+The docs keep the full case studies, with every capsule and recording.
+
+## site@cap5
+Privacy and redaction say exactly what a capsule records, and what it never does.
 
 ## site@cap6
-Bisect works in stages. Click through them to see the difference isolated.
-
-## site@cap8
-For agents, every step is a timed tool call.
-
-## site@cap9
-Here is what a capsule holds, and what it never records.
-
-## site@cap10
-The guides cover every command.
+One reference covers every command, and there are guides for agents and CI.
 
 ## summary
 So you get a failure you can reproduce, the one cause, and a fix checked where it failed.

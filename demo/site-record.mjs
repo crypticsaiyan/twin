@@ -123,80 +123,51 @@ T0 = Date.now();
 log.urls.push({ t: 0, url: base + '/' });
 await send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: W, maxHeight: H, everyNthFrame: 1 });
 
-cap('The twin site: one install, ten commands, and a real bug worked end to end.');
-await hold(2.2); // the hero terminal plays its recording
+cap('The twin site: one install, and a short film of the whole loop.');
+await hold(2.4);
 
 cap('Install once with npm, then use the twin command.');
 await zoomTo(await R('.install'), 'install', 110, 2.2);
 await click('.copy', 0.4);
-await hold(1.3); // button reads "Copied"
+await hold(2.0); // button reads "Copied"
 await zoomOut();
 await ev('__hideCursor()');
 
-cap('A short video shows the whole loop.');
-await scrollTo('#demo', 1.0, 90);
-await hold(1.3);
-
-cap('Ten commands, one file between them.');
-await scrollTo('#commands', 1.0, 70);
-await hold(1.0);
-
-cap('A real bug: the capsule shows what it kept, value recorded, name only or not set.');
-await scrollTo('[data-demo=capture]', 1.1, 130);
-await hold(0.6);
-await click('[data-demo=capture] .tabs button[data-group=environment]', 0.5);
-await scrollTo('[data-demo=capture] .capsule', 0.5, 40);
-const capR = await R('[data-demo=capture] .capsule');
-await zoomTo({ ...capR, y: capR.y + capR.h - 300, h: 300 }, 'privacy', 40, 1.8);
+cap('Four commands, one file between them.');
+await scrollTo('#flow', 1.0, 90);
+await hold(0.4);
+await zoomTo(await R('.flow'), 'flow', 60, 1.5);
 await hold(2.0);
 await zoomOut();
-await ev('__hideCursor()');
 
-cap('Replay rebuilds the environment on a Solari machine.');
-await scrollTo('[data-demo=stream]', 1.1, 130);
-await hold(1.0);
-
-cap('Bisect narrows it down in stages: compare, trial 1, trial 2, result.');
-await scrollTo('[data-demo=bisect]', 1.1, 110);
-await hold(0.5);
-const bis = await R('[data-demo=bisect]');
-await zoomTo({ ...bis, h: 470 }, 'bisect', 20, 1.6);
-for (let i = 1; i <= 4; i++) await click(`[data-demo=bisect] .tabs button[data-stage="${i}"]`, 0.55);
+cap('For agents: the MCP server and the GitHub Action, each a few lines.');
+await scrollTo('#agents', 1.0, 90);
+await hold(0.4);
+await zoomTo(await R('.agents'), 'agents', 60, 1.5);
+await hold(2.2);
 await zoomOut();
-await ev('__hideCursor()');
-
-cap('Verify checks the fix in the environment where the bug was reported.');
-const ver = await R('ol.steps > li.pair:last-child');
-await scrollY(ver.pageY - 120, 1.0);
-await hold(0.9);
-
-cap('Agents get the reporter’s machine over MCP.');
-await scrollTo('[data-demo=agents]', 1.2, 110);
-await hold(0.5);
-await zoomTo(await R('[data-demo=agents] .timeline'), 'agents', 50, 1.9);
-await click('[data-demo=agents] .call[data-i="2"] button', 0.4).catch(() => {});
-await hold(1.5);
-await zoomOut();
-await ev('__hideCursor()');
-
-cap('What a capsule holds, and what it never records.');
-await scrollTo('#files', 1.0, 70);
-await hold(1.4);
-await scrollY(99999, 0.9);
+await scrollY(99999, 0.8);
 await hold(0.6);
 
-cap('Guides for every command, and a full reference.');
-// The docs sidebar lists pages that are not part of this story, so the docs page is shown zoomed on its article,
-// and the frames between the navigation and the zoom are replaced by the last frame of the home page.
-const navFrom = now();
-await navigate(base + '/guides/replay/');
-await ev(`__zoomTo({ x: 310, y: 110, w: 840, h: 300 }, 0.05, 0, 1.8)`);
-await sleep(200);
-log.cut = { from: navFrom, to: now() };
-log.urls[log.urls.length - 1].t = now();
-await hold(1.4);
-await scrollY(420, 1.1);
-await hold(0.9);
+// Docs pages. Each navigation shows the last frame of the previous page until the new one has rendered.
+log.cuts = [];
+const docsPage = async (path, text, scrolls) => {
+  const from = now();
+  await navigate(base + path);
+  await sleep(200);
+  log.cuts.push({ from, to: now() });
+  log.urls[log.urls.length - 1].t = now();
+  cap(text);
+  await hold(1.4);
+  for (const y of scrolls) {
+    await scrollY(y, 1.1);
+    await hold(1.0);
+  }
+};
+await docsPage('/examples/echarts-21538/', 'The docs keep the full case studies: every capsule and recording of a real bug.', [420, 900]);
+await docsPage('/reference/privacy/', 'Privacy and redaction: exactly what a capsule records, and what it never does.', [520, 900]);
+await docsPage('/reference/cli/', 'Every command, option and exit code in one reference.', [500]);
+await docsPage('/guides/ai-agents/', 'Guides for coding agents and for pull request checks.', [400]);
 
 const total = now();
 await send('Page.stopScreencast');
@@ -207,7 +178,7 @@ const N = Math.floor(total * FPS);
 let k = 0;
 for (let f = 0; f < N; f++) {
   const t = f / FPS;
-  if (log.cut && t >= log.cut.from && t < log.cut.to) { linkSync(`${out}/raw/${String(k).padStart(6, '0')}.jpg`, `${out}/${String(f + 1).padStart(5, '0')}.jpg`); continue; }
+  if (log.cuts?.some((c) => t >= c.from && t < c.to)) { linkSync(`${out}/raw/${String(k).padStart(6, '0')}.jpg`, `${out}/${String(f + 1).padStart(5, '0')}.jpg`); continue; }
   while (k + 1 < shots.length && shots[k + 1] <= t) k++;
   linkSync(`${out}/raw/${String(k).padStart(6, '0')}.jpg`, `${out}/${String(f + 1).padStart(5, '0')}.jpg`);
 }
