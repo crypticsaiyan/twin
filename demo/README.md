@@ -86,3 +86,13 @@ CDP against the `twin shell --web` link; `scene5.sh` chains them; `specs.py` wri
 
 Before publishing anything, grep `demo-raw` (logs, specs, `data.js`) and the generated frames' sources for
 the Solari key. The key is never printed or recorded by these scripts.
+
+## Voiceover from another tool (for example ElevenLabs)
+
+`demo-out/twin-demo.mp4` is the film with the generated music only. The Piper voice cut is kept in
+`demo-backup/v5-2026-09-30-piper/`. To add a voice: generate one file per row of `demo/clips.md`
+(same voice and pace), name them `<id>.mp3` or `.wav` in one folder, then run
+`python3 demo/add-voice.py <folder>`. It places each clip at its start time, mixes it over the music
+(ducked while the voice speaks), normalizes to -16 LUFS and muxes with `demo-raw/video-silent.mp4`
+without re-encoding video. It prints any clip that is longer than its window; shorten the text or speed
+that clip up, since the scene lengths were set by the earlier voice.
