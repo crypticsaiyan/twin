@@ -107,6 +107,9 @@ const LEAD = 0.08; // narration starts within 100 ms of its scene start
 const TAIL = 0.7;  // and the scene holds this long after the narration ends
 const sjPath = `${work}/site/site.json`;
 const sj = JSON.parse(readFileSync(sjPath, 'utf8'));
+// A dark build reuses the light film's audio, so its website scene must last exactly as long as the light one.
+const theme = process.env.THEME === 'dark' ? 'dark' : 'light';
+const match = process.env.SITE_MATCH_JSON ? JSON.parse(readFileSync(process.env.SITE_MATCH_JSON, 'utf8')) : null;
 const clipsOf = (sceneId) => Object.entries(clips).filter(([, c]) => c.scene === sceneId).map(([id, c]) => {
   let off = LEAD;
   if (c.offset.startsWith('cap')) off = sj.captions[Number(c.offset.slice(3))].t + 0.15;
@@ -300,7 +303,7 @@ add({
   id: 'site', kind: 'site', title: 'the website', dir: `${work}/site`, W: sj.W, H: sj.H, nframes: sj.frames,
   captions: sj.captions.map((c) => ({ t: c.t, text: c.text })), urls: sj.urls.map((c) => ({ t: c.t, url: c.url })),
   zooms: sj.zooms.map((z) => ({ t0: z.t0, t1: z.t1 ?? z.t0, label: z.label })),
-  dur: Math.max(sj.frames / sj.FPS, need('site')),
+  dur: Math.max(match ? match.frames / match.FPS : sj.frames / sj.FPS, need('site')),
 });
 
 // ---- 8. summary and close ----
@@ -316,6 +319,6 @@ const total = cur;
 const cues = [];
 for (const s of scenes) for (const c of clipsOf(s.id)) cues.push({ id: c.id, scene: s.id, sceneStart: s.start, sceneEnd: s.start + s.dur, start: s.start + c.off, dur: c.dur, planned: c.off });
 writeFileSync(`${work}/audio/cues.json`, JSON.stringify({ total, cues }, null, 1));
-writeFileSync(`${work}/data.js`, `window.DATA=${JSON.stringify({ scenes, total })};`);
+writeFileSync(`${work}/data.js`, `window.DATA=${JSON.stringify({ scenes, total, theme })};`);
 const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
 console.log(scenes.map((s) => `${fmt(s.start)}  ${s.id.padEnd(8)} ${s.kind}  ${s.dur.toFixed(1)}s`).join('\n'), '\ntotal', fmt(total));

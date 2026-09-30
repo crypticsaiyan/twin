@@ -3,13 +3,14 @@
 // transform), Chrome pushes screencast frames as they change, and the frames are resampled to a
 // constant 30 fps by their arrival time.
 //
-// usage: node site-record.mjs <outDir> [baseUrl=http://127.0.0.1:4321]
+// usage: [THEME=dark] node site-record.mjs <outDir> [baseUrl=http://127.0.0.1:4321]
 import { mkdirSync, rmSync, writeFileSync, linkSync } from 'node:fs';
 import { launch, sleep } from './cdp.mjs';
 
 const [out, base = 'http://127.0.0.1:4321'] = process.argv.slice(2);
 const W = 1584;
 const H = 810;
+const THEME = process.env.THEME === 'dark' ? 'dark' : 'light';
 const FPS = 30;
 rmSync(out, { recursive: true, force: true });
 mkdirSync(`${out}/raw`, { recursive: true });
@@ -18,7 +19,7 @@ const c = await launch({ port: 9950 + Math.floor(Math.random() * 40), profile: `
 const { send, ev, on } = c;
 await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: THEME }] });
 await send('Emulation.setFocusEmulationEnabled', { enabled: true });
 for (const name of ['clipboard-write', 'clipboard-read']) await send('Browser.setPermission', { permission: { name }, setting: 'granted', origin: new URL(base).origin });
 
@@ -82,7 +83,7 @@ const PAGE_LIB = `
   window.__hideCursor = () => { ring().style.opacity = 0; cur.on = false; };
 })();`;
 await send('Page.addScriptToEvaluateOnNewDocument', {
-  source: `try { localStorage.setItem('starlight-theme', 'light'); } catch {}\n${PAGE_LIB}`,
+  source: `try { localStorage.setItem('starlight-theme', '${THEME}'); } catch {}\n${PAGE_LIB}`,
 });
 
 // screencast capture

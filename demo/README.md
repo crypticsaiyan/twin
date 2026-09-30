@@ -105,3 +105,19 @@ the Solari key. The key is never printed or recorded by these scripts.
 (ducked while the voice speaks), normalizes to -16 LUFS and muxes with `demo-raw/video-silent.mp4`
 without re-encoding video. It prints any clip that is longer than its window; shorten the text or speed
 that clip up, since the scene lengths were set by the earlier voice.
+
+## Dark film
+
+`demo/assemble-dark.sh` renders the same film in the site's dark palette. It reuses the raw recordings and the music
+of the light film (no live runs, no machines); only the player palette (`THEME=dark`, tokens copied from
+`site/src/styles/tokens.css`) and the website scene change. Order: run `demo/assemble.sh` once (audio, light film),
+record the site in dark, then the dark build:
+
+    THEME=dark node demo/site-record.mjs "$WORK/site-dark"     # site served on :4321, as for the light scene
+    demo/assemble-dark.sh                                       # -> demo-out/twin-demo-dark.mp4
+
+The dark build works in `$WORK/dark` (symlinks to `raw`, `work`, `vendor`, `assets`, its own `data.js`, `audio/cues.json`
+and `frames`), so the light build is never overwritten. `SITE_MATCH_JSON` keeps the dark website scene exactly as long as
+the light one, so the shared music fits. The real Claude Code and browser recordings are already dark; the GitHub issue
+screenshot is inverted with `invert(0.9) hue-rotate(180deg)` in dark, and the drawn sign-in card uses dark tokens.
+The site plays `twin-demo-dark.mp4` (720p) in dark mode and swaps cuts on a theme switch, keeping position and state.

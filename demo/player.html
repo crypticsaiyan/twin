@@ -11,7 +11,16 @@
   --bg: #fafaf8; --text: #17181a; --muted: #62636a; --rule: #d9d8d1;
   --fail: #c3362b; --pass: #1d7a49;
   --t-bg: #141517; --t-head: #1e1f23; --t-rule: #2a2b30; --t-text: #ececea; --t-muted: #9d9ea5;
+  --page: #fff; --auth-bg: #fff; --auth-text: #17181a; --auth-muted: #62636a; --auth-line: #b9b9b3; --shot: none;
   --mono: 'JetBrains Mono', ui-monospace, monospace; --doto: 'Doto', var(--mono);
+}
+/* Dark film: the site's dark tokens (site/src/styles/tokens.css). Set by data.js (theme: 'dark'). */
+:root[data-theme='dark'] {
+  --bg: #111214; --text: #ececea; --muted: #9d9ea5; --rule: #2a2b30;
+  --fail: #f0695c; --pass: #5ec98d;
+  --t-bg: #17181b; --t-head: #1e1f23; --t-rule: #2a2b30;
+  --page: #17181b; --auth-bg: #1e1f23; --auth-text: #ececea; --auth-muted: #9d9ea5; --auth-line: #2a2b30;
+  --shot: invert(0.9) hue-rotate(180deg);
 }
 html, body { margin: 0; background: var(--bg); }
 #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); font-family: var(--mono); color: var(--text); }
@@ -41,14 +50,14 @@ html, body { margin: 0; background: var(--bg); }
 .xterm-cursor-block { background: #f0695c !important; color: #111214 !important; }
 .blinkoff .xterm-cursor-block { background: transparent !important; color: inherit !important; }
 .xterm-rows { font-variant-ligatures: none; }
-.bpage { position: relative; background: #fff; overflow: hidden; height: calc(var(--areaH) - 46px); }
+.bpage { position: relative; background: var(--page); overflow: hidden; height: calc(var(--areaH) - 46px); }
 .bpage img { display: block; margin: 0 auto; }
-.auth { position: absolute; left: 50%; top: 44px; transform: translateX(-50%); width: 520px; background: #fff; color: #17181a; border: 1px solid #b9b9b3; padding: 26px 30px; font-size: 20px; }
+.auth { position: absolute; left: 50%; top: 44px; transform: translateX(-50%); width: 520px; background: var(--auth-bg); color: var(--auth-text); border: 1px solid var(--auth-line); padding: 26px 30px; font-size: 20px; }
 .auth h4 { margin: 0 0 4px; font-size: 26px; }
-.auth .s { color: #62636a; font-size: 18px; margin-bottom: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth .s { color: var(--auth-muted); font-size: 18px; margin-bottom: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .auth .f { margin-bottom: 14px; }
-.auth .f b { display: block; font-weight: 400; font-size: 18px; color: #62636a; margin-bottom: 6px; }
-.auth .f i { display: block; font-style: normal; border: 1px solid #b9b9b3; padding: 8px 12px; height: 26px; }
+.auth .f b { display: block; font-weight: 400; font-size: 18px; color: var(--auth-muted); margin-bottom: 6px; }
+.auth .f i { display: block; font-style: normal; border: 1px solid var(--auth-line); padding: 8px 12px; height: 26px; }
 /* type scale */
 .h1 { font-family: var(--doto); font-weight: 900; font-size: 108px; line-height: 1.04; letter-spacing: 0.01em; }
 .num { font-family: var(--doto); font-weight: 900; }
@@ -63,7 +72,7 @@ html, body { margin: 0; background: var(--bg); }
 .strip .n { font-size: 270px; line-height: 0.85; }
 .strip .v { font-size: 120px; line-height: 1.05; }
 .strip .x { font-size: 38px; margin-top: 18px; }
-.issue-img { width: var(--colW); display: block; border: 1px solid var(--rule); background: #fff; }
+.issue-img { width: var(--colW); display: block; border: 1px solid var(--rule); background: #fff; filter: var(--shot); }
 .issue-who { font-size: 30px; margin-top: 72px; }
 .issue-say { font-size: 76px; line-height: 1.2; margin-top: 18px; min-height: 92px; white-space: nowrap; }
 .diff .h1 { margin-bottom: 64px; }
@@ -96,6 +105,7 @@ const DS = {
 for (const [k, v] of Object.entries({ mx: DS.mx + 'px', colW: DS.colW + 'px', titleY: DS.titleY + 'px', areaTop: DS.areaTop + 'px', areaH: DS.areaH + 'px', capY: DS.capY + 'px', capH: DS.capH + 'px', capSize: DS.capSize + 'px' })) document.documentElement.style.setProperty('--' + k, v);
 
 const D = window.DATA;
+if (D.theme === 'dark') document.documentElement.dataset.theme = 'dark';
 const stage = document.getElementById('stage');
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const blk = (e, name) => { e.dataset.block = name || e.className.split(' ')[0]; return e; };
@@ -104,6 +114,7 @@ const THEME = {
   black: '#141517', red: '#f0695c', green: '#5ec98d', yellow: '#d9c47a', blue: '#7d9dff', magenta: '#b79cf0', cyan: '#6fc4c9', white: '#ececea',
   brightBlack: '#9d9ea5', brightRed: '#f0695c', brightGreen: '#5ec98d', brightYellow: '#d9c47a', brightBlue: '#7d9dff', brightMagenta: '#b79cf0', brightCyan: '#6fc4c9', brightWhite: '#ffffff',
 };
+if (D.theme === 'dark') THEME.background = THEME.black = '#17181b';
 function mkWordmark(size) {
   const w = el('div', 'wordmark');
   w.style.fontSize = size + 'px';
@@ -306,7 +317,7 @@ async function seek(t) {
       for (let i = 0; i < s.frames.length; i++) if (s.frames[i].r <= raw) k = i;
       s.img.src = s.images[k].src;
       const showAuth = u >= s.auth.v0 - 0.7 && u <= s.auth.v1;
-      s.page.style.background = u > s.auth.v1 + 0.3 ? '#2b2b2b' : '#fff';
+      s.page.style.background = u > s.auth.v1 + 0.3 ? '#2b2b2b' : 'var(--page)';
       s.auth_el.style.display = showAuth ? 'block' : 'none';
       if (showAuth) {
         const p = u - s.auth.v0;
