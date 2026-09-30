@@ -369,9 +369,17 @@ const lineClass = (line: Line) =>
           </div>
           <div class="hero-demo split">
             <figure class="film">
-              <video controls preload="metadata" playsinline poster={link('demo/twin-demo-poster.jpg')}>
+              <video preload="metadata" playsinline poster={link('demo/twin-demo-poster.jpg')}>
                 <source src={link('demo/twin-demo.mp4')} type="video/mp4" />
               </video>
+              <button type="button" class="film-big" aria-label="Play the demo film">Play film</button>
+              <div class="film-bar">
+                <button type="button" class="film-toggle" aria-label="Play">Play</button>
+                <input class="film-seek" type="range" min="0" max="1000" value="0" aria-label="Seek" />
+                <span class="film-time">0:00 / 3:35</span>
+                <button type="button" class="film-mute" aria-label="Mute">Sound on</button>
+                <button type="button" class="film-full" aria-label="Full screen">Full</button>
+              </div>
             </figure>
           </div>
         </div>
@@ -675,6 +683,49 @@ jobs:
 
     <script>
       import '../scripts/demos';
+
+      const film = document.querySelector<HTMLElement>('.film');
+      const video = film?.querySelector('video');
+      if (film && video) {
+        const $ = <T extends HTMLElement>(selector: string) => film.querySelector(selector) as T;
+        const toggleButton = $<HTMLButtonElement>('.film-toggle');
+        const seek = $<HTMLInputElement>('.film-seek');
+        const time = $<HTMLElement>('.film-time');
+        const mute = $<HTMLButtonElement>('.film-mute');
+        const clock = (seconds: number) =>
+          `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+        const paint = () => {
+          const total = video.duration || 0;
+          seek.value = total ? String((video.currentTime / total) * 1000) : '0';
+          seek.style.setProperty('--done', `${Number(seek.value) / 10}%`);
+          time.textContent = `${clock(video.currentTime)} / ${clock(total)}`;
+        };
+        const flip = () => (video.paused ? video.play() : video.pause());
+        video.addEventListener('play', () => {
+          film.dataset.state = 'playing';
+          toggleButton.textContent = 'Pause';
+        });
+        video.addEventListener('pause', () => {
+          film.dataset.state = 'paused';
+          toggleButton.textContent = 'Play';
+        });
+        video.addEventListener('timeupdate', paint);
+        video.addEventListener('loadedmetadata', paint);
+        video.addEventListener('click', flip);
+        toggleButton.addEventListener('click', flip);
+        $<HTMLButtonElement>('.film-big').addEventListener('click', flip);
+        seek.addEventListener('input', () => {
+          video.currentTime = (Number(seek.value) / 1000) * (video.duration || 0);
+        });
+        mute.addEventListener('click', () => {
+          video.muted = !video.muted;
+          mute.textContent = video.muted ? 'Sound off' : 'Sound on';
+        });
+        $<HTMLButtonElement>('.film-full').addEventListener('click', () => {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void film.requestFullscreen?.();
+        });
+      }
 
       const root = document.documentElement;
       const toggle = document.getElementById('theme') as HTMLButtonElement;
@@ -1134,11 +1185,12 @@ jobs:
     }
   }
 
-  /* The demo film: the page's own frame, no player chrome beyond the browser controls. */
+  /* The demo film: the site's own controls, square and hairline, in place of the browser's. */
   .film {
+    position: relative;
     margin: 0;
     border: 1px solid var(--twin-rule);
-    background: #111214;
+    background: var(--twin-code);
   }
 
   .film video {
@@ -1146,6 +1198,128 @@ jobs:
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
+    background: #111214;
+    cursor: pointer;
+  }
+
+  .film:fullscreen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .film:fullscreen video {
+    height: calc(100% - 2.75rem);
+    aspect-ratio: auto;
+    object-fit: contain;
+  }
+
+  .film-big {
+    position: absolute;
+    bottom: calc(2.75rem + 1rem);
+    right: 1rem;
+    padding: 0.7rem 1.4rem;
+    background: var(--twin-text);
+    color: var(--twin-bg);
+    border: 0;
+    font: 500 0.8125rem/1.4 var(--twin-font-mono);
+    cursor: pointer;
+  }
+
+  .film-big:hover {
+    opacity: 0.88;
+  }
+
+  .film[data-state='playing'] .film-big {
+    display: none;
+  }
+
+  .film-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 2.75rem;
+    padding-inline: 0.75rem;
+    border-top: 1px solid var(--twin-rule);
+    font: 500 0.75rem/1 var(--twin-font-mono);
+    color: var(--twin-text-muted);
+  }
+
+  .film-bar button {
+    padding: 0.3rem 0.5rem;
+    background: none;
+    border: 1px solid transparent;
+    color: var(--twin-text);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .film-bar button:hover {
+    border-color: var(--twin-rule);
+  }
+
+  .film-toggle {
+    min-width: 4.2em;
+  }
+
+  .film-mute {
+    min-width: 6.5em;
+  }
+
+  .film-time {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .film-seek {
+    --done: 0%;
+    flex: 1;
+    min-width: 0;
+    height: 1rem;
+    margin: 0;
+    background: transparent;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .film-seek::-webkit-slider-runnable-track {
+    height: 2px;
+    background: linear-gradient(to right, var(--twin-text) var(--done), var(--twin-rule) var(--done));
+  }
+
+  .film-seek::-moz-range-track {
+    height: 2px;
+    background: var(--twin-rule);
+  }
+
+  .film-seek::-moz-range-progress {
+    height: 2px;
+    background: var(--twin-text);
+  }
+
+  .film-seek::-webkit-slider-thumb {
+    width: 0.6rem;
+    height: 0.9rem;
+    margin-top: -0.4rem;
+    background: var(--twin-text);
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+  }
+
+  .film-seek::-moz-range-thumb {
+    width: 0.6rem;
+    height: 0.9rem;
+    background: var(--twin-text);
+    border: 0;
+    border-radius: 0;
+  }
+
+  @media (max-width: 40rem) {
+    .film-mute,
+    .film-time {
+      display: none;
+    }
   }
 
   /* Terminals and demo cards: square and hairline. */
