@@ -82,7 +82,7 @@ After the verdict, twin lists differences between the reporter's machine and the
 | `--repo <url>` | the capsule's remote | Clone from here instead: a fork, a mirror, or a remote the capsule does not name. |
 | `--ref <sha>` | the capsule's commit | Check out this commit instead. Skips the capsule's working-tree diff. |
 | `--env <NAME=value>` | none | Value for a variable the capsule recorded by name only. Repeatable. Also overrides recorded values. |
-| `--timeout <minutes>` | `15` | Per-attempt limit. An attempt that hits it is killed and the verdict is `INCONCLUSIVE`. |
+| `--timeout <minutes>` | `15` | Maximum time per attempt. An attempt that hits it is killed and the verdict is `INCONCLUSIVE`. |
 | `-v, --verbose` | off | Stream the sandbox's output (setup and command) to stderr. |
 | `--json` | off | Machine-readable report on stdout. |
 

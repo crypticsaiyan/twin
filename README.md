@@ -75,10 +75,14 @@ The pull request's code runs only inside the Solari sandbox, never on the runner
 
 Node 22 or newer.
 
+```sh
+npm install -g @crypticsaiyan/twincli
+```
+
 **Reporter**, in the project where the command fails. Nothing is uploaded, no account needed:
 
 ```sh
-npx @crypticsaiyan/twincli capture -- npm test
+twin capture -- npm test
 ```
 
 twin runs the command as usual, shows what it recorded, and writes `twin-capsule.json` after you confirm. Attach that file to the issue.
@@ -87,10 +91,10 @@ twin runs the command as usual, shows what it recorded, and writes `twin-capsule
 
 ```sh
 export SOLARI_API_KEY=slr_live_...     # https://console.getsolari.com, or put it in a .env file
-npx @crypticsaiyan/twincli replay twin-capsule.json
+twin replay twin-capsule.json
 ```
 
-Install it once with `npm install -g @crypticsaiyan/twincli` to get the `twin` command (then `twin capture -- npm test`, `twin replay ...`). To work from a clone instead: `pnpm install`, then `pnpm dev <command>` (or `pnpm build` and `node dist/bin.js <command>`).
+To try it without installing, prefix a command with `npx @crypticsaiyan/twincli`. To work from a clone instead: `pnpm install`, then `pnpm dev <command>` (or `pnpm build` and `node dist/bin.js <command>`).
 
 ### Ask for capsules in your issue template
 
@@ -98,7 +102,8 @@ Install it once with `npm install -g @crypticsaiyan/twincli` to get the `twin` c
 If the bug does not reproduce for us, please run the failing command through twin
 and attach the file it writes (it records versions and variable names, never secrets):
 
-    npx @crypticsaiyan/twincli capture -- <your failing command>
+    npm install -g @crypticsaiyan/twincli
+    twin capture -- <your failing command>
 ```
 
 ## Commands
@@ -144,14 +149,6 @@ Redaction is pattern based; review the capsule before posting it publicly.
 Cost, from the account ledger: about $0.125 per sandbox-hour. A replay, bisect or verify of the echarts example takes about 70 s, so a fraction of a cent. Bisect runs every trial on one machine, so it fits a single concurrent slot.
 
 Building this turned up platform behavior worth knowing, all measured and written up in [DESIGN.md §11](DESIGN.md): `kill()` that returned success while the sandbox kept running and billing for two hours; snapshot and revert taking 14 to 35 s; revert consuming its snapshot and sometimes failing with `Snapshot not found`; the control channel dropping after revert; listings that report dead sandboxes as live. twin works around each of them.
-
-## Limits
-
-- **Replay is Linux only.** A macOS or Windows capsule is replayed with the same versions on Linux; if it passes there, twin says so, which points at the OS.
-- **Node and Python projects.** Verified end to end: npm projects on Solari, and uv projects (`uv.lock`) in the Docker harness. pnpm, Yarn and Bun, and Python `requirements.txt` / `pyproject.toml` projects go through the same code path but have only unit tests so far. Bisect varies npm dependency versions only.
-- **Environmental causes only.** Logic bugs, network and data problems are out of scope; replay then reports `NOT REPRODUCED` or `DIFFERENT FAILURE`.
-- **Values replay cannot know.** Variables recorded by name only are left unset unless provided with `--env NAME=value`.
-- **A kept machine is billed** until it idles out (15 minutes) or `twin stop`. The browser terminal link and password together give a root shell on that machine; share them only with the reporter.
 
 
 ## Development

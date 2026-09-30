@@ -27,7 +27,7 @@ Options:
       --good <capsule>     capsule of an environment where the command passes (required)
       --attempts <n>       runs per trial (default 1; raise for flaky commands)
       --env <NAME=value>   value for a variable the good capsule recorded by name (repeatable)
-      --timeout <minutes>  per-run limit (default 15)
+      --timeout <minutes>  maximum time per run (default 15)
   -v, --verbose            stream guest output
       --json               machine-readable report on stdout
   -h, --help               show this help

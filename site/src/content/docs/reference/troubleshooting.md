@@ -15,7 +15,7 @@ replay, bisect, verify, list, shell, stop and the MCP server's sandbox tools nee
 
 **`twin: Solari refused the request: <message>`** (exit 1)
 
-The Solari gateway rejected the request for an account reason: an invalid key, the plan, credit, a concurrency limit, or no capacity. twin prints the gateway's message. Check the key and balance in the [Solari console](https://console.getsolari.com). For a concurrency limit, release kept machines (`twin stop`) or wait for running ones to finish. Bisect always uses a single machine.
+The Solari gateway rejected the request for an account reason: an invalid key, the plan, credit, too many machines at once, or no capacity. twin prints the gateway's message. Check the key and balance in the [Solari console](https://console.getsolari.com). With too many machines at once, release kept machines (`twin stop`) or wait for running ones to finish. Bisect always uses a single machine.
 
 ## Capsule problems
 
@@ -25,7 +25,7 @@ The Solari gateway rejected the request for an account reason: an invalid key, t
 | `cannot download <url>: HTTP 404` | The URL is wrong or not public. Use the attachment link from the issue. |
 | `only https URLs are supported for capsules: <url>` | Use an `https://` URL or a local path. |
 | `<file> is not valid JSON: …` / `<file> is not a valid twin capsule (…)` | The file is damaged or not a capsule. The message names the offending field. |
-| `format vN is newer than this twin understands (v1); upgrade twin` | Run the latest twin (`npx @crypticsaiyan/twincli` fetches it). |
+| `format vN is newer than this twin understands (v1); upgrade twin` | Update twin: `npm install -g @crypticsaiyan/twincli@latest`. |
 | `the capsule has no git remote; pass --repo <url>` | The reporter's repo has no `origin`. Pass the project's URL. |
 | `the capsule has no commit to check out; pass --ref <sha>` | Captured outside a git repo or before the first commit. Pass a commit. |
 

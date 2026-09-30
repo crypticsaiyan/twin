@@ -9,7 +9,7 @@ sidebar:
 Usage: twin <command> [options]
 ```
 
-Run `twin <command> --help` (or `twin help <command>`) for the same details in the terminal; `twin --help` lists the commands grouped by task. A mistyped command gets a suggestion. `twin --version` (or `-v` as the first argument) prints the version. Run from the repository with `npx @crypticsaiyan/twincli <command>`; Node 22 or newer.
+Run `twin <command> --help` (or `twin help <command>`) for the same details in the terminal; `twin --help` lists the commands grouped by task. A mistyped command gets a suggestion. `twin --version` (or `-v` as the first argument) prints the version. Install with `npm install -g @crypticsaiyan/twincli`; Node 22 or newer.
 
 | Command | Needs `SOLARI_API_KEY` | What it does |
 |---|---|---|
@@ -122,7 +122,7 @@ Rebuilds the capsule's environment on a fresh Solari sandbox (same runtime, pack
 | `--repo <url>` | capsule's remote | Clone from here instead of the capsule's remote. |
 | `--ref <sha>` | capsule's commit | Check out this commit instead (skips the diff). |
 | `--env <NAME=value>` | | Value for a variable the capsule recorded by name. Repeatable. |
-| `--timeout <minutes>` | `15` | Per-attempt limit. |
+| `--timeout <minutes>` | `15` | Maximum time per attempt. |
 | `-v, --verbose` | off | Stream guest output. |
 | `--json` | off | Machine-readable report on stdout. |
 | `-h, --help` | | Show help. |
@@ -146,7 +146,7 @@ Finds the smallest set of environment differences (env values, time zone, node v
 | `--good <capsule>` | required | Capsule of an environment where the command passes. |
 | `--attempts <n>` | `1` | Runs per trial; raise for flaky commands. |
 | `--env <NAME=value>` | | Value for a variable the good capsule recorded by name. Repeatable. |
-| `--timeout <minutes>` | `15` | Per-run limit. |
+| `--timeout <minutes>` | `15` | Maximum time per run. |
 | `-v, --verbose` | off | Stream guest output. |
 | `--json` | off | Machine-readable report on stdout. |
 | `-h, --help` | | Show help. |
@@ -172,7 +172,7 @@ Checks a candidate fix in the reporter's environment: rebuilds it on a Solari sa
 | `--repo <url>` | capsule's remote | Clone from here (forks); use with `--ref`. |
 | `--attempts <n>` | `3` | Runs of the command. |
 | `--env <NAME=value>` | | Value for a variable the capsule recorded by name. Repeatable. |
-| `--timeout <minutes>` | `15` | Per-attempt limit. |
+| `--timeout <minutes>` | `15` | Maximum time per attempt. |
 | `-v, --verbose` | off | Stream guest output. |
 | `--json` | off | Machine-readable report on stdout. |
 | `--comment <file>` | | Also write a Markdown pull request comment to `<file>`. |

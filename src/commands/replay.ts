@@ -29,7 +29,7 @@ Options:
       --repo <url>         clone from here instead of the capsule's remote
       --ref <sha>          check out this commit instead (skips the diff)
       --env <NAME=value>   value for a variable the capsule recorded by name (repeatable)
-      --timeout <minutes>  per-attempt limit (default 15)
+      --timeout <minutes>  maximum time per attempt (default 15)
   -v, --verbose            stream guest output
       --json               machine-readable report on stdout
   -h, --help               show this help

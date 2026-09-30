@@ -1,6 +1,6 @@
 ---
 title: MCP server reference
-description: The tools twin mcp exposes to AI coding agents, with every argument, default and limit.
+description: The tools twin mcp exposes to AI coding agents, with every argument and default.
 sidebar:
   order: 3
 ---
@@ -33,7 +33,7 @@ The server also sends the client short instructions describing the loop below, s
 
 ## Conventions
 
-- **Capsule arguments** (`capsule`, `compare_to`, `bad`, `good`) are a file path, relative to the server's working directory, or an `https://` URL such as a GitHub issue attachment (`https://github.com/user-attachments/files/…/twin-capsule.json`). URLs are downloaded with a 30 second timeout and a 5 MB limit.
+- **Capsule arguments** (`capsule`, `compare_to`, `bad`, `good`) are a file path, relative to the server's working directory, or an `https://` URL such as a GitHub issue attachment (`https://github.com/user-attachments/files/…/twin-capsule.json`). URLs are downloaded with a 30 second timeout and a 5 MB size cap.
 - **Machine arguments** take a kept machine's id or any unique prefix of it, and can be omitted when only one twin machine is running.
 - **Results** are plain text: the same reports the CLI prints, without colors.
 - **Errors** come back as tool errors (`isError`) whose text starts with `twin:`, for example `twin: pass exactly one of patch or ref`. The session stays up.

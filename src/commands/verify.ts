@@ -31,7 +31,7 @@ Options:
       --repo <url>         clone from here (forks); use with --ref
       --attempts <n>       runs of the command (default 3)
       --env <NAME=value>   value for a variable the capsule recorded by name (repeatable)
-      --timeout <minutes>  per-attempt limit (default 15)
+      --timeout <minutes>  maximum time per attempt (default 15)
   -v, --verbose            stream guest output
       --json               machine-readable report on stdout
       --comment <file>     also write a Markdown pull request comment to <file>

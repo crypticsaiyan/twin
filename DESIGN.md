@@ -255,7 +255,7 @@ Every collector takes its dependencies (an `Exec`, a `Host`, a `Redactor`) as ar
 3. `snapshot()` and `create({ fromSnapshot })` timings for a sandbox with `node_modules` (docs say about 1 s; desktop measurements in forks were 20 s+).
 4. Are unpromoted snapshots durable enough for a bisect session (fork reports say they can vanish on gateway restart)?
 5. Does `pty.create` stream well enough for an interactive shell? Is `previewUrl` plus a guest web terminal (ttyd or a small xterm.js server) viable, and how is the preview token shared safely?
-6. Free-plan limits on concurrency, session lifetime, disk size.
+6. Free-plan concurrency, session lifetime and disk size.
 
 Each answer that contradicts the docs becomes a precise issue on the cookbook repo.
 

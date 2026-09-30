@@ -85,7 +85,7 @@ A patch that does not apply fails the `apply candidate fix` step, which makes th
 | `--repo <url>` | the capsule's remote | Clone from here (forks); use with `--ref`. |
 | `--attempts <n>` | `3` | Runs of the command. |
 | `--env <NAME=value>` | none | Value for a variable the capsule recorded by name only. Repeatable. |
-| `--timeout <minutes>` | `15` | Per-attempt limit. |
+| `--timeout <minutes>` | `15` | Maximum time per attempt. |
 | `-v, --verbose` | off | Stream the sandbox's output. |
 | `--json` | off | Machine-readable report on stdout. The `verdict` field uses replay's names, so `FIXED` is `not-reproduced`. |
 | `--comment <file>` | | Also write a Markdown pull request comment to `<file>`. |

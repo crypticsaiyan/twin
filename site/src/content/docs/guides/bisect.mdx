@@ -101,7 +101,7 @@ If the variable you suspect shows up as "value not captured", ask the reporter t
 | `--good <capsule>` | required | Capsule of an environment where the command passes. |
 | `--attempts <n>` | `1` | Runs per trial. Raise it for flaky commands: a trial counts as failing only if every run fails the captured way. |
 | `--env <NAME=value>` | none | Value for a variable the **good** capsule recorded by name only. Repeatable. |
-| `--timeout <minutes>` | `15` | Per-run limit. |
+| `--timeout <minutes>` | `15` | Maximum time per run. |
 | `-v, --verbose` | off | Stream the sandbox's output. |
 | `--json` | off | Machine-readable report on stdout. |
 

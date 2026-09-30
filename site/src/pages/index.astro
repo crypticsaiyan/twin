@@ -15,7 +15,7 @@ const title = 'twin';
 const description =
   'twin records the environment a command failed in, rebuilds it on a clean Solari sandbox, finds the difference that causes the failure, and checks a fix there.';
 const canonical = new URL(link(''), Astro.site).href;
-const install = 'npx @crypticsaiyan/twincli capture -- npm test';
+const install = 'npm install -g @crypticsaiyan/twincli';
 
 const docs = {
   intro: link('start/introduction/'),
@@ -24,7 +24,6 @@ const docs = {
   agents: link('guides/ai-agents/'),
   action: link('guides/github-action/'),
   privacy: link('reference/privacy/'),
-  limits: link('reference/limits/'),
   solari: link('reference/solari/'),
   caseStudy: link('examples/echarts-21538/'),
 };
@@ -707,7 +706,6 @@ jobs:
         <span>MIT license</span>
         <a href={REPO}>GitHub</a>
         <a href={docs.intro}>Docs</a>
-        <a href={docs.limits}>Limits</a>
       </div>
     </footer>
 

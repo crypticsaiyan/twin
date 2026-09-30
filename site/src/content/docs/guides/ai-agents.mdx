@@ -62,7 +62,7 @@ Arguments and defaults are in the [MCP reference](../../reference/mcp/). Tool re
 
 ## Long tool calls and client timeouts
 
-`replay` and `verify` take about 70 seconds or more (most of it installing dependencies), and `bisect` longer. Some MCP clients give up on a tool call before that. twin sends progress notifications during these calls, which lets clients that reset their timeout on progress keep waiting. In Claude Code, raise the limit with the `MCP_TOOL_TIMEOUT` environment variable, in milliseconds:
+`replay` and `verify` take about 70 seconds or more (most of it installing dependencies), and `bisect` longer. Some MCP clients give up on a tool call before that. twin sends progress notifications during these calls, which lets clients that reset their timeout on progress keep waiting. In Claude Code, raise the timeout with the `MCP_TOOL_TIMEOUT` environment variable, in milliseconds:
 
 ```sh
 MCP_TOOL_TIMEOUT=600000 claude

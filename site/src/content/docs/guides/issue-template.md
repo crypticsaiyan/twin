@@ -15,7 +15,8 @@ Add this to `.github/ISSUE_TEMPLATE/bug_report.md` (or your equivalent):
 If the bug does not reproduce for us, please run the failing command through twin
 and attach the file it writes (it records versions and variable names, never secrets):
 
-    npx @crypticsaiyan/twincli capture -- <your failing command>
+    npm install -g @crypticsaiyan/twincli
+    twin capture -- <your failing command>
 ````
 
 ## Issue form
@@ -30,7 +31,8 @@ For YAML issue forms (`.github/ISSUE_TEMPLATE/bug_report.yml`), add a field:
         and drag the `twin-capsule.json` it writes into the box below. It records versions,
         the commit, your uncommitted diff and variable names; you review it before it is written.
 
-            npx @crypticsaiyan/twincli capture -- <your failing command>
+            npm install -g @crypticsaiyan/twincli
+            twin capture -- <your failing command>
   - type: textarea
     id: capsule
     attributes:
@@ -49,7 +51,8 @@ We can't reproduce this. Could you run the failing command through twin and atta
 the file it writes? It needs Node 22+, uploads nothing, and shows you everything before
 writing it:
 
-    npx @crypticsaiyan/twincli capture -- <the command that fails>
+    npm install -g @crypticsaiyan/twincli
+    twin capture -- <the command that fails>
 
 If the value of an environment variable might matter and it's not secret, add
 `--include-env NAME`.
