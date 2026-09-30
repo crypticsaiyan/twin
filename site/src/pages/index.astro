@@ -180,6 +180,12 @@ jobs:
     </footer>
 
     <script>
+      const root = document.documentElement;
+      const isDark = () =>
+        root.dataset.theme === 'dark' ||
+        (!root.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      let syncFilm = () => {};
+
       const film = document.querySelector<HTMLElement>('.film');
       const video = film?.querySelector('video');
       if (film && video) {
@@ -221,16 +227,41 @@ jobs:
           if (document.fullscreenElement) void document.exitFullscreen();
           else void film.requestFullscreen?.();
         });
+
+        // The film has a light and a dark cut; the theme picks one, and a switch keeps the position and state.
+        const source = video.querySelector('source') as HTMLSourceElement;
+        const cut = (dark: boolean) => (dark ? 'twin-demo-dark' : 'twin-demo');
+        syncFilm = () => {
+          const dark = isDark();
+          if (film.dataset.cut === (dark ? 'dark' : 'light')) return;
+          const first = film.dataset.cut === undefined;
+          film.dataset.cut = dark ? 'dark' : 'light';
+          const resume = { at: video.currentTime, playing: !video.paused };
+          const from = cut(!dark);
+          const to = cut(dark);
+          video.poster = video.poster.replace(`${from}-poster`, `${to}-poster`);
+          source.src = source.src.replace(`${from}.mp4`, `${to}.mp4`);
+          if (first && !resume.at) {
+            if (dark) video.load();
+            return;
+          }
+          video.load();
+          video.addEventListener(
+            'loadedmetadata',
+            () => {
+              video.currentTime = resume.at;
+              if (resume.playing) void video.play();
+            },
+            { once: true },
+          );
+        };
       }
 
-      const root = document.documentElement;
       const toggle = document.getElementById('theme') as HTMLButtonElement;
-      const isDark = () =>
-        root.dataset.theme === 'dark' ||
-        (!root.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
       const label = () => {
         toggle.textContent = isDark() ? 'Light' : 'Dark';
         toggle.setAttribute('aria-label', isDark() ? 'Switch to light theme' : 'Switch to dark theme');
+        syncFilm();
       };
       label();
       toggle.addEventListener('click', () => {
