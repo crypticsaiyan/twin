@@ -58,6 +58,7 @@ The plan is a pure function of the capsule and the options: an ordered list of s
 | upload and apply candidate fix | only for `verify --patch` |
 | install package manager | `npm install -g <manager>@<captured version>` |
 | install dependencies | `npm ci`, `pnpm install --frozen-lockfile`, `yarn install --frozen-lockfile` (or `--immutable` for Yarn 2+), `bun install --frozen-lockfile`; without a lockfile, a plain install |
+| pin packages to the capsule's versions | npm projects only: lists the installed packages, compares them with the capsule's recorded versions and runs `npm install --no-save <name>@<version>` for the ones that differ; no step when nothing differs |
 | install python dependencies | `uv sync --frozen` with `uv.lock`, else `uv pip install -r requirements.txt`, else `uv pip install -e .` |
 
 The environment for every step and the command:
@@ -77,7 +78,7 @@ The command runs three times by default (`--attempts`). Each attempt gets a sign
 |---|---|
 | `REPRODUCED` | Every attempt ended exactly as the capsule recorded. |
 | `DIFFERENT FAILURE` | Every attempt failed the same way, but not the captured way. |
-| `NOT REPRODUCED` | The capsule recorded a failure; every attempt passed. Replay installs from the lockfile, so it cannot copy freshly resolved dependency versions, the OS, unset values or local files; `twin bisect` applies the capsule's recorded package versions. |
+| `NOT REPRODUCED` | The capsule recorded a failure; every attempt passed. Replay cannot copy the OS, unset values, local files or packages outside npm; run `twin bisect` against a passing capsule. |
 | `FLAKY` | Attempts disagreed with each other. |
 | `INCONCLUSIVE` | A setup step failed, or an attempt timed out. |
 

@@ -113,12 +113,13 @@ Exit `0` on success; `2` unless given exactly two paths; `1` when a file cannot 
 Usage: twin replay <capsule> [options]
 ```
 
-Rebuilds the capsule's environment on a fresh Solari sandbox (same runtime, package manager and lockfile, same commit and diff, same env values and time zone), runs the command and reports whether the failure reproduces. Capsules can be file paths or https URLs, such as GitHub issue attachments.
+Rebuilds the capsule's environment on a fresh Solari sandbox (same runtime, package manager and lockfile, same commit and diff, same env values and time zone), runs the command and reports whether the failure reproduces. For npm projects, packages that the lockfile install holds at other versions than the capsule recorded are installed at the recorded versions first (`--no-pin` skips it). Capsules can be file paths or https URLs, such as GitHub issue attachments.
 
 | Option | Default | Description |
 |---|---|---|
 | `--attempts <n>` | `3` | Runs of the command. |
 | `--keep` | off | Keep the machine running at the failure (then: `twin shell`). Only when the verdict is `REPRODUCED`. |
+| `--no-pin` | off | Do not install the capsule's recorded npm package versions over the lockfile install. |
 | `--repo <url>` | capsule's remote | Clone from here instead of the capsule's remote. |
 | `--ref <sha>` | capsule's commit | Check out this commit instead (skips the diff). |
 | `--env <NAME=value>` | | Value for a variable the capsule recorded by name. Repeatable. |
@@ -170,6 +171,7 @@ Checks a candidate fix in the reporter's environment: rebuilds it on a Solari sa
 | `--patch <file>` | | Unified diff applied on top of the capsule's tree. |
 | `--ref <sha>` | | Check out this commit instead (e.g. a fix branch). |
 | `--repo <url>` | capsule's remote | Clone from here (forks); use with `--ref`. |
+| `--no-pin` | off | Do not install the capsule's recorded npm package versions over the lockfile install. |
 | `--attempts <n>` | `3` | Runs of the command. |
 | `--env <NAME=value>` | | Value for a variable the capsule recorded by name. Repeatable. |
 | `--timeout <minutes>` | `15` | Maximum time per attempt. |

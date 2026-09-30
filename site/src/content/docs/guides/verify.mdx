@@ -66,15 +66,25 @@ The recorded transcript's header reads `Replay on solari`; the current code prin
 
 ## The run without the fix comes first
 
-Before it applies your fix, `twin verify` runs the command once on its own machine, exactly like a replay of the capsule. If that run does not fail the way the capsule recorded, the verdict is `INCONCLUSIVE` and the fix is never tried, because a passing run with the fix would prove nothing.
+Before it applies your fix, `twin verify` runs the command once on its own machine, exactly like a replay of the capsule (including [pinning npm packages](../replay/#pinned-packages) to the capsule's versions). If that run does not fail the way the capsule recorded, the verdict is `INCONCLUSIVE` and the fix is never tried, because a passing run with the fix would prove nothing.
 
-The usual reason is a failure that replay cannot copy. Replay installs dependencies from the repository's lockfile, so a failure that appears only on a fresh install (a newer transitive package, for example) passes here. Use [`twin bisect`](../bisect/) for that kind of failure: it applies the package versions the capsule recorded.
+The usual reason is a failure that replay cannot copy: the OS, a variable recorded by name only, or a dependency manager other than npm. Check the Notes, or run `twin bisect` against a passing capsule.
 
 ```text
 INCONCLUSIVE: the failure did not reproduce without the fix (it passed), so the fix cannot be verified. Replay installs from the lockfile; for a failure that needs freshly resolved dependency versions, use twin bisect.
 ```
 
 The extra run costs one more machine and about as long as one replay attempt plus setup.
+
+## Fixes that change dependencies
+
+The capsule's packages are pinned after the fix is applied and its dependencies are installed. A package the fix names inside `package.json` (an `overrides` entry, a changed dependency range) keeps the version the fix resolves, so a fix like this one verifies as `FIXED`:
+
+```json
+"overrides": { "jsdom": { "lru-cache": "^11.3.2" } }
+```
+
+Every other package is still pinned to the capsule, so a patch that does not touch the cause reports `STILL FAILING`. The [lru-cache case study](../../examples/lru-cache-397/) shows both.
 
 ## Verdicts
 
@@ -96,6 +106,7 @@ A patch that does not apply fails the `apply candidate fix` step, which makes th
 | `--ref <sha>` | | Check out this commit instead (for example a fix branch). |
 | `--repo <url>` | the capsule's remote | Clone from here (forks); use with `--ref`. |
 | `--attempts <n>` | `3` | Runs of the command. |
+| `--no-pin` | off | Do not install the capsule's recorded npm package versions over the lockfile install. |
 | `--env <NAME=value>` | none | Value for a variable the capsule recorded by name only. Repeatable. |
 | `--timeout <minutes>` | `15` | Maximum time per attempt. |
 | `-v, --verbose` | off | Stream the sandbox's output. |

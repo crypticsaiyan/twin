@@ -56,6 +56,7 @@ Rebuild the capsule's environment on a fresh machine and rerun the failing comma
 |---|---|---|---|---|
 | `capsule` | string | yes | | Capsule path or URL. |
 | `keep` | boolean | no | `true` | Keep a reproduced failure running for `run` and `write_file`. |
+| `pin` | boolean | no | `true` | Install the capsule's recorded npm package versions over the lockfile install where they differ. |
 | `attempts` | integer, 1 to 10 | no | `3` | Runs of the command. |
 | `env` | object | no | | Values for variables the capsule recorded by name only, e.g. `{"API_URL": "..."}`. |
 | `ref` | string | no | capsule's commit | Check out this commit instead. |
@@ -106,6 +107,7 @@ Check a candidate fix in the reporter's environment on a **fresh** machine, like
 | `repo` | string | no | capsule's remote | Clone from this URL (forks); use with `ref`. |
 | `attempts` | integer, 1 to 10 | no | `3` | Runs of the command. |
 | `env` | object | no | | Values for variables the capsule recorded by name only. |
+| `pin` | boolean | no | `true` | Install the capsule's recorded npm package versions over the lockfile install where they differ. |
 
 The command first runs once without the fix on its own machine; if it does not fail the captured way, the report is `INCONCLUSIVE` and the fix is not tried. Returns the verify report: `FIXED`, `STILL FAILING`, `DIFFERENT FAILURE`, `FLAKY` or `INCONCLUSIVE`.
 

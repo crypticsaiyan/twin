@@ -28,6 +28,8 @@ Most "works on my machine" bugs are not in the code. The commit is the same; wha
 
 Opening the kept machine with `twin shell --web` gave a browser terminal in `/tmp/twin/repo` with `TZ=America/New_York` and Node 22.23.3, where the test fails with the issue's exact numbers.
 
+A second case where the cause is not a single setting: [`examples/lru-cache-397`](examples/lru-cache-397) is a fresh install that resolved a broken `lru-cache` release buried under `jsdom`. 32 packages differ from the lockfile install; replay installs them at the capsule's versions and reproduces the failure (`REPRODUCED` 3 of 3, 28 s), bisect isolates `lru-cache@11.3.0` (245 s), and `twin verify` reports `FIXED` for a real `overrides` patch and `STILL FAILING` for one that does not touch the cause.
+
 ## For AI coding agents
 
 Coding agents can't fix bugs they can't reproduce, and they report "fixed" after tests pass in their own sandbox, which is not where the bug happens. twin closes both gaps.
@@ -115,6 +117,7 @@ and attach the file it writes (it records versions and variable names, never sec
 | `twin diff <capsule> <other>` | List every environment difference between two capsules |
 | `twin replay <capsule>` | Rebuild the environment on a Solari sandbox, run the command 3 times, report `REPRODUCED`, `DIFFERENT FAILURE`, `NOT REPRODUCED`, `FLAKY` or `INCONCLUSIVE` |
 | `twin replay <capsule> --keep` | Same, and leave a reproduced failure running for `twin shell` |
+| `twin replay <capsule> --no-pin` | Skip installing the capsule's recorded npm package versions over the lockfile install (on by default for npm projects) |
 | `twin bisect <bad> --good <good>` | Smallest set of differences (env values, time zone, node version, npm dependency versions, working tree diff) that turns the passing environment into the failing one |
 | `twin verify <capsule> --patch <file>` | Apply a candidate fix in the reporter's environment: `FIXED`, `STILL FAILING` or `DIFFERENT FAILURE` (after a first run without the fix, so a failure that does not reproduce is `INCONCLUSIVE`). `--ref <sha> --repo <url>` checks a pushed branch instead |
 | `twin shell [id]` | Terminal on a kept machine, in the reporter's environment. Ctrl-] detaches |

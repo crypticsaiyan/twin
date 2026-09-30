@@ -57,7 +57,7 @@ That run used two attempts. The default is three.
 |---|---|---|
 | `REPRODUCED` | Every attempt failed exactly as the capsule recorded. | Keep the machine (`--keep`) and open a shell, bisect against a passing capsule, or verify a fix. |
 | `DIFFERENT FAILURE` | It fails here, but not the way the capsule recorded. | Compare the "Key lines here" and "Key lines in capsule" sections the report prints. Often a missing environment value (see Notes) or a runtime that formats the error differently. |
-| `NOT REPRODUCED` | The command passes on this Linux machine. | Replay installs from the lockfile, so it cannot copy freshly resolved dependency versions, the OS, variables recorded by name only or untracked local files. Check the Notes; supply values with `--env`, or run `twin bisect`, which applies the capsule's recorded package versions. |
+| `NOT REPRODUCED` | The command passes on this Linux machine. | Replay cannot copy the OS, variables recorded by name only, untracked local files, or packages that are not npm packages. Check the Notes; supply values with `--env`, or run `twin bisect` against a passing capsule. |
 | `FLAKY` | Attempts disagreed with each other. | Raise `--attempts` to see how often it fails. |
 | `INCONCLUSIVE` | Setup failed or an attempt timed out. | The failed step is marked `✗` with its exit code and the last 30 lines of its output. See [Troubleshooting](../../reference/troubleshooting/). |
 
@@ -73,6 +73,24 @@ After the verdict, twin lists differences between the reporter's machine and the
 - `The diff was scrubbed for secrets and may not apply cleanly.`
 - `Overridden with --env, so this replay differs from the capsule in: TZ.`
 
+## Pinned packages
+
+Replay installs dependencies from the repository's lockfile. A failure can still come from versions the reporter's install resolved differently, for example a fresh install that picked a newer transitive release. So for npm projects, after the install, replay lists the packages on the machine, compares them with the versions the capsule recorded and installs the ones that differ in one extra step:
+
+```text
+  ✓ install dependencies (npm ci)  9.7s
+  ✓ pin 32 packages to the capsule's versions (@asamuzakjp/css-color@5.1.5, ...)  5.7s
+```
+
+- Only packages that are installed at other versions are pinned. A package missing from the machine is left alone (usually a platform or optional difference).
+- When a package has several new versions recorded, there is no single version to install, so it is skipped and named in the Notes.
+- When nothing differs there is no extra step, and every other package manager is unchanged.
+- `--ref` runs do not pin, because the capsule's packages describe another commit.
+- If a pinned version cannot be installed, the pin step fails and the verdict is `INCONCLUSIVE`; the output above it names the package.
+- `--no-pin` skips it. The report (`--json`) lists the packages under `pinned`.
+
+The [lru-cache case study](../../examples/lru-cache-397/) is a failure that only reproduces with pinning: 32 packages differ from the lockfile install, and replay reproduces it 3 of 3.
+
 ## Options
 
 | Option | Default | What it does |
@@ -80,7 +98,8 @@ After the verdict, twin lists differences between the reporter's machine and the
 | `--attempts <n>` | `3` | Runs of the command. More than one separates reproducible failures from flaky ones. |
 | `--keep` | off | Keep the machine running at the failure when the verdict is `REPRODUCED` (then: `twin shell`). |
 | `--repo <url>` | the capsule's remote | Clone from here instead: a fork, a mirror, or a remote the capsule does not name. |
-| `--ref <sha>` | the capsule's commit | Check out this commit instead. Skips the capsule's working-tree diff. |
+| `--ref <sha>` | the capsule's commit | Check out this commit instead. Skips the capsule's working-tree diff and the package pinning. |
+| `--no-pin` | off | Do not install the capsule's recorded npm package versions over the lockfile install (see [Pinned packages](#pinned-packages)). |
 | `--env <NAME=value>` | none | Value for a variable the capsule recorded by name only. Repeatable. Also overrides recorded values. |
 | `--timeout <minutes>` | `15` | Maximum time per attempt. An attempt that hits it is killed and the verdict is `INCONCLUSIVE`. |
 | `-v, --verbose` | off | Stream the sandbox's output (setup and command) to stderr. |
