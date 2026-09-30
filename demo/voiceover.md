@@ -62,22 +62,31 @@ Claude Code can run the same loop. This is a real session, not a replay. It talk
 It replays the capsule, finds the daylight saving bug, writes a fix, verifies it on a fresh machine, and releases the machine. The waits are sped up, and the real times stay on screen.
 
 ## site@cap0
-Everything is documented on the site, and install is one line.
+This is the twin website.
 
-## site@cap3
+## site@cap1
+Install once with npm, then run twin.
+
+## site@cap2
+There is a short video of the whole loop.
+
+## site@cap4
 Every variable in a capsule is marked: value recorded, name only, or not set.
 
-## site@cap5
+## site@cap6
 Bisect works in stages. Click through them to see the difference isolated.
 
-## site@cap7
+## site@cap8
 For agents, every step is a timed tool call.
 
-## site@cap8
-Then what a capsule holds, where twin fits, and guides for every command.
+## site@cap9
+Here is what a capsule holds, and what it never records.
+
+## site@cap10
+The guides cover every command.
 
 ## summary
 So you get a failure you can reproduce, the one cause, and a fix checked where it failed.
 
 ## close
-Install it with npm. The site is twincli dot vercel dot app. And no machines are left running.
+Install it with npm: npm install dash g, at cryptic saiyan slash twincli. The code is on GitHub, and the site is twincli dot vercel dot app.

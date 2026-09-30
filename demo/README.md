@@ -48,6 +48,15 @@ only needs `assemble.sh`; it never needs a new live run.
 card slot, 250 ms fade, one easing, terminal font 20 px). `render.mjs --check` samples every scene every 0.5 s and
 fails on overlapping blocks, overflowing text or anything outside the safe margin.
 
+## Music-only film, and the voice workflow
+
+`assemble.sh` produces `demo-raw/video-silent.mp4` (picture only) and `demo-out/twin-demo.mp4` (picture plus the
+generated music). Piper is used only to measure clip lengths so the audio drives the timeline, and to make the
+reference `demo-out/audio/mix.wav`. `make-clips.py` regenerates `demo/cues.json` and `demo/clips.md` from the
+built timeline, which is what `add-voice.py` reads. Website changes: re-record the site scene
+(`site-record.mjs`, base `http://127.0.0.1:4321`); the docs page is shown zoomed on its article so the sidebar
+is never in frame.
+
 ## Re-render (no machines)
 
     demo/assemble.sh                 # build.mjs -> render.mjs -> mp4 + gif in demo-out/

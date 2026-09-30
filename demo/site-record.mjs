@@ -123,15 +123,19 @@ T0 = Date.now();
 log.urls.push({ t: 0, url: base + '/' });
 await send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: W, maxHeight: H, everyNthFrame: 1 });
 
-cap('The twin site: install, the ten commands, and a real bug worked end to end.');
+cap('The twin site: one install, ten commands, and a real bug worked end to end.');
 await hold(2.2); // the hero terminal plays its recording
 
-cap('Install with one command. Copy it in one click.');
+cap('Install once with npm, then use the twin command.');
 await zoomTo(await R('.install'), 'install', 110, 2.2);
 await click('.copy', 0.4);
 await hold(1.3); // button reads "Copied"
 await zoomOut();
 await ev('__hideCursor()');
+
+cap('A short video shows the whole loop.');
+await scrollTo('#demo', 1.0, 90);
+await hold(1.3);
 
 cap('Ten commands, one file between them.');
 await scrollTo('#commands', 1.0, 70);
@@ -175,19 +179,24 @@ await hold(1.5);
 await zoomOut();
 await ev('__hideCursor()');
 
-cap('What a capsule holds, and where twin fits.');
+cap('What a capsule holds, and what it never records.');
 await scrollTo('#files', 1.0, 70);
-await hold(1.0);
-await scrollTo('#see-also', 1.0, 70);
-await hold(0.6);
+await hold(1.4);
 await scrollY(99999, 0.9);
 await hold(0.6);
 
-cap('Guides and a CLI reference cover every command.');
+cap('Guides for every command, and a full reference.');
+// The docs sidebar lists pages that are not part of this story, so the docs page is shown zoomed on its article,
+// and the frames between the navigation and the zoom are replaced by the last frame of the home page.
+const navFrom = now();
 await navigate(base + '/guides/replay/');
+await ev(`__zoomTo({ x: 310, y: 110, w: 840, h: 300 }, 0.05, 0, 1.8)`);
+await sleep(200);
+log.cut = { from: navFrom, to: now() };
+log.urls[log.urls.length - 1].t = now();
+await hold(1.4);
+await scrollY(420, 1.1);
 await hold(0.9);
-await scrollY(420, 1.0);
-await hold(0.8);
 
 const total = now();
 await send('Page.stopScreencast');
@@ -198,6 +207,7 @@ const N = Math.floor(total * FPS);
 let k = 0;
 for (let f = 0; f < N; f++) {
   const t = f / FPS;
+  if (log.cut && t >= log.cut.from && t < log.cut.to) { linkSync(`${out}/raw/${String(k).padStart(6, '0')}.jpg`, `${out}/${String(f + 1).padStart(5, '0')}.jpg`); continue; }
   while (k + 1 < shots.length && shots[k + 1] <= t) k++;
   linkSync(`${out}/raw/${String(k).padStart(6, '0')}.jpg`, `${out}/${String(f + 1).padStart(5, '0')}.jpg`);
 }

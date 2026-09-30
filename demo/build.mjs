@@ -305,8 +305,7 @@ add({
 
 // ---- 8. summary and close ----
 add({ id: 'summary', kind: 'summary', title: 'twin gives you', rows: [['1', 'A failure you can reproduce, on a clean machine.'], ['2', 'The one difference that causes it.'], ['3', 'A fix checked where it failed, by you or by an agent.']], dur: Math.max(need('summary'), 5.6) });
-const fin = session(RAW.final, [{ name: null }]);
-add({ id: 'close', kind: 'close', ...fin, caps: [{ t: 0, text: 'no machines left running' }], dur: Math.max(need('close'), 6.0) });
+add({ id: 'close', kind: 'close', dur: Math.max(need('close'), 6.0) });
 
 // ---- timeline: fades meet at the scene edges (one transition everywhere) ----
 let cur = 0;

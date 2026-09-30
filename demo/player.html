@@ -74,10 +74,9 @@ html, body { margin: 0; background: var(--bg); }
 .sum .row { display: flex; align-items: baseline; gap: 44px; margin-top: 44px; }
 .sum .n { font-size: 110px; line-height: 1; width: 70px; }
 .sum .t { font-size: 46px; line-height: 1.25; }
-.close .install { font-size: 42px; margin-top: 70px; }
-.close .lines { font-size: 34px; margin-top: 26px; line-height: 1.5; }
-.close .note { font-size: 22px; margin-top: 30px; }
-.close .mini { width: 820px; height: 210px; position: relative; margin-top: 34px; border: 1px solid var(--t-rule); background: var(--t-bg); overflow: hidden; }
+.close { align-items: center; text-align: center; }
+.close .install { font-size: 56px; margin-top: 90px; }
+.close .lines { font-size: 44px; margin-top: 44px; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -199,14 +198,9 @@ async function init() {
       root.appendChild(a);
     } else if (s.kind === 'close') {
       const a = blk(el('div', 'area close'), 'area');
-      a.appendChild(mkWordmark(200));
+      a.appendChild(mkWordmark(260));
       a.appendChild(el('div', 'install', '<span class="muted">$</span> npm install -g @crypticsaiyan/twincli'));
       a.appendChild(el('div', 'lines muted', 'github.com/crypticsaiyan/twin<br>twincli.vercel.app'));
-      const mini = el('div', 'mini'); const host = el('div'); host.style.padding = '12px 16px'; mini.appendChild(host);
-      s.term = new Terminal({ cols: 64, rows: 5, fontFamily: "'JetBrains Mono'", fontSize: 20, lineHeight: 1.0, theme: THEME, cursorStyle: 'block', disableStdin: true, scrollback: 0 });
-      s.term.open(host); s.idx = 0; s.lastU = -1;
-      a.appendChild(mini);
-      a.appendChild(el('div', 'note muted', 'date-fns #2068 is still open upstream; PR #4140 covers the same function. This demo shows the workflow.'));
       root.appendChild(a); s.cur = a.querySelector('.cur');
     } else if (s.kind === 'term') {
       const win = mkWindow(s, { label: s.label });
