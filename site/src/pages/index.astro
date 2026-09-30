@@ -245,12 +245,12 @@ const patchExcerpt = changed.map((line) => ({
 const steps = [
   {
     title: 'The reporter captures the failure',
-    text: 'twin runs the command as usual and records what it ran in: OS, runtimes, package manager and lockfile hash, installed versions, commit and diff, time zone, environment variable names, and a fingerprint of the failure. Only a short list of variables keeps its value; the rest are names only. Secrets are scrubbed, and the reporter reviews the file before it is written.',
+    text: 'twin runs the command and records the environment: OS, runtimes, package manager, lockfile hash, installed versions, commit, diff, time zone, variable names and a fingerprint of the failure. A short list of variables keeps its value; the rest are names only. Secrets are scrubbed, and the reporter reviews the file before it is written.',
     demo: 'capture',
   },
   {
     title: 'The maintainer replays it',
-    text: 'Same Node, same npm, the exact commit fetched by SHA, npm ci from the lockfile, and the reporter’s time zone. Each attempt is compared with the failure recorded in the capsule.',
+    text: 'Same Node and npm, the exact commit, dependencies from the lockfile, the reporter’s time zone. Each attempt is compared with the recorded failure.',
     demo: 'replay',
     recording: 'replay.txt, recorded on Solari',
     command: 'twin replay new-york.json',
@@ -259,7 +259,7 @@ const steps = [
   },
   {
     title: 'Bisect finds the cause',
-    text: 'Given a capsule from a machine where the test passes, twin compares the two, builds the passing environment, confirms it passes, and applies the differences until the smallest set that fails is left. The stage tabs step through it.',
+    text: 'Given a capsule where the test passes, twin builds that environment and applies the differences until the smallest set that fails is left.',
     demo: 'bisect',
     recording: 'bisect.txt, recorded on Solari',
     command: 'twin bisect new-york.json --good kolkata.json',
@@ -268,7 +268,7 @@ const steps = [
   },
   {
     title: 'Verify checks the fix where it failed',
-    text: 'The patch goes onto a fresh copy of the reporter’s environment, so nothing is pushed first. This run was recorded before verify had its own report header, so it prints “Replay”.',
+    text: 'The patch goes onto a fresh copy of the reporter’s environment. Nothing has to be pushed first.',
     demo: 'verify',
     recording: 'verify.txt, recorded on Solari',
     command: 'twin verify new-york.json --patch fix.patch',
@@ -383,8 +383,6 @@ const lineClass = (line: Line) =>
             <p class="kicker">For open source maintainers and coding agents</p>
             <h1>Reproduce the bug in the environment where it was reported.</h1>
             <p class="lede">
-              Most “works on my machine” bugs aren’t in the code. They’re in a runtime version, a
-              dependency the lockfile resolved differently, an environment variable, the time zone.
               twin records the environment a command failed in, rebuilds it on a clean
               <a href={SOLARI}>Solari</a> sandbox, finds the difference that causes the failure, and
               checks a fix there.
@@ -427,7 +425,7 @@ const lineClass = (line: Line) =>
                 ))
               }
             </dl>
-            <p class="small">Every command has <code>--help</code>. <a href={docs.cli}>Full reference</a></p>
+            <p class="small"><a href={docs.cli}>Full reference</a></p>
           </div>
         </div>
       </section>
@@ -438,10 +436,9 @@ const lineClass = (line: Line) =>
           <div class="body split">
             <h2 id="example-title">A real bug, start to finish</h2>
             <p class="intro">
-              <a href={ISSUE}>apache/echarts#21538</a> is an open issue: a date test fails in time zones
-              with daylight saving time and passes everywhere else, so a maintainer in Kolkata can’t see
-              it. Everything below is read from the <a href={EXAMPLE}>capsules and recorded runs</a>;
-              the terminals play the recordings back faster than they ran.
+              <a href={ISSUE}>apache/echarts#21538</a>: a date test fails in daylight-saving time zones,
+              so a maintainer in Kolkata can’t see it. Everything below comes from the
+              <a href={EXAMPLE}>capsules and recorded runs</a>, played back faster than they ran.
             </p>
             <ol class="steps">
               {
@@ -584,14 +581,12 @@ const lineClass = (line: Line) =>
             <div class="pair">
               <div class="pair-text">
                 <p>
-                  An agent asked to fix #21538 runs the tests on its own machine, they pass, and it has
-                  nothing to work with. twin’s MCP server lets it replay the failure, run commands in the
-                  kept machine with the reporter’s env, PATH, time zone and working directory, try a
-                  change, and verify the final diff on a fresh machine.
+                  An agent fixing #21538 runs the tests on its own machine, they pass, and it has nothing
+                  to work with. twin’s MCP server lets it replay the failure, run commands in the
+                  reporter’s environment, try a change, and verify the final diff on a fresh machine.
                 </p>
                 <p class="small">
-                  The session shown here is a recorded run of a scripted client. Select a call to see
-                  what it returned. <a href={docs.agents}>Agent guide</a>
+                  Recorded session. Select a call to see its result. <a href={docs.agents}>Agent guide</a>
                 </p>
               </div>
               <div class="stack">
@@ -641,9 +636,8 @@ const lineClass = (line: Line) =>
               <div class="pair-text">
                 <h3>Check the pull request where the bug happens</h3>
                 <p>
-                  The GitHub Action finds the capsule on the issue a pull request closes, verifies the
-                  head commit in the reporter’s environment, and comments the verdict. The check fails
-                  unless the bug is fixed.
+                  The GitHub Action verifies each pull request in the reporter’s environment and comments
+                  the verdict. The check fails unless the bug is fixed.
                 </p>
                 <p class="small"><a href={docs.action}>Action reference</a></p>
               </div>
@@ -669,8 +663,7 @@ jobs:
           <div class="body split">
             <h2 id="files">What a capsule holds</h2>
             <p class="intro">
-              <code>twin-capsule.json</code> is a few kilobytes, attached to the issue by the reporter.
-              They see a summary, and the full JSON if they want, before anything is written.
+              <code>twin-capsule.json</code> is a few kilobytes. The reporter reviews it before it is written.
             </p>
             <div class="cols">
               <div>
@@ -727,25 +720,6 @@ jobs:
         </div>
       </section>
 
-      <section class="band" aria-labelledby="limits">
-        <div class="col sec">
-          <div class="rail"><p><span>06</span> Bugs</p></div>
-          <div class="body split">
-            <h2 id="limits">Limits</h2>
-            <p>
-              Replay runs on Linux only. A macOS or Windows capsule is replayed with the same versions on
-              Linux, and if it passes there, that points at the OS. Bisect varies env values, time zone,
-              Node version, npm dependency versions and the working-tree diff.
-              <a href={docs.limits}>All limits</a>
-            </p>
-            <p>
-              Each run gets its own Solari sandbox, streamed with a real timeout and released with a
-              confirmed kill. At about $0.125 per sandbox-hour, the runs above cost a fraction of a cent
-              each. Building twin also turned up <a href={docs.solari}>platform behavior worth knowing</a>.
-            </p>
-          </div>
-        </div>
-      </section>
     </main>
 
     <footer class="band band-foot">
@@ -754,6 +728,7 @@ jobs:
         <span>MIT license</span>
         <a href={REPO}>GitHub</a>
         <a href={docs.intro}>Docs</a>
+        <a href={docs.limits}>Limits</a>
       </div>
     </footer>
 
@@ -883,6 +858,12 @@ jobs:
     border: 1px solid var(--twin-rule);
     background: var(--twin-bg);
     padding: 0.25rem 0.65rem;
+  }
+
+  /* "Dark" and "Light" differ in width; a fixed width keeps the header from shifting. */
+  #theme {
+    min-width: 4.25rem;
+    text-align: center;
   }
 
   #theme:hover,
