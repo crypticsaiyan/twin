@@ -115,7 +115,7 @@ Environment variables are recorded by name only. Values are kept for a short all
 - `sandboxes.connect` to re-attach from any computer, and to give an agent a kept machine.
 - Every `kill()` is confirmed with `get()` before it counts, and Ctrl-C releases live machines before exiting.
 
-A replay costs a fraction of a cent. Platform behavior measured while building twin is in [DESIGN.md](DESIGN.md).
+A replay costs a fraction of a cent. Platform behavior measured while building twin is in [DESIGN.md](https://github.com/crypticsaiyan/twin/blob/main/DESIGN.md).
 
 ## Development
 
@@ -127,7 +127,7 @@ pnpm build                      # compile to dist/
 pnpm e2e:docker <capsule.json>  # replay in a local Docker container, no key needed
 ```
 
-Every Solari call goes through a small `Backend` interface, so the unit tests run against an in-memory fake. The website lives in [`site/`](site).
+Every Solari call goes through a small `Backend` interface, so the unit tests run against an in-memory fake. The website source is in [`site/`](https://github.com/crypticsaiyan/twin/tree/main/site).
 
 ## License
 

@@ -18,5 +18,5 @@ mkdir -p "$target"
 # because contributions to the cookbook fall under its Apache-2.0 license. The website is published
 # from this repo and is not part of the example.
 cd "$root"
-git ls-files -z | grep -zvE '^(\.github/|LICENSE$|site/)' | rsync -a --from0 --files-from=- ./ "$target/"
+git ls-files -z | grep -zvE '^(\.github/|LICENSE$|DESIGN\.md$|site/)' | rsync -a --from0 --files-from=- ./ "$target/"
 echo "synced $(git rev-parse --short HEAD) into $target"
