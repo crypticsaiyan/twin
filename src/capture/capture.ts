@@ -1,3 +1,4 @@
+import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CAPSULE_VERSION, type Capsule, type ResolvedDeps } from '../capsule/schema.ts';
 import type { Host } from '../host.ts';
@@ -48,7 +49,9 @@ export async function capture(
   host: Host,
   hooks: CaptureHooks,
 ): Promise<CaptureResult> {
-  const cwd = resolve(request.cwd);
+  // git reports its root with symlinks resolved (macOS /var is /private/var), so the working
+  // directory must be resolved too or its path relative to the root comes out as ../../..
+  const cwd = await realpath(resolve(request.cwd)).catch(() => resolve(request.cwd));
   const redactor = new Redactor({ homeDir: host.homeDir });
   hooks.onProgress?.('collecting environment');
 
