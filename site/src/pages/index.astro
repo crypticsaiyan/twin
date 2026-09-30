@@ -2,14 +2,7 @@
 import '@fontsource-variable/jetbrains-mono';
 import '@fontsource/doto/900.css';
 import '../styles/tokens.css';
-import kolkataCapsule from '../../../examples/echarts-21538/kolkata.json';
-import newYorkCapsule from '../../../examples/echarts-21538/new-york.json';
-import bisectLog from '../../../examples/echarts-21538/bisect.txt?raw';
-import fixPatch from '../../../examples/echarts-21538/fix.patch?raw';
-import mcpLog from '../../../examples/echarts-21538/mcp.txt?raw';
-import replayLog from '../../../examples/echarts-21538/replay.txt?raw';
-import verifyLog from '../../../examples/echarts-21538/verify.txt?raw';
-import { EXAMPLE, ISSUE, link, REPO, SOLARI } from '../site';
+import { link, REPO, SOLARI } from '../site';
 
 const title = 'twin';
 const description =
@@ -28,274 +21,22 @@ const docs = {
   caseStudy: link('examples/echarts-21538/'),
 };
 
-const escape = (text: string) =>
-  text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-
-/** Semantic color for recorded output: failures red, passes green, prompts and timings dim. */
-function paint(text: string): string {
-  return text
-    .trimEnd()
-    .split('\n')
-    .map((line) => {
-      let html = escape(line);
-      if (/^(\$|&gt;&gt;&gt;) /.test(html)) return `<span class="t-cmd">${html}</span>`;
-      if (/^(&lt;&lt;&lt;|\s+\.\.\. )/.test(html)) return `<span class="t-dim">${html}</span>`;
-      html = html
-        .replace(/^(REPRODUCED|STILL FAILING)(:.*)$/, '<span class="t-bad t-strong">$1</span>$2')
-        .replace(/^(FIXED)(:.*)$/, '<span class="t-good t-strong">$1</span>$2')
-        .replaceAll('✓', '<span class="t-good">✓</span>')
-        .replaceAll('✕', '<span class="t-bad">✕</span>')
-        .replace(/\b(FAIL)\b/g, '<span class="t-bad">$1</span>')
-        .replace(/\b(PASS|pass)\b/g, '<span class="t-good">$1</span>');
-      return html;
-    })
-    .join('\n');
-}
-
-/** Sandbox ids run to ~190 characters; the page shows their start. */
-const shortenIds = (text: string) =>
-  text.replace(/\b([A-Za-z0-9_-]{16})[A-Za-z0-9_.-]{40,}/g, '$1…');
-const lines = (text: string) => text.split('\n');
-const lineStarting = (text: string, prefix: string) =>
-  lines(text).find((line) => line.startsWith(prefix)) ?? '';
-
-/**
- * One line of a terminal on this page. The server renders every line in its final state;
- * the script only uses the data attributes to play it back (see src/scripts/demos.ts).
- * `pending` is what the line shows while its step runs, `seconds` the recorded duration.
- */
-type Line = {
-  html: string;
-  type?: string;
-  pending?: string;
-  seconds?: number;
-  verdict?: boolean;
-  stage?: number;
-  ref?: string;
-};
-
-const blank = (stage?: number): Line => ({ html: ' ', stage });
-const command = (text: string, stage?: number): Line => ({ html: paint(text), type: text, stage });
-
-/** A recorded report, split so step and attempt lines can be shown running, then done. */
-function report(log: string): Line[] {
-  return lines(log.trimEnd()).map((raw) => {
-    if (!raw.trim()) return blank();
-    const step = raw.match(/^ {2}✓ (.+?) {2}([\d.]+)s$/);
-    if (step) {
-      const ref = /candidate fix/.test(step[1]) ? step[1].split(' ')[0] : undefined;
-      return { html: paint(raw), pending: escape(`  … ${step[1]}`), seconds: Number(step[2]), ref };
-    }
-    const attempt = raw.match(/^ {2}(\d+) {2}(?:FAIL|PASS).* {2}([\d.]+)s$/);
-    if (attempt) {
-      return { html: paint(raw), pending: escape(`  ${attempt[1]}  …`), seconds: Number(attempt[2]) };
-    }
-    return { html: paint(raw), verdict: /^(REPRODUCED|FIXED|STILL FAILING):/.test(raw) };
-  });
-}
-
-// Step 1, capture: the reporter's capsule, field by field, straight from new-york.json.
-type EnvEntry = { state: string; value?: string };
-const ny = newYorkCapsule as typeof newYorkCapsule & { env: Record<string, EnvEntry> };
-const good = kolkataCapsule as typeof kolkataCapsule & { env: Record<string, EnvEntry> };
-const lockfile = ny.packageManagers[0];
-const envList = Object.entries(ny.env);
-const envKept = envList.filter(([, entry]) => entry.state === 'set' && entry.value !== undefined);
-const envNamed = envList.filter(([, entry]) => entry.state === 'set' && entry.value === undefined);
-const envAbsent = envList.filter(([, entry]) => entry.state === 'absent').map(([name]) => name);
-const packageCount = Object.keys(ny.resolved.node).length;
-
-const capsule: { group: string; rows: [string, string, string?][] }[] = [
-  {
-    group: 'command',
-    rows: [
-      ['argv', ny.command.argv.join(' ')],
-      ['outcome', `${ny.command.outcome}, exit ${ny.command.exitCode}, ${ny.command.durationMs} ms`],
-      ['signature', ny.command.failure?.signature ?? ''],
-    ],
-  },
-  {
-    group: 'system',
-    rows: [
-      ['os', `${ny.os.platform} ${ny.os.arch}, ${ny.os.distro}, ${ny.os.libc} ${ny.os.libcVersion}`],
-      ['time zone', `${ny.locale.timeZone}, ${ny.locale.locale}`],
-    ],
-  },
-  {
-    group: 'toolchain',
-    rows: [
-      ['node', ny.runtimes.node],
-      [lockfile.name, `${lockfile.version}, ${lockfile.lockfile}`],
-      ['lockfile', `sha256 ${lockfile.lockfileSha256.slice(0, 16)}…`],
-      ['packages', `${packageCount} installed, versions recorded`],
-    ],
-  },
-  {
-    group: 'repository',
-    rows: [
-      ['remote', ny.repo.remote.replace(/^https:\/\//, '')],
-      ['commit', `${ny.repo.commit.slice(0, 12)} on ${ny.repo.branch}`],
-      [
-        'diff',
-        `${ny.repo.dirty ? 'uncommitted changes' : 'clean'}, ${ny.repo.untracked.length || 'no'} untracked`,
-      ],
-    ],
-  },
-  {
-    group: 'environment',
-    rows: [
-      ...envKept.map(([name, entry]): [string, string, string] => [name, entry.value ?? '', 'value recorded']),
-      ...envNamed.map(([name]): [string, string, string] => [name, 'set', 'name only']),
-      [
-        `${envAbsent.length} more`,
-        `${envAbsent.filter((name) => /^(CI|NODE_ENV|NODE_OPTIONS)$/.test(name)).join(', ')}, …`,
-        'not set',
-      ],
-    ],
-  },
-];
-
-// Step 3, bisect: what bisect varies, compared between the two capsules.
-const describeDiff = (capsuleRepo: typeof ny.repo) =>
-  capsuleRepo.dirty ? 'uncommitted changes' : 'clean';
-const unset = (capsuleEnv: Record<string, EnvEntry>) =>
-  Object.entries(capsuleEnv)
-    .filter(([, entry]) => entry.state === 'absent')
-    .map(([name]) => name)
-    .join(',');
-const bisectRows = [
-  ['node', good.runtimes.node, ny.runtimes.node, good.runtimes.node === ny.runtimes.node],
-  [
-    'npm packages',
-    `${Object.keys(good.resolved.node).length} installed`,
-    `${packageCount} installed`,
-    JSON.stringify(good.resolved) === JSON.stringify(ny.resolved),
-  ],
-  ['git diff', describeDiff(good.repo), describeDiff(ny.repo), good.repo.diff === ny.repo.diff],
-  ...['LANG', 'TZ'].map((name) => [
-    name,
-    good.env[name]?.value ?? 'not set',
-    ny.env[name]?.value ?? 'not set',
-    good.env[name]?.value === ny.env[name]?.value,
-  ]),
-  [
-    `${envAbsent.length} others`,
-    'not set',
-    'not set',
-    unset(good.env) === unset(ny.env),
-  ],
-] as [string, string, string, boolean][];
-
-/** The bisect transcript, in the four stages the demo steps through. */
-function bisectStages(log: string): Line[] {
-  let stage = 1;
-  const out: Line[] = [command('$ twin bisect new-york.json --good kolkata.json', 0)];
-  for (const raw of lines(log.trimEnd())) {
-    if (raw.startsWith('Trials')) stage = 2;
-    if (/^ +2 {2}/.test(raw)) stage = 3;
-    if (raw.startsWith('Minimal failing')) stage = 4;
-    const trial = raw.match(/^ +(\d+) {2}(?:pass|FAIL) /);
-    out.push(
-      raw.trim()
-        ? {
-            html: paint(raw),
-            stage,
-            pending: trial ? escape(`   ${trial[1]}  …`) : undefined,
-            seconds: trial ? Number(raw.match(/([\d.]+)s$/)?.[1]) : undefined,
-          }
-        : blank(stage),
-    );
-  }
-  // A blank line belongs to the stage of the line after it.
-  for (let index = out.length - 2; index >= 0; index--) {
-    if (out[index].html === ' ') out[index].stage = out[index + 1].stage;
-  }
-  return out;
-}
-
-// Step 4, verify: the candidate fix, as a short excerpt of fix.patch.
-const patchLines = lines(fixPatch.trimEnd());
-const patchFile = patchLines.find((line) => line.startsWith('+++ '))?.replace(/^\+\+\+ b\//, '') ?? '';
-const patchAdded = patchLines.filter((line) => /^\+(?!\+\+)/.test(line)).length;
-const patchRemoved = patchLines.filter((line) => /^-(?!--)/.test(line)).length;
-const hunk = patchLines.slice(patchLines.findIndex((line) => line.startsWith('@@')) + 1);
-const firstChange = hunk.findIndex((line) => /^[-+]/.test(line));
-const changed = hunk.slice(firstChange, hunk.findIndex((line, index) => index > firstChange && /^ /.test(line)));
-const indent = Math.min(...changed.map((line) => line.slice(1).match(/^ */)?.[0].length ?? 0));
-const patchExcerpt = changed.map((line) => ({
-  sign: line[0],
-  text: line.slice(1 + indent),
-}));
-
 const steps = [
-  {
-    title: 'The reporter captures the failure',
-    text: 'twin runs the command and records the environment: OS, runtimes, package manager, lockfile hash, installed versions, commit, diff, time zone, variable names and a fingerprint of the failure. A short list of variables keeps its value; the rest are names only. Secrets are scrubbed, and the reporter reviews the file before it is written.',
-    demo: 'capture',
-  },
-  {
-    title: 'The maintainer replays it',
-    text: 'Same Node and npm, the exact commit, dependencies from the lockfile, the reporter’s time zone. Each attempt is compared with the recorded failure.',
-    demo: 'replay',
-    recording: 'replay.txt, recorded on Solari',
-    command: 'twin replay new-york.json',
-    time: '72 s',
-    lines: [command('$ twin replay new-york.json'), ...report(replayLog)],
-  },
-  {
-    title: 'Bisect finds the cause',
-    text: 'Given a capsule where the test passes, twin builds that environment and applies the differences until the smallest set that fails is left.',
-    demo: 'bisect',
-    recording: 'bisect.txt, recorded on Solari',
-    command: 'twin bisect new-york.json --good kolkata.json',
-    time: '69 s',
-    lines: bisectStages(bisectLog),
-  },
-  {
-    title: 'Verify checks the fix where it failed',
-    text: 'The patch goes onto a fresh copy of the reporter’s environment. Nothing has to be pushed first.',
-    demo: 'verify',
-    recording: 'verify.txt, recorded on Solari',
-    command: 'twin verify new-york.json --patch fix.patch',
-    time: '71 s',
-    lines: [command('$ twin verify new-york.json --patch fix.patch'), ...report(verifyLog)],
-  },
+  ['capture', 'twin capture -- <command>', 'Run the command and record the environment it failed in.'],
+  ['replay', 'twin replay <capsule>', 'Rebuild it on a clean Solari sandbox and rerun the command.'],
+  ['bisect', 'twin bisect <bad> --good <good>', 'Find the smallest difference that makes it fail.'],
+  ['verify', 'twin verify <capsule> --patch <file>', 'Check a fix in the reporter’s environment.'],
 ];
 
-// The agent session: one entry per MCP tool call, with the recorded time each took.
-const sessionSeconds = Number(mcpLog.match(/^session (\d+) s$/m)?.[1]);
-const calls = mcpLog
-  .split(/^>>> /m)
-  .slice(1)
-  .map((block) => {
-    const body = lines(block.replace(/\nsession \d+ s\s*$/, '').trimEnd());
-    const name = body[0].split(' ')[0];
-    const doneAt = body.findIndex((line) => line.startsWith('<<< '));
-    const seconds = Number(body[doneAt].match(/^<<< (\d+) s/)?.[1]);
-    const output = body.slice(doneAt + 1);
-    const key =
-      [...output]
-        .reverse()
-        .find((line) => /^(REPRODUCED|FIXED):|^Tests:|^wrote |^released |^ {2}result /.test(line)) ?? '';
-    return {
-      name,
-      seconds,
-      key: paint(shortenIds(key.trim().replace(/ {2,}/g, ' '))),
-      detail: paint(shortenIds(`>>> ${body.join('\n')}`)),
-    };
-  });
-const callSeconds = calls.reduce((sum, call) => sum + call.seconds, 0);
-const shownCall = calls.findIndex((call) => call.name === 'verify');
-if (callSeconds !== sessionSeconds) {
-  throw new Error(`mcp.txt: calls add up to ${callSeconds} s, the session says ${sessionSeconds} s`);
-}
-
-
-/** Time zone names may wrap after their slash on a phone, never inside a word. */
-const breakable = (text: string) => escape(text).replaceAll('/', '/<wbr>');
-
-const lineClass = (line: Line) =>
-  ['ln', line.html === ' ' && 'blank', line.type && 'typed', line.verdict && 'verdict'].filter(Boolean).join(' ');
+const mcp = 'claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twincli mcp';
+const action = `on: pull_request
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: crypticsaiyan/twin@main
+        with:
+          solari-api-key: \${{ secrets.SOLARI_API_KEY }}`;
 ---
 
 <!doctype html>
@@ -373,243 +114,58 @@ const lineClass = (line: Line) =>
         </div>
       </section>
 
-      <section class="band" id="example" aria-labelledby="example-title">
+      <section class="band" aria-labelledby="flow">
         <div class="col sec">
-          <div class="rail"><p><span>01</span> Example</p></div>
+          <div class="rail"><p>How it works</p></div>
           <div class="body split">
-            <h2 id="example-title">A real bug, start to finish</h2>
-            <p class="intro">
-              <a href={ISSUE}>apache/echarts#21538</a>: a date test fails in daylight-saving time zones,
-              so a maintainer in Kolkata can’t see it. Everything below comes from the
-              <a href={EXAMPLE}>capsules and recorded runs</a>, played back faster than they ran.
-            </p>
-            <div class="tour" data-tour>
-              <ol class="tour-nav">
-                {
-                  steps.map((step, index) => (
-                    <li>
-                      <button type="button" class="tour-step" aria-pressed={index === 0 ? 'true' : 'false'} data-step={index}>
-                        <span class="step-no">Step {index + 1}</span>
-                        <span class="tour-title">{step.title}</span>
-                        <span class="tour-text">{step.text}</span>
-                      </button>
-                    </li>
-                  ))
-                }
-              </ol>
-              <div class="tour-stage">
-                {
-                  steps.map((step, index) => (
-                    <div class="tour-panel" data-panel={index} hidden={index !== 0}>
-                    {step.demo === 'capture' && (
-                        <figure class="term" data-demo="capture">
-                          <figcaption>
-                            <code>new-york.json</code>
-                            <span class="cap-meta">
-                              <span class="time">{ny.generator}</span>
-                              <button type="button" class="again" hidden>Play again</button>
-                            </span>
-                          </figcaption>
-                          <div class="tabs" role="group" aria-label="Capsule sections">
-                            {capsule.map(({ group }) => (
-                              <button type="button" data-group={group} aria-pressed="false">
-                                {group}
-                              </button>
-                            ))}
-                          </div>
-                          <dl class="capsule">
-                            {capsule.map(({ group, rows }) =>
-                              rows.map(([key, value, note], row) => (
-                                <div class={row === 0 ? 'cap-row group-start' : 'cap-row'} data-group={group} data-note={note}>
-                                  <dt>{key}</dt>
-                                  <dd>
-                                    <span class="cap-value">{value}</span>
-                                    {note && <span class="cap-note">{note}</span>}
-                                  </dd>
-                                </div>
-                              )),
-                            )}
-                          </dl>
-                        </figure>
-                      )}
-
-                      {step.demo === 'replay' && (
-                        <figure class="term" data-demo="stream">
-                          <figcaption>
-                            <code>{step.recording}</code>
-                            <span class="cap-meta">
-                              <span class="time">{step.time}</span>
-                              <button type="button" class="again" hidden>Play again</button>
-                            </span>
-                          </figcaption>
-                          <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
-                        </figure>
-                      )}
-
-                      {step.demo === 'bisect' && (
-                        <figure class="term" data-demo="bisect" data-stage="4">
-                          <figcaption>
-                            <code>{step.recording}</code>
-                            <span class="cap-meta">
-                              <span class="time">{step.time}</span>
-                              <button type="button" class="again" hidden>Play again</button>
-                            </span>
-                          </figcaption>
-                          <div class="tabs" role="group" aria-label="Bisect stages">
-                            {['compare', 'trial 1', 'trial 2', 'result'].map((label, index) => (
-                              <button type="button" data-stage={index + 1} aria-pressed={index === 3 ? 'true' : 'false'}>
-                                <span class="tab-no">{index + 1}</span> {label}
-                              </button>
-                            ))}
-                          </div>
-                          <div class="table-scroll">
-                            <table class="compare">
-                              <thead>
-                                <tr>
-                                  <th scope="col">varied by bisect</th>
-                                  <th scope="col">
-                                    kolkata.json <span class="t-good">{good.command.outcome}</span>
-                                  </th>
-                                  <th scope="col">
-                                    new-york.json <span class="t-bad">{ny.command.outcome.toUpperCase()}</span>
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {bisectRows.map(([key, left, right, same]) => (
-                                  <tr class={same ? 'same' : 'differs'}>
-                                    <th scope="row">
-                                      <span class="rel" aria-hidden="true">{same ? '=' : '≠'}</span>
-                                      {key}
-                                    </th>
-                                    <td data-t1 data-t2={same ? '' : undefined} set:html={breakable(left)} />
-                                    <td data-t2={same ? undefined : ''} set:html={breakable(right)} />
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-stage={line.stage} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} set:html={line.html} />)}</code></pre>
-                        </figure>
-                      )}
-
-                      {step.demo === 'verify' && (
-                        <figure class="term" data-demo="stream">
-                          <figcaption>
-                            <code>{step.recording}</code>
-                            <span class="cap-meta">
-                              <span class="time">{step.time}</span>
-                              <button type="button" class="again" hidden>Play again</button>
-                            </span>
-                          </figcaption>
-                          <div class="patch" data-state="applied">
-                            <p class="patch-head">
-                              <span>fix.patch</span>
-                              <span class="patch-file">{patchFile}</span>
-                              <span>
-                                <span class="t-good">+{patchAdded}</span> <span class="t-bad">-{patchRemoved}</span>
-                              </span>
-                              <span class="patch-state" aria-live="polite">applied</span>
-                            </p>
-                            <pre><code>{patchExcerpt.map(({ sign, text }) => <span class={`ln ${sign === '+' ? 'add' : 'del'}`}><span class="sign">{sign}</span>{text}</span>)}</code></pre>
-                          </div>
-                          <pre><code>{step.lines?.map((line) => <span class={lineClass(line)} data-type={line.type} data-pending={line.pending} data-seconds={line.seconds} data-ref={line.ref} set:html={line.html} />)}</code></pre>
-                        </figure>
-                      )}
-                    </div>
-                  ))
-                }
-              </div>
-            </div>
+            <h2 id="flow">Four commands, one file between them</h2>
+            <ol class="flow">
+              {
+                steps.map(([name, cmd, what]) => (
+                  <li>
+                    <code>{cmd}</code>
+                    <p>{what}</p>
+                  </li>
+                ))
+              }
+            </ol>
+            <p class="small"><a href={docs.cli}>Full reference</a></p>
           </div>
         </div>
       </section>
 
       <section class="band" aria-labelledby="agents">
         <div class="col sec">
-          <div class="rail"><p><span>02</span> Agents</p></div>
+          <div class="rail"><p>For agents</p></div>
           <div class="body split">
             <h2 id="agents">Give coding agents the reporter’s machine</h2>
-            <div class="pair">
-              <div class="pair-text">
+            <div class="agents">
+              <div>
                 <p>
-                  An agent fixing #21538 runs the tests on its own machine, they pass, and it has nothing
-                  to work with. twin’s MCP server lets it replay the failure, run commands in the
-                  reporter’s environment, try a change, and verify the final diff on a fresh machine.
+                  twin’s MCP server lets an agent replay the failure, run commands in the reporter’s
+                  environment, and verify its diff on a fresh machine.
                 </p>
-                <p class="small">
-                  Recorded session. Select a call to see its result. <a href={docs.agents}>Agent guide</a>
-                </p>
-              </div>
-              <div class="stack">
+                <p class="small"><a href={docs.agents}>Agent guide</a></p>
                 <figure class="term">
                   <figcaption><span>Add to Claude Code</span></figcaption>
-                  <pre><code><span class="t-dim">$</span> claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twincli mcp</code></pre>
-                </figure>
-                <figure class="term" data-demo="agents" data-selected={shownCall}>
-                  <figcaption>
-                    <span>MCP session, ids shortened</span>
-                    <span class="cap-meta">
-                      <span class="time">{sessionSeconds} s</span>
-                      <button type="button" class="again" hidden>Play again</button>
-                    </span>
-                  </figcaption>
-                  <div class="timeline" aria-hidden="true">
-                    <div class="track">
-                      {calls.map((call, index) => (
-                        <span class="seg" data-i={index} style={`flex-grow: ${call.seconds}`} title={`${call.name}, ${call.seconds} s`}>
-                          <span class="fill"></span>
-                          {call.seconds >= 30 && <span class="seg-label">{call.name}</span>}
-                        </span>
-                      ))}
-                    </div>
-                    <div class="scale"><span>0 s</span><span>{sessionSeconds} s</span></div>
-                  </div>
-                  <ol class="calls">
-                    {calls.map((call, index) => (
-                      <li class="call" data-i={index}>
-                        <button type="button" aria-pressed={index === shownCall ? 'true' : 'false'}>
-                          <span class="call-name">{call.name}</span>
-                          <span class="call-key" set:html={call.key} />
-                          <span class="call-time">{call.seconds} s</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                  <div class="call-out">
-                    {calls.map((call, index) => (
-                      <pre data-i={index} hidden={index !== shownCall}><code set:html={call.detail} /></pre>
-                    ))}
-                  </div>
+                  <pre><code><span class="t-dim">$</span> {mcp}</code></pre>
                 </figure>
               </div>
-            </div>
-            <div class="pair">
-              <div class="pair-text">
-                <h3>Check the pull request where the bug happens</h3>
+              <div>
                 <p>
-                  The GitHub Action verifies each pull request in the reporter’s environment and comments
-                  the verdict. The check fails unless the bug is fixed.
+                  The GitHub Action verifies each pull request in the reporter’s environment and fails
+                  unless the bug is fixed.
                 </p>
                 <p class="small"><a href={docs.action}>Action reference</a></p>
+                <figure class="term">
+                  <figcaption><code>.github/workflows/twin.yml</code></figcaption>
+                  <pre><code>{action}</code></pre>
+                </figure>
               </div>
-              <figure class="term">
-                <figcaption><code>.github/workflows/twin.yml</code></figcaption>
-                <pre><code>{`on: pull_request
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: crypticsaiyan/twin@main
-        with:
-          solari-api-key: \${{ secrets.SOLARI_API_KEY }}`}</code></pre>
-              </figure>
             </div>
           </div>
         </div>
       </section>
-
-
     </main>
 
     <footer class="band band-foot">
@@ -624,8 +180,6 @@ jobs:
     </footer>
 
     <script>
-      import '../scripts/demos';
-
       const film = document.querySelector<HTMLElement>('.film');
       const video = film?.querySelector('video');
       if (film && video) {
@@ -1127,74 +681,6 @@ jobs:
     }
   }
 
-  /* The example tour: step list on the left, one stage on the right. */
-  .tour {
-    display: grid;
-    gap: 2rem 4rem;
-    margin-top: 2.5rem;
-    align-items: start;
-  }
-
-  .tour-nav {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    border-top: 1px solid var(--twin-rule);
-  }
-
-  .tour-nav li {
-    margin: 0;
-    border-bottom: 1px solid var(--twin-rule);
-  }
-
-  .tour-step {
-    display: grid;
-    gap: 0.35rem;
-    width: 100%;
-    padding: 1rem 0;
-    background: none;
-    border: 0;
-    color: var(--twin-text-muted);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .tour-step:hover,
-  .tour-step[aria-pressed='true'] {
-    color: var(--twin-text);
-  }
-
-  .tour-title {
-    font-family: var(--twin-font-mark);
-    font-weight: 900;
-    font-size: 1.05rem;
-    line-height: 1.35;
-  }
-
-  .tour-text {
-    display: none;
-    font-size: 0.875rem;
-    line-height: 1.75;
-    color: var(--twin-text-muted);
-  }
-
-  .tour-step[aria-pressed='true'] .tour-text {
-    display: block;
-  }
-
-  .tour-stage {
-    min-width: 0;
-    min-height: 34rem;
-  }
-
-  @media (min-width: 64rem) {
-    .tour {
-      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
-    }
-  }
-
   /* The demo film: the site's own controls, square and hairline, in place of the browser's. */
   .film {
     position: relative;
@@ -1326,13 +812,14 @@ jobs:
   }
 
   @media (max-width: 40rem) {
+    .film-big,
     .film-mute,
     .film-time {
       display: none;
     }
   }
 
-  /* Terminals and demo cards: square and hairline. */
+  /* Command snippets: square and hairline. */
   .term {
     margin: 0;
     min-width: 0;
@@ -1342,11 +829,9 @@ jobs:
 
   .term figcaption {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 1rem;
     min-height: 2.5rem;
-    padding: 0.4rem 0.6rem 0.4rem 1rem;
+    padding: 0.4rem 1rem;
     background: var(--twin-code-head);
     border-bottom: 1px solid var(--twin-rule);
     font: 500 0.75rem/1.4 var(--twin-font-mono);
@@ -1354,483 +839,76 @@ jobs:
   }
 
   .term figcaption code {
+    padding: 0;
+    background: none;
+    border: 0;
     color: var(--twin-text);
     font-size: inherit;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  .cap-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex: none;
-  }
-
-  .term .time {
-    flex: none;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .again {
-    padding: 0.1rem 0.5rem;
-    font-size: 0.7rem;
-    background: var(--twin-code);
   }
 
   .term pre {
     margin: 0;
     padding: 1rem;
-    overflow-x: auto;
-    /* Long lines wrap instead of scrolling; indentation still shows the structure. */
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font: 400 0.78rem/1.6 var(--twin-font-mono);
-    scrollbar-width: thin;
   }
 
   .term pre code {
     font-size: inherit;
   }
 
-  .ln {
+  .t-dim {
+    color: var(--twin-text-muted);
+  }
+
+  .flow {
+    list-style: none;
+    display: grid;
+    gap: 1.5rem;
+    margin: 2rem 0 1.5rem;
+    padding: 0;
+  }
+
+  .flow li {
+    margin: 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--twin-rule);
+  }
+
+  .flow code {
     display: block;
-  }
-
-  .t-cmd {
-    color: var(--twin-text);
+    margin-bottom: 0.6rem;
+    padding: 0;
+    background: none;
+    border: 0;
     font-weight: 600;
+    font-size: 0.8125rem;
   }
 
-  .t-dim,
-  .ln.pending {
+  .flow p {
+    margin: 0;
+    font-size: 0.875rem;
     color: var(--twin-text-muted);
   }
 
-  .t-bad {
-    color: var(--twin-fail);
+  .agents {
+    display: grid;
+    gap: 3rem 4rem;
   }
 
-  .t-good {
-    color: var(--twin-pass);
+  .agents p {
+    color: var(--twin-text-muted);
   }
 
-  .t-strong {
-    font-weight: 600;
-  }
-
-  /* Playback states, set by src/scripts/demos.ts only while a demo runs. */
-  .ln.pending {
-    animation: pulse 0.9s ease-in-out infinite alternate;
-  }
-
-  @keyframes pulse {
-    to {
-      opacity: 0.45;
+  @media (min-width: 64rem) {
+    .flow {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
-  }
 
-  .ln.typing::after {
-    content: '';
-    display: inline-block;
-    width: 0.55em;
-    height: 1.15em;
-    margin-left: 1px;
-    vertical-align: text-bottom;
-    background: var(--twin-text-muted);
-  }
-
-  /* Tabs inside a demo: capsule sections, bisect stages. */
-  .tabs {
-    display: flex;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--twin-rule);
-    background: var(--twin-code);
-    scrollbar-width: none;
-  }
-
-  .tabs button {
-    flex: none;
-    padding: 0.5rem 0.85rem;
-    font-size: 0.72rem;
-    color: var(--twin-text-muted);
-    border-right: 1px solid var(--twin-rule);
-    white-space: nowrap;
-  }
-
-  .tabs button:hover {
-    color: var(--twin-text);
-  }
-
-  .tabs button[aria-pressed='true'] {
-    color: var(--twin-text);
-    background: var(--twin-surface);
-    box-shadow: inset 0 -2px 0 var(--twin-text);
-  }
-
-  .tab-no {
-    color: var(--twin-text-muted);
-    margin-right: 0.2em;
-  }
-
-  /* Capture: the capsule, one field per row. */
-  .capsule {
-    margin: 0;
-    padding: 0.5rem 0;
-    font-size: 0.78rem;
-    line-height: 1.7;
-  }
-
-  .cap-row {
-    display: grid;
-    grid-template-columns: 8.5rem minmax(0, 1fr);
-    gap: 0 1rem;
-    padding: 0.35rem 1.25rem;
-    transition: opacity 0.25s var(--ease);
-  }
-
-  .cap-row.group-start:not(:first-child) {
-    margin-top: 0.35rem;
-    padding-top: 0.55rem;
-    border-top: 1px dashed var(--twin-rule);
-  }
-
-  .cap-row.faded {
-    opacity: 0.3;
-  }
-
-  .cap-row dt {
-    color: var(--twin-text-muted);
-    font-weight: 400;
-  }
-
-  .cap-row dd {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0 1rem;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .cap-note {
-    color: var(--twin-text-muted);
-    font-size: 0.7rem;
-    letter-spacing: 0.04em;
-  }
-
-  .cap-note::before {
-    content: '// ';
-    opacity: 0.6;
-  }
-
-  [data-note='value recorded'] .cap-value {
-    color: var(--twin-text);
-    font-weight: 600;
-  }
-
-  [data-note='name only'] .cap-value,
-  [data-note='not set'] .cap-value {
-    color: var(--twin-text-muted);
-  }
-
-  [data-note='name only'] .cap-note {
-    color: var(--twin-text);
-  }
-
-  /* Bisect: the compared fields, then the trials. */
-  .table-scroll {
-    overflow-x: auto;
-    border-bottom: 1px solid var(--twin-rule);
-  }
-
-  .compare {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.76rem;
-    line-height: 1.5;
-  }
-
-  .compare th,
-  .compare td {
-    text-align: left;
-    padding: 0.3rem 0.75rem;
-    border-bottom: 1px solid var(--twin-rule);
-    white-space: nowrap;
-    transition:
-      color 0.3s var(--ease),
-      background-color 0.3s var(--ease);
-  }
-
-  .compare tr > :first-child {
-    padding-left: 1rem;
-  }
-
-  .compare tbody tr:last-child > * {
-    border-bottom: 0;
-  }
-
-  .compare thead th {
-    font-weight: 500;
-    color: var(--twin-text-muted);
-    background: var(--twin-code);
-  }
-
-  .compare tbody th {
-    font-weight: 500;
-  }
-
-  .rel {
-    display: inline-block;
-    width: 1.4em;
-    color: var(--twin-text-muted);
-  }
-
-  [data-demo='bisect'][data-stage='0'] .rel {
-    visibility: hidden;
-  }
-
-  [data-demo='bisect']:not([data-stage='0']) tr.same {
-    color: var(--twin-text-muted);
-  }
-
-  [data-demo='bisect']:not([data-stage='0']) tr.differs {
-    font-weight: 600;
-  }
-
-  [data-demo='bisect'][data-stage='2'] [data-t1],
-  [data-demo='bisect'][data-stage='3'] [data-t2] {
-    background: var(--twin-surface);
-    color: var(--twin-text);
-    box-shadow: inset 2px 0 0 var(--twin-text-muted);
-  }
-
-  [data-demo='bisect'][data-stage='4'] tr.differs :is(th, td:last-child),
-  [data-demo='bisect'][data-stage='4'] tr.differs .rel {
-    color: var(--twin-fail);
-  }
-
-  /* Verify: the candidate fix above the run that checks it. */
-  .patch {
-    border-bottom: 1px solid var(--twin-rule);
-    background: var(--twin-surface);
-  }
-
-  .patch-head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1rem;
-    margin: 0;
-    max-width: none;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--twin-rule);
-    font-size: 0.72rem;
-    color: var(--twin-text-muted);
-  }
-
-  .patch-head > :first-child {
-    color: var(--twin-text);
-    font-weight: 600;
-  }
-
-  .patch-file {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .patch-state {
-    margin-left: auto;
-  }
-
-  .patch[data-state='applied'] .patch-state {
-    color: var(--twin-pass);
-  }
-
-  .patch pre {
-    padding-block: 0.6rem;
-    font-size: 0.74rem;
-  }
-
-  .patch .ln {
-    padding-left: 1.4em;
-    text-indent: -1.4em;
-  }
-
-  .patch .sign {
-    display: inline-block;
-    width: 1.4em;
-    text-indent: 0;
-  }
-
-  .patch .add .sign {
-    color: var(--twin-pass);
-  }
-
-  .patch .del .sign {
-    color: var(--twin-fail);
-  }
-
-  .patch .del {
-    color: var(--twin-text-muted);
-  }
-
-  /* Agents: the MCP session on a time axis. */
-  .timeline {
-    padding: 1rem 1rem 0.6rem;
-    border-bottom: 1px solid var(--twin-rule);
-  }
-
-  .track {
-    display: flex;
-    height: 1.9rem;
-    border: 1px solid var(--twin-rule);
-    background: var(--twin-bg);
-  }
-
-  .seg {
-    position: relative;
-    flex-basis: 0;
-    min-width: 4px;
-    border-right: 1px solid var(--twin-rule);
-    cursor: pointer;
-  }
-
-  .seg:last-child {
-    border-right: 0;
-  }
-
-  .seg .fill {
-    position: absolute;
-    inset: 0;
-    background: color-mix(in srgb, var(--twin-text) 9%, transparent);
-    transform-origin: left center;
-  }
-
-  .seg.current .fill {
-    background: color-mix(in srgb, var(--twin-text) 22%, transparent);
-  }
-
-  .seg-label {
-    position: absolute;
-    left: 0.45rem;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.68rem;
-    color: var(--twin-text);
-    pointer-events: none;
-  }
-
-  .scale {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.35rem;
-    font-size: 0.66rem;
-    color: var(--twin-text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .calls {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    font-size: 0.76rem;
-  }
-
-  .call + .call {
-    border-top: 1px solid var(--twin-rule);
-  }
-
-  .call button {
-    display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr) auto;
-    gap: 1rem;
-    width: 100%;
-    padding: 0.4rem 1rem;
-    text-align: left;
-    line-height: 1.5;
-  }
-
-  .call button:hover {
-    background: color-mix(in srgb, var(--twin-text) 4%, transparent);
-  }
-
-  .call button[aria-pressed='true'] {
-    background: var(--twin-surface);
-    box-shadow: inset 2px 0 0 var(--twin-text);
-  }
-
-  .call-name {
-    font-weight: 600;
-  }
-
-  .call-key {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--twin-text-muted);
-  }
-
-  .call-time {
-    color: var(--twin-text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .call-out {
-    border-top: 1px solid var(--twin-rule);
-  }
-
-  .call-out pre {
-    height: 19rem;
-    overflow-y: auto;
-    font-size: 0.74rem;
-  }
-
-  /* Sections */
-  dt {
-    font-weight: 500;
-  }
-
-  dd {
-    margin: 0;
-    color: var(--twin-text-muted);
-  }
-
-  .capsule dd {
-    color: var(--twin-text);
-  }
-
-  .steps {
-    list-style: none;
-    margin: 2.5rem 0 0;
-    padding: 0;
-  }
-
-  .step-no {
-    margin: 0 0 0.5rem;
-  }
-
-  .pair-text p:not(.step-no, .small) {
-    color: var(--twin-text-muted);
-  }
-
-  ul {
-    margin: 0 0 1rem;
-    padding-left: 1.1rem;
-  }
-
-  li {
-    margin-bottom: 0.35rem;
-  }
-
-  li::marker {
-    color: var(--twin-text-muted);
-  }
-
-  .steps > li,
-  .calls > li {
-    margin-bottom: 0;
+    .agents {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .foot {
@@ -1867,70 +945,11 @@ jobs:
       font-size: 0.72rem;
       padding: 0.85rem;
     }
-
-      .cap-row {
-      grid-template-columns: 5.5rem minmax(0, 1fr);
-      gap: 0 0.75rem;
-      padding-inline: 0.85rem;
-    }
-
-    .capsule {
-      font-size: 0.72rem;
-    }
-
-    .call button {
-      grid-template-columns: 5.5rem minmax(0, 1fr) auto;
-      gap: 0.6rem;
-      padding-inline: 0.85rem;
-    }
-
-    .call-out pre {
-      height: 15rem;
-    }
-
-    .tabs button {
-      padding-inline: 0.6rem;
-    }
-
-    .compare {
-      font-size: 0.68rem;
-    }
-
-    .compare th,
-    .compare td {
-      padding: 0.3rem 0.4rem;
-      white-space: normal;
-      vertical-align: top;
-    }
-
-    .compare tr > :first-child {
-      padding-left: 0.85rem;
-    }
-
-    .rel {
-      width: 1.1em;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .cursor,
-    .ln.pending {
+    .cursor {
       animation: none;
-    }
-
-    .cap-row,
-    .compare th,
-    .compare td {
-      transition: none;
-    }
-  }
-
-  @media print {
-    .ln,
-    .cap-row,
-    .call {
-      opacity: 1 !important;
-      transform: none !important;
     }
   }
 </style>
