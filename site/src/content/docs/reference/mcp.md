@@ -10,7 +10,7 @@ sidebar:
 ## Running it
 
 ```sh
-npx -y twincli mcp
+npx -y @crypticsaiyan/twincli mcp
 ```
 
 | Requirement | |
@@ -22,11 +22,11 @@ npx -y twincli mcp
 Client configuration:
 
 ```sh
-claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y twincli mcp
+claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twincli mcp
 ```
 
 ```json
-{"mcpServers":{"twin":{"command":"npx","args":["-y","twincli","mcp"],"env":{"SOLARI_API_KEY":"slr_live_..."}}}}
+{"mcpServers":{"twin":{"command":"npx","args":["-y","@crypticsaiyan/twincli","mcp"],"env":{"SOLARI_API_KEY":"slr_live_..."}}}}
 ```
 
 The server also sends the client short instructions describing the loop below, so agents that read server instructions know how to use the tools without extra prompting.

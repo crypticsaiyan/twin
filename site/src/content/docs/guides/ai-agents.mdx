@@ -19,7 +19,7 @@ The server needs `SOLARI_API_KEY` in its own environment (get one at [console.ge
 <TabItem label="Claude Code">
 
 ```sh
-claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y twincli mcp
+claude mcp add twin -e SOLARI_API_KEY=slr_live_... -- npx -y @crypticsaiyan/twincli mcp
 ```
 
 </TabItem>
@@ -32,7 +32,7 @@ Add to the client's MCP configuration (for Cursor, `.cursor/mcp.json` or the glo
   "mcpServers": {
     "twin": {
       "command": "npx",
-      "args": ["-y", "twincli", "mcp"],
+      "args": ["-y", "@crypticsaiyan/twincli", "mcp"],
       "env": { "SOLARI_API_KEY": "slr_live_..." }
     }
   }

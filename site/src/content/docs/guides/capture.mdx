@@ -18,7 +18,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 2. Put `twin capture --` in front of the failing command:
 
    ```sh
-   npx twincli capture -- npm test
+   npx @crypticsaiyan/twincli capture -- npm test
    ```
 
    Anything after `--` is run exactly as given, with your environment and your terminal. You see its output live.
@@ -76,7 +76,7 @@ By default twin records every environment variable's **name and state** (`set`, 
 If you know a variable matters and its value is not secret, include it:
 
 ```sh
-npx twincli capture --include-env API_URL --include-env FEATURE_FLAGS -- npm test
+npx @crypticsaiyan/twincli capture --include-env API_URL --include-env FEATURE_FLAGS -- npm test
 ```
 
 Included values still pass through the secret rules. On replay, the maintainer's sandbox gets exactly these values.
@@ -86,7 +86,7 @@ Included values still pass through the secret rules. On replay, the maintainer's
 Some bugs are "same variable, different value" and the value is private. If the maintainer gives you a salt (for example, a random string posted in the issue), capture with it:
 
 ```sh
-npx twincli capture --salt 3f9c2a7e-issue-1234 -- npm test
+npx @crypticsaiyan/twincli capture --salt 3f9c2a7e-issue-1234 -- npm test
 ```
 
 Every set variable that is not allowlisted or included gets an HMAC-SHA-256 of its value under that salt (first 32 hex characters). When the maintainer captures with the same salt, `twin inspect` can tell whether the two values are equal without either side seeing the other's. Plain unsalted hashes are never written, because hashes of short values are guessable.
@@ -102,7 +102,7 @@ twin: not running in a terminal; pass --yes to write the capsule without review
 With `--yes` it writes directly:
 
 ```sh
-npx twincli capture --yes -o capsule.json -- npm test
+npx @crypticsaiyan/twincli capture --yes -o capsule.json -- npm test
 ```
 
 ## Tips for a useful capsule
