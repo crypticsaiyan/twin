@@ -18,7 +18,10 @@ const USAGE = `Usage: twin replay <capsule> [options]
 
 Rebuilds the capsule's environment on a fresh Solari sandbox (same runtime,
 package manager and lockfile, same commit and diff, same env values and time
-zone), runs the command and reports whether the failure reproduces.
+zone), runs the command and reports whether the failure reproduces. When the
+lockfile install holds other npm package versions than the capsule recorded (for
+example a fresh install that resolved a newer release), those packages are
+installed at the recorded versions first.
 Capsules can be file paths or https URLs, such as GitHub issue attachments.
 
 Needs SOLARI_API_KEY in the environment.
@@ -26,6 +29,7 @@ Needs SOLARI_API_KEY in the environment.
 Options:
       --attempts <n>       runs of the command (default 3)
       --keep               keep the machine running at the failure (then: twin shell)
+      --no-pin             do not install the capsule's recorded package versions over the lockfile install
       --repo <url>         clone from here instead of the capsule's remote
       --ref <sha>          check out this commit instead (skips the diff)
       --env <NAME=value>   value for a variable the capsule recorded by name (repeatable)
@@ -60,6 +64,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
     options: {
       attempts: { type: 'string' },
       keep: { type: 'boolean', default: false },
+      'no-pin': { type: 'boolean', default: false },
       repo: { type: 'string' },
       ref: { type: 'string' },
       env: { type: 'string', multiple: true, default: [] },
@@ -86,6 +91,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
   const report = await replay(capsule, backend, {
     attempts,
     keep: values.keep,
+    pin: !values['no-pin'],
     env,
     commandTimeoutMs: timeoutMinutes * 60_000,
     ...(values.repo === undefined ? {} : { repoUrl: values.repo }),

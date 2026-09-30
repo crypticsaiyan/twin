@@ -32,6 +32,7 @@ Options:
       --ref <sha>          check out this commit instead (e.g. a fix branch)
       --repo <url>         clone from here (forks); use with --ref
       --attempts <n>       runs of the command (default 3)
+      --no-pin             do not install the capsule's recorded package versions over the lockfile install
       --env <NAME=value>   value for a variable the capsule recorded by name (repeatable)
       --timeout <minutes>  maximum time per attempt (default 15)
   -v, --verbose            stream guest output
@@ -50,6 +51,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
       ref: { type: 'string' },
       repo: { type: 'string' },
       attempts: { type: 'string' },
+      'no-pin': { type: 'boolean', default: false },
       env: { type: 'string', multiple: true, default: [] },
       timeout: { type: 'string' },
       verbose: { type: 'boolean', short: 'v', default: false },
@@ -99,6 +101,7 @@ async function run(args: string[], context: CommandContext): Promise<number> {
 
   const report = await verifyFix(capsule, backend, {
     attempts,
+    pin: !values['no-pin'],
     env,
     commandTimeoutMs: timeoutMinutes * 60_000,
     ...(patch === undefined ? {} : { patch }),

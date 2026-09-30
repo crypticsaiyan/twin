@@ -49,6 +49,13 @@ const envArg = z
   .record(z.string(), z.string())
   .optional()
   .describe('Values for variables the capsule recorded by name only, e.g. {"API_URL": "..."}');
+const pinArg = z
+  .boolean()
+  .optional()
+  .describe(
+    "Install the capsule's recorded npm package versions over the lockfile install where they differ (default true)",
+  );
+
 const attemptsArg = (fallback: number) =>
   z.number().int().min(1).max(10).optional().describe(`Runs of the command (default ${fallback})`);
 const machineArg = z
@@ -129,15 +136,17 @@ export function createMcpServer(deps: McpDeps): TwinMcpServer {
         env: envArg,
         ref: z.string().optional().describe('Check out this commit instead of the capsule one'),
         repo: z.string().optional().describe('Clone from this URL instead (forks)'),
+        pin: pinArg,
       },
       annotations: { openWorldHint: true },
     },
-    ({ capsule, keep, attempts, env, ref, repo }, extra: ToolExtra) =>
+    ({ capsule, keep, attempts, env, ref, repo, pin }, extra: ToolExtra) =>
       guarded(async () => {
         const loaded = await load(capsule);
         const report = await replay(loaded, await deps.getBackend(), {
           attempts: attempts ?? 3,
           keep: keep ?? true,
+          pin: pin ?? true,
           env: env ?? {},
           ...(ref === undefined ? {} : { ref }),
           ...(repo === undefined ? {} : { repoUrl: repo }),
@@ -216,10 +225,11 @@ export function createMcpServer(deps: McpDeps): TwinMcpServer {
         repo: z.string().optional().describe('Clone from this URL (forks); use with ref'),
         attempts: attemptsArg(3),
         env: envArg,
+        pin: pinArg,
       },
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ capsule, patch, ref, repo, attempts, env }, extra: ToolExtra) =>
+    ({ capsule, patch, ref, repo, attempts, env, pin }, extra: ToolExtra) =>
       guarded(async () => {
         if ((patch === undefined) === (ref === undefined)) {
           throw new TwinError('pass exactly one of patch or ref');
@@ -230,6 +240,7 @@ export function createMcpServer(deps: McpDeps): TwinMcpServer {
         }
         const report = await verifyFix(loaded, await deps.getBackend(), {
           attempts: attempts ?? 3,
+          pin: pin ?? true,
           env: env ?? {},
           ...(patch === undefined ? {} : { patch }),
           ...(ref === undefined ? {} : { ref }),

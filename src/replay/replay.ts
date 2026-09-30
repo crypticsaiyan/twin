@@ -9,6 +9,17 @@ import {
   SHELL_SCRIPT,
   shellScript,
 } from '../shell/guest.ts';
+import {
+  canPin,
+  computePins,
+  LIST_INSTALLED_PATH,
+  LIST_INSTALLED_SCRIPT,
+  listInstalledArgv,
+  type Pin,
+  parseInstalled,
+  patchedPackageNames,
+  pinStep,
+} from './pin.ts';
 import { type PlanOptions, planReplay, type ReplayPlan, type Step } from './plan.ts';
 import { REPO_DIR } from './runtimes.ts';
 import { type AttemptResult, classify, describeAttempt, type Verdict } from './verdict.ts';
@@ -35,6 +46,8 @@ export interface ReplayReport {
   steps: StepResult[];
   attempts: AttemptResult[];
   notes: string[];
+  /** Packages replay installed at the capsule's recorded versions, on top of the lockfile install. */
+  pinned?: Pin[];
   /** Set by a verify run: the command was first run without the fix, on its own machine. */
   baseline?: { verdict: Verdict; machineId: string | null };
 }
@@ -53,6 +66,8 @@ export interface ReplayOptions extends PlanOptions {
   attempts?: number;
   /** Leave the machine running when the failure reproduces, with a snapshot at that point. */
   keep?: boolean;
+  /** Install the capsule's recorded npm package versions where the lockfile install differs (default true). */
+  pin?: boolean;
   onEvent?: (event: ReplayEvent) => void;
 }
 
@@ -113,6 +128,59 @@ async function prepareShell(machine: Machine, plan: ReplayPlan, capsule: Capsule
 }
 
 /**
+ * Compares the machine's installed packages with the capsule's recorded versions and installs the
+ * ones that differ. Returns false only when the pin install itself failed (the report says which).
+ */
+async function pinDependencies(
+  machine: Machine,
+  capsule: Capsule,
+  plan: ReplayPlan,
+  options: ReplayOptions,
+  report: ReplayReport,
+  emit: (event: ReplayEvent) => void,
+): Promise<boolean> {
+  const install = plan.setup.find((step) => step.id === 'dependencies');
+  const installed = report.steps.find((step) => step.id === 'dependencies');
+  const recorded = capsule.resolved.node;
+  // A --ref run checks out other code, so the recorded packages do not describe its tree.
+  if (options.pin === false || options.ref !== undefined || !canPin(capsule) || !recorded)
+    return true;
+  if (install?.kind !== 'run' || !installed?.ok) return true;
+
+  const cwd = install.cwd ?? REPO_DIR;
+  await machine.writeFile(LIST_INSTALLED_PATH, LIST_INSTALLED_SCRIPT);
+  const listing = await machine.run({
+    argv: listInstalledArgv(cwd, REPO_DIR),
+    env: plan.env,
+    cwd,
+    timeoutMs: 2 * 60_000,
+  });
+  const have = listing.exitCode === 0 ? parseInstalled(listing.output) : null;
+  if (have === null) {
+    report.notes.push(
+      'Could not list the installed packages, so their versions were not compared with the capsule.',
+    );
+    return true;
+  }
+  const keep = options.patch === undefined ? new Set<string>() : patchedPackageNames(options.patch);
+  const { pins, skipped } = computePins(recorded, have, keep);
+  if (skipped.length > 0) {
+    const shown = skipped.slice(0, 3).map((skip) => `${skip.name} (${skip.reason})`);
+    const more = skipped.length > 3 ? ` and ${skipped.length - 3} more` : '';
+    report.notes.push(
+      `${skipped.length} package versions from the capsule were not installed: ${shown.join(', ')}${more}.`,
+    );
+  }
+  if (pins.length === 0) return true;
+
+  const result = await runStep(machine, pinStep(pins, cwd), plan.env, emit);
+  report.steps.push(result);
+  if (!result.ok) return false;
+  report.pinned = pins;
+  return true;
+}
+
+/**
  * Rebuilds the capsule's environment on a fresh machine, runs the command several times and
  * classifies the outcome. The machine is always released unless the caller asked to keep a
  * reproduced failure, and even then it expires on the provider's idle timer.
@@ -155,6 +223,7 @@ export async function replay(
       if (!result.ok && !result.optional) return report;
       if (!result.ok) report.notes.push(`Optional step failed: ${step.title}.`);
     }
+    if (!(await pinDependencies(machine, capsule, plan, options, report, emit))) return report;
 
     const total = Math.max(1, options.attempts ?? 3);
     for (let index = 0; index < total; index++) {
