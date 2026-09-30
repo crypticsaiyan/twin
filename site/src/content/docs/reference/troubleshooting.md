@@ -7,6 +7,12 @@ sidebar:
 
 twin prints expected problems as one line starting with `twin:` and no stack trace. This page lists them by symptom.
 
+## Install
+
+**`twin needs Node 22 or newer; this is Node <version>. Install a newer Node, then run twin again.`** (exit 1)
+
+twin checks the Node version before it loads anything. Install Node 22 or newer (for example with `nvm install 22`) and run the command again. `npm install -g` only warns about the engine requirement, so an old Node installs twin but cannot run it.
+
 ## Key and account
 
 **`twin: SOLARI_API_KEY is not set. Get a key at https://console.getsolari.com, then export SOLARI_API_KEY=... or add SOLARI_API_KEY=... to a .env file in this project.`** (exit 2)
