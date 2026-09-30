@@ -1,19 +1,19 @@
 ---
 title: Quickstart
-description: From zero to a captured capsule (reporter) and a replayed failure (maintainer).
+description: "Capture a failure as a reporter, then replay it as a maintainer."
 sidebar:
   order: 2
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-twin needs **Node 22 or newer**. Install it once:
+twin needs Node 22 or newer.
 
 ```sh
 npm install -g @crypticsaiyan/twincli
 ```
 
-That gives you the `twin` command. To try it without installing, prefix any command with `npx @crypticsaiyan/twincli`, for example `npx @crypticsaiyan/twincli capture -- npm test`.
+This installs the `twin` command. To try it without installing, prefix a command with `npx @crypticsaiyan/twincli`.
 
 <Tabs>
 <TabItem label="Reporter">
@@ -28,22 +28,22 @@ You have a command that fails on your machine. Nothing is uploaded and no accoun
    twin capture -- npm test
    ```
 
-   Put your own failing command after `--`. twin runs it as usual; you see its output live.
+   twin runs the command as usual and shows its output.
 
-2. twin prints a summary of what it recorded (command, system, toolchain, repository, environment, redaction) and asks:
+2. twin prints a summary of what it recorded and asks:
 
    ```text
    Write twin-capsule.json? [y]es / [n]o / [v]iew full JSON:
    ```
 
-   Press `v` to read the full JSON first, `y` to write it, `n` to abort.
+   Press `v` to read the full JSON first, `y` to write it, `n` to stop.
 
 3. Attach `twin-capsule.json` to the issue. On GitHub, drag the file into the comment box.
 
 </Steps>
 
 <Aside type="caution">
-Redaction is pattern based. Environment variable values are not recorded except for a short allowlist, but read the capsule before posting it publicly. See [Privacy](../../reference/privacy/).
+Redaction is pattern based. Read the capsule before posting it publicly. See [Privacy and redaction](../../reference/privacy/).
 </Aside>
 
 </TabItem>
@@ -53,45 +53,43 @@ You have a capsule from an issue and want to see the failure.
 
 <Steps>
 
-1. Get a Solari API key from [console.getsolari.com](https://console.getsolari.com). Export it, or put it in a `.env` file in the project; twin reads `SOLARI_API_KEY` from the nearest `.env` above the working directory that sets it.
+1. Get a Solari API key from [console.getsolari.com](https://console.getsolari.com) and export it, or put it in a `.env` file. twin reads `SOLARI_API_KEY` from the nearest `.env` above the working directory that sets it.
 
    ```sh
    export SOLARI_API_KEY=slr_live_...
-   # or
-   echo 'SOLARI_API_KEY=slr_live_...' >> .env
    ```
 
-2. Replay the capsule. Pass the attachment link from the issue directly, or a downloaded file:
+2. Replay the capsule. Pass the attachment link from the issue, or a downloaded file:
 
    ```sh
    twin replay https://github.com/user-attachments/files/<id>/twin-capsule.json
    twin replay twin-capsule.json
    ```
 
-   twin creates a fresh Linux sandbox, installs the captured Node version, fetches the exact commit, applies the reporter's uncommitted diff, installs the captured package manager and dependencies from the lockfile, sets the captured environment values and time zone, and runs the command three times.
+   twin starts a clean Linux sandbox, installs the captured Node version, checks out the exact commit, applies the reporter's uncommitted diff, installs the dependencies, sets the captured environment and runs the command three times.
 
-3. Read the verdict. `REPRODUCED` means every attempt failed exactly as on the reporter's machine. The other verdicts are explained in [Replay](../../guides/replay/).
+3. Read the verdict. `REPRODUCED` means every attempt failed the way it did on the reporter's machine. The other verdicts are explained in [Replay](../../guides/replay/#reading-the-verdict).
 
-4. Keep going:
+4. Go further:
 
    ```sh
-   twin replay twin-capsule.json --keep      # leave it running at the failure
-   twin shell                                # open a terminal on it (Ctrl-] detaches)
-   twin bisect twin-capsule.json --good mine.json
+   twin replay twin-capsule.json --keep           # leave the machine running at the failure
+   twin shell                                     # open a terminal on it (Ctrl-] detaches)
+   twin bisect twin-capsule.json --good mine.json # find the difference that breaks it
    twin verify twin-capsule.json --patch fix.patch
-   twin stop                                   # release anything still running
+   twin stop                                      # stop anything still running
    ```
 
 </Steps>
 
-A good capsule for `bisect` is one you capture yourself where the command passes: `twin capture -- npm test` on your machine, at the same commit.
+For `bisect`, capture a passing run yourself at the same commit with `twin capture -- npm test`.
 
 </TabItem>
 </Tabs>
 
 ## Try it on a real issue
 
-The repository ships the capsules from [apache/echarts#21538](../../examples/echarts-21538/). With a key set, from a clone:
+The repository contains the capsules for [apache/echarts#21538](../../examples/echarts-21538/). With a key set, from a clone:
 
 ```sh
 twin replay examples/echarts-21538/new-york.json
@@ -99,20 +97,20 @@ twin bisect examples/echarts-21538/new-york.json --good examples/echarts-21538/k
 twin verify examples/echarts-21538/new-york.json --patch examples/echarts-21538/fix.patch
 ```
 
-Each takes about 70 seconds on Solari.
+Each takes about 70 seconds.
 
-## Working from a clone
+## Working from source
 
 ```sh
 git clone https://github.com/crypticsaiyan/twin
 cd twin
 pnpm install
-pnpm dev replay examples/echarts-21538/new-york.json   # run from source (Node 22.18+)
-pnpm build && node dist/bin.js --help                  # or compile first
+pnpm dev replay examples/echarts-21538/new-york.json   # runs from source, Node 22.18 or newer
+pnpm build && node dist/bin.js --help                  # or build first
 ```
 
 ## Next
 
-- [Capture](../../guides/capture/) for reporters: what gets recorded and how to share values safely.
-- [Issue template](../../guides/issue-template/) to ask for capsules up front.
-- [AI agents](../../guides/ai-agents/) to let a coding agent work in the reporter's environment.
+- [Capture](../../guides/capture/): what is recorded and how to share values.
+- [Issue template](../../guides/issue-template/): ask for capsules when the issue is filed.
+- [AI agents](../../guides/ai-agents/): let a coding agent work in the reporter's environment.
