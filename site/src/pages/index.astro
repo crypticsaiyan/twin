@@ -408,9 +408,27 @@ const lineClass = (line: Line) =>
         </div>
       </section>
 
+      <section class="band" aria-labelledby="demo">
+        <div class="col sec">
+          <div class="rail"><p><span>01</span> Demo</p></div>
+          <div class="body split">
+            <h2 id="demo">See it work on a real bug</h2>
+            <figure class="film">
+              <video controls preload="none" playsinline poster={link('demo/twin-demo-poster.jpg')}>
+                <source src={link('demo/twin-demo.mp4')} type="video/mp4" />
+              </video>
+            </figure>
+            <p class="small">
+              date-fns#2068: capture, replay, bisect, verify, a shared browser terminal and Claude Code,
+              3.5 minutes.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section class="band" aria-labelledby="commands">
         <div class="col sec">
-          <div class="rail"><p><span>01</span> Synopsis</p></div>
+          <div class="rail"><p><span>02</span> Synopsis</p></div>
           <div class="body split">
             <h2 id="commands">Ten commands, one file between them</h2>
             <dl class="synopsis">
@@ -432,7 +450,7 @@ const lineClass = (line: Line) =>
 
       <section class="band" id="example" aria-labelledby="example-title">
         <div class="col sec">
-          <div class="rail"><p><span>02</span> Example</p></div>
+          <div class="rail"><p><span>03</span> Example</p></div>
           <div class="body split">
             <h2 id="example-title">A real bug, start to finish</h2>
             <p class="intro">
@@ -575,7 +593,7 @@ const lineClass = (line: Line) =>
 
       <section class="band" aria-labelledby="agents">
         <div class="col sec">
-          <div class="rail"><p><span>03</span> Agents</p></div>
+          <div class="rail"><p><span>04</span> Agents</p></div>
           <div class="body split">
             <h2 id="agents">Give coding agents the reporter’s machine</h2>
             <div class="pair">
@@ -659,7 +677,7 @@ jobs:
 
       <section class="band" aria-labelledby="files">
         <div class="col sec">
-          <div class="rail"><p><span>04</span> Files</p></div>
+          <div class="rail"><p><span>05</span> Files</p></div>
           <div class="body split">
             <h2 id="files">What a capsule holds</h2>
             <p class="intro">
@@ -695,7 +713,7 @@ jobs:
 
       <section class="band" aria-labelledby="see-also">
         <div class="col sec">
-          <div class="rail"><p><span>05</span> See also</p></div>
+          <div class="rail"><p><span>06</span> See also</p></div>
           <div class="body split">
             <h2 id="see-also">Where it fits</h2>
             <div class="table-wrap">
@@ -1185,6 +1203,20 @@ jobs:
       padding: 4.5rem var(--pad);
       border-left: 1px solid var(--twin-rule);
     }
+  }
+
+  /* The demo film: the page's own frame, no player chrome beyond the browser controls. */
+  .film {
+    margin: 0;
+    border: 1px solid var(--twin-rule);
+    background: #111214;
+  }
+
+  .film video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
   }
 
   /* Terminals and demo cards: square and hairline. */
