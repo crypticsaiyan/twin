@@ -1,3 +1,4 @@
+import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { decodeCapsule } from '../../src/capsule/schema.ts';
@@ -112,7 +113,8 @@ describe('capture', () => {
     const { calls, root, host } = await setup({});
     expect(calls).toHaveLength(1);
     expect(calls[0]?.argv).toEqual(['npm', 'test']);
-    expect(calls[0]?.options.cwd).toBe(join(root, 'src'));
+    // capture resolves symlinks (macOS temp dirs live under /var, a link to /private/var)
+    expect(calls[0]?.options.cwd).toBe(join(await realpath(root), 'src'));
     expect(calls[0]?.options.env).toBe(host.env);
   });
 
